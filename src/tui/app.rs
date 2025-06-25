@@ -2,9 +2,41 @@ use crate::vikunja::models::Task;
 use std::collections::HashMap;
 use chrono::{DateTime, Local, Datelike};
 
+#[derive(Clone, Debug)]
+pub enum TaskFilter {
+    ActiveOnly,    // Hide completed tasks (default)
+    All,          // Show all tasks
+    CompletedOnly, // Show only completed tasks
+}
+
+#[derive(Clone, Debug)]
+pub enum UndoableAction {
+    TaskCompletion { 
+        task_id: i64, 
+        previous_state: bool 
+    },
+    TaskDeletion { 
+        task: Task, 
+        position: usize 
+    },
+    TaskCreation { 
+        task_id: i64 
+    },
+    TaskEdit { 
+        task_id: i64, 
+        previous_task: Task 
+    },
+}
+
+#[derive(Clone, Debug)]
+pub enum PendingAction {
+    DeleteTask { task_id: i64 },
+}
+
 pub struct App {
     pub running: bool,
     pub tasks: Vec<Task>,
+    pub all_tasks: Vec<Task>, // Store all tasks for local filtering
     pub project_map: HashMap<i64, String>,
     pub project_colors: HashMap<i64, String>,
     pub selected_task_index: usize,
@@ -22,6 +54,15 @@ pub struct App {
     pub show_debug_pane: bool,
     pub debug_messages: Vec<(DateTime<Local>, String)>,
     pub show_nerdfont_debug: bool,
+    // Undo system
+    pub undo_stack: Vec<UndoableAction>,
+    pub max_undo_history: usize,
+    // Confirmation dialog state
+    pub show_confirmation_dialog: bool,
+    pub confirmation_message: String,
+    pub pending_action: Option<PendingAction>,
+    // Task filtering
+    pub task_filter: TaskFilter,
 }
 
 impl App {
@@ -29,6 +70,7 @@ impl App {
         Self { 
             running: true, 
             tasks: Vec::new(),
+            all_tasks: Vec::new(),
             project_map: HashMap::new(),
             project_colors: HashMap::new(),
             selected_task_index: 0,
@@ -43,6 +85,12 @@ impl App {
             show_debug_pane: false,
             debug_messages: Vec::new(),
             show_nerdfont_debug: false,
+            undo_stack: Vec::new(),
+            max_undo_history: 50,
+            show_confirmation_dialog: false,
+            confirmation_message: String::new(),
+            pending_action: None,
+            task_filter: TaskFilter::ActiveOnly,
         }
     }
 
@@ -242,5 +290,249 @@ impl App {
         }
         
         result
+    }
+    
+    // Task completion toggle
+    pub fn toggle_task_completion(&mut self) -> Option<i64> {
+        if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
+            let task_id = task.id;
+            let previous_state = task.done;
+            let task_title = task.title.clone(); // Clone title before other borrows
+            
+            // Toggle the completion state
+            task.done = !task.done;
+            let new_state = task.done;
+            
+            // Also update in all_tasks
+            if let Some(all_task) = self.all_tasks.iter_mut().find(|t| t.id == task_id) {
+                all_task.done = new_state;
+            }
+            
+            // Add to undo stack
+            self.add_to_undo_stack(UndoableAction::TaskCompletion {
+                task_id,
+                previous_state,
+            });
+            
+            self.add_debug_message(format!(
+                "Task '{}' marked as {}", 
+                task_title, 
+                if new_state { "completed" } else { "pending" }
+            ));
+            
+            // If we just completed a task and we're hiding completed tasks, reapply filter
+            if new_state && self.should_hide_completed_immediately() {
+                self.apply_task_filter();
+                // Adjust selection if the completed task was hidden
+                if self.selected_task_index >= self.tasks.len() && !self.tasks.is_empty() {
+                    self.selected_task_index = self.tasks.len() - 1;
+                }
+            }
+            
+            Some(task_id)
+        } else {
+            None
+        }
+    }
+    
+    // Task deletion with confirmation
+    pub fn request_delete_task(&mut self) {
+        if let Some(task) = self.get_selected_task() {
+            let task_title = task.title.clone();
+            let task_id = task.id;
+            
+            self.confirmation_message = format!("Delete task '{}'? This cannot be undone without using undo (U).", task_title);
+            self.pending_action = Some(PendingAction::DeleteTask { task_id });
+            self.show_confirmation_dialog = true;
+        }
+    }
+    
+    // Confirm and execute pending action
+    pub fn confirm_action(&mut self) -> Option<i64> {
+        if let Some(action) = self.pending_action.take() {
+            match action {
+                PendingAction::DeleteTask { task_id } => {
+                    self.execute_delete_task(task_id)
+                }
+            }
+        } else {
+            None
+        }
+    }
+    
+    // Cancel confirmation dialog
+    pub fn cancel_confirmation(&mut self) {
+        self.show_confirmation_dialog = false;
+        self.confirmation_message.clear();
+        self.pending_action = None;
+    }
+    
+    // Execute task deletion
+    fn execute_delete_task(&mut self, task_id: i64) -> Option<i64> {
+        if let Some(position) = self.tasks.iter().position(|t| t.id == task_id) {
+            let task = self.tasks.remove(position);
+            
+            // Add to undo stack
+            self.add_to_undo_stack(UndoableAction::TaskDeletion {
+                task: task.clone(),
+                position,
+            });
+            
+            // Adjust selected index if necessary
+            if self.selected_task_index >= self.tasks.len() && !self.tasks.is_empty() {
+                self.selected_task_index = self.tasks.len() - 1;
+            }
+            
+            self.add_debug_message(format!("Task '{}' deleted", task.title));
+            self.cancel_confirmation();
+            
+            Some(task_id)
+        } else {
+            self.cancel_confirmation();
+            None
+        }
+    }
+    
+    // Undo last action
+    pub fn undo_last_action(&mut self) -> Option<i64> {
+        if let Some(action) = self.undo_stack.pop() {
+            match action {
+                UndoableAction::TaskCompletion { task_id, previous_state } => {
+                    // Find and restore the task's completion state
+                    if let Some(task) = self.tasks.iter_mut().find(|t| t.id == task_id) {
+                        let task_title = task.title.clone(); // Clone title before modifying
+                        task.done = previous_state;
+                        self.add_debug_message(format!(
+                            "Undid completion toggle for task '{}'", 
+                            task_title
+                        ));
+                        Some(task_id)
+                    } else {
+                        None
+                    }
+                }
+                UndoableAction::TaskDeletion { task, position } => {
+                    // Restore the deleted task at its original position
+                    let insert_position = position.min(self.tasks.len());
+                    self.tasks.insert(insert_position, task.clone());
+                    
+                    // Update selected index to the restored task
+                    self.selected_task_index = insert_position;
+                    
+                    self.add_debug_message(format!("Undid deletion of task '{}'", task.title));
+                    Some(task.id)
+                }
+                UndoableAction::TaskCreation { task_id } => {
+                    // Remove the created task
+                    if let Some(position) = self.tasks.iter().position(|t| t.id == task_id) {
+                        let task = self.tasks.remove(position);
+                        
+                        // Adjust selected index if necessary
+                        if self.selected_task_index >= self.tasks.len() && !self.tasks.is_empty() {
+                            self.selected_task_index = self.tasks.len() - 1;
+                        }
+                        
+                        self.add_debug_message(format!("Undid creation of task '{}'", task.title));
+                        Some(task_id)
+                    } else {
+                        None
+                    }
+                }
+                UndoableAction::TaskEdit { task_id, previous_task } => {
+                    // Restore the previous version of the task
+                    if let Some(task) = self.tasks.iter_mut().find(|t| t.id == task_id) {
+                        *task = previous_task.clone();
+                        self.add_debug_message(format!("Undid edit of task '{}'", previous_task.title));
+                        Some(task_id)
+                    } else {
+                        None
+                    }
+                }
+            }
+        } else {
+            self.add_debug_message("No actions to undo".to_string());
+            None
+        }
+    }
+    
+    // Add action to undo stack
+    fn add_to_undo_stack(&mut self, action: UndoableAction) {
+        self.undo_stack.push(action);
+        
+        // Limit undo history
+        if self.undo_stack.len() > self.max_undo_history {
+            self.undo_stack.remove(0);
+        }
+    }
+    
+    // Add to undo stack when creating tasks
+    pub fn add_task_to_undo_stack(&mut self, task_id: i64) {
+        self.add_to_undo_stack(UndoableAction::TaskCreation { task_id });
+    }
+    
+    // Add to undo stack when editing tasks  
+    pub fn add_task_edit_to_undo_stack(&mut self, task_id: i64, previous_task: Task) {
+        self.add_to_undo_stack(UndoableAction::TaskEdit { task_id, previous_task });
+    }
+
+    // Get confirmation dialog message
+    pub fn get_confirmation_message(&self) -> &str {
+        &self.confirmation_message
+    }
+    
+    // Task filtering methods
+    pub fn cycle_task_filter(&mut self) {
+        self.task_filter = match self.task_filter {
+            TaskFilter::ActiveOnly => TaskFilter::All,
+            TaskFilter::All => TaskFilter::CompletedOnly,
+            TaskFilter::CompletedOnly => TaskFilter::ActiveOnly,
+        };
+        
+        self.apply_task_filter();
+        self.selected_task_index = 0; // Reset selection
+        
+        let filter_name = match self.task_filter {
+            TaskFilter::ActiveOnly => "Active Tasks Only",
+            TaskFilter::All => "All Tasks",
+            TaskFilter::CompletedOnly => "Completed Tasks Only",
+        };
+        
+        self.add_debug_message(format!("Switched to filter: {}", filter_name));
+    }
+    
+    pub fn apply_task_filter(&mut self) {
+        self.tasks = match self.task_filter {
+            TaskFilter::ActiveOnly => {
+                self.all_tasks.iter().filter(|task| !task.done).cloned().collect()
+            },
+            TaskFilter::All => {
+                self.all_tasks.clone()
+            },
+            TaskFilter::CompletedOnly => {
+                self.all_tasks.iter().filter(|task| task.done).cloned().collect()
+            },
+        };
+        
+        // Adjust selected index if it's out of bounds
+        if self.selected_task_index >= self.tasks.len() && !self.tasks.is_empty() {
+            self.selected_task_index = self.tasks.len() - 1;
+        }
+    }
+    
+    pub fn update_all_tasks(&mut self, tasks: Vec<Task>) {
+        self.all_tasks = tasks;
+        self.apply_task_filter();
+    }
+    
+    pub fn get_filter_display_name(&self) -> &str {
+        match self.task_filter {
+            TaskFilter::ActiveOnly => "Active Only",
+            TaskFilter::All => "All Tasks", 
+            TaskFilter::CompletedOnly => "Completed Only",
+        }
+    }
+    
+    pub fn should_hide_completed_immediately(&self) -> bool {
+        matches!(self.task_filter, TaskFilter::ActiveOnly)
     }
 }

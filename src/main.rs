@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tasks, project_map, project_colors) = client_clone.get_tasks_with_projects().await.unwrap_or_default();
     {
         let mut app_guard = app.lock().await;
-        app_guard.tasks = tasks;
+        app_guard.update_all_tasks(tasks);
         app_guard.project_map = project_map;
         app_guard.project_colors = project_colors;
     }
@@ -196,6 +196,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         },
                         _ => {},
                     }
+                } else if app_guard.show_confirmation_dialog {
+                    // Handle confirmation dialog
+                    match key.code {
+                        KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
+                            // Confirm the action
+                            if let Some(task_id) = app_guard.confirm_action() {
+                                debug_log(&format!("Confirmed action for task ID: {}", task_id));
+                                
+                                // If it was a delete action, we need to call the API
+                                if app_guard.pending_action.is_none() { // Action was executed
+                                    drop(app_guard);
+                                    
+                                    // Call delete API
+                                    let api_client_guard = api_client.lock().await;
+                                    if let Err(e) = api_client_guard.delete_task(task_id).await {
+                                        debug_log(&format!("ERROR: Failed to delete task from API: {}", e));
+                                    } else {
+                                        debug_log(&format!("Task {} deleted from API", task_id));
+                                    }
+                                    
+                                    // Refresh tasks list
+                                    drop(api_client_guard);
+                                    let (tasks, project_map, project_colors) = client_clone.get_tasks_with_projects().await.unwrap_or_default();
+                                    let mut app_guard = app.lock().await;
+                                    app_guard.tasks = tasks;
+                                    app_guard.project_map = project_map;
+                                    app_guard.project_colors = project_colors;
+                                }
+                            }
+                        },
+                        KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                            // Cancel the action
+                            app_guard.cancel_confirmation();
+                        },
+                        _ => {},
+                    }
                 } else {
                     // Handle normal navigation
                     match key.code {
@@ -218,6 +254,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             app_guard.show_edit_modal();
                         },
                         KeyCode::Char('d') => {
+                            // Toggle task completion
+                            if let Some(task_id) = app_guard.toggle_task_completion() {
+                                drop(app_guard);
+                                
+                                // Update task completion via API
+                                let api_client_guard = api_client.lock().await;
+                                let task_clone = {
+                                    let app_guard = app.lock().await;
+                                    app_guard.tasks.iter().find(|t| t.id == task_id).cloned()
+                                };
+                                
+                                if let Some(task) = task_clone {
+                                    if let Err(e) = api_client_guard.update_task_completion(task_id, task.done).await {
+                                        debug_log(&format!("ERROR: Failed to update task completion: {}", e));
+                                    } else {
+                                        debug_log(&format!("Task {} completion updated to {}", task_id, task.done));
+                                    }
+                                }
+                            }
+                        },
+                        KeyCode::Char('D') => {
                             app_guard.toggle_debug_pane();
                         },
                         KeyCode::Char('f') => {
@@ -226,6 +283,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         KeyCode::Char('c') => {
                             if app_guard.show_debug_pane {
                                 app_guard.clear_debug_messages();
+                            }
+                        },
+                        KeyCode::Char('h') => {
+                            // Toggle task filter (hide/show completed)
+                            app_guard.cycle_task_filter();
+                        },
+                        KeyCode::Char('X') => {
+                            // Request task deletion
+                            app_guard.request_delete_task();
+                        },
+                        KeyCode::Char('U') => {
+                            // Undo last action
+                            if let Some(task_id) = app_guard.undo_last_action() {
+                                debug_log(&format!("Undid action for task ID: {}", task_id));
+                                
+                                // For undo actions that affect API state, we might need to refresh
+                                drop(app_guard);
+                                let (tasks, project_map, project_colors) = client_clone.get_tasks_with_projects().await.unwrap_or_default();
+                                let mut app_guard = app.lock().await;
+                                app_guard.update_all_tasks(tasks);
+                                app_guard.project_map = project_map;
+                                app_guard.project_colors = project_colors;
                             }
                         },
                         _ => {},

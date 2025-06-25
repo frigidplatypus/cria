@@ -521,6 +521,88 @@ impl VikunjaClient {
 
         Ok(())
     }
+
+    // Update task completion status
+    pub async fn update_task_completion(&self, task_id: i64, done: bool) -> ReqwestResult<VikunjaTask> {
+        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
+        debug_log(&format!("Updating task {} completion to: {}", task_id, done));
+        
+        // Create minimal task update payload
+        let task_update = serde_json::json!({
+            "done": done
+        });
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .json(&task_update)
+            .send()
+            .await;
+
+        match response {
+            Ok(resp) => {
+                let status = resp.status();
+                debug_log(&format!("Response status: {}", status));
+                
+                if resp.status().is_success() {
+                    let result = resp.json::<VikunjaTask>().await;
+                    match &result {
+                        Ok(updated_task) => {
+                            debug_log(&format!("Successfully updated task completion: {:?}", updated_task));
+                        }
+                        Err(e) => {
+                            debug_log(&format!("Failed to parse response JSON: {}", e));
+                        }
+                    }
+                    result
+                } else {
+                    let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
+                    debug_log(&format!("API error response ({}): {}", status, error_text));
+                    // Return a connection error since we can't easily create custom reqwest errors
+                    let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
+                    Err(fake_response.unwrap_err())
+                }
+            },
+            Err(e) => {
+                debug_log(&format!("Request failed with error: {:?}", e));
+                Err(e)
+            }
+        }
+    }
+
+    // Delete a task
+    pub async fn delete_task(&self, task_id: i64) -> ReqwestResult<()> {
+        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
+        debug_log(&format!("Deleting task with ID: {}", task_id));
+        
+        let response = self.client
+            .delete(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .send()
+            .await;
+
+        match response {
+            Ok(resp) => {
+                let status = resp.status();
+                debug_log(&format!("Response status: {}", status));
+                
+                if resp.status().is_success() {
+                    debug_log(&format!("Successfully deleted task: {}", task_id));
+                    Ok(())
+                } else {
+                    let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
+                    debug_log(&format!("API error response ({}): {}", status, error_text));
+                    // Return a connection error since we can't easily create custom reqwest errors
+                    let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
+                    Err(fake_response.unwrap_err())
+                }
+            },
+            Err(e) => {
+                debug_log(&format!("Request failed with error: {:?}", e));
+                Err(e)
+            }
+        }
+    }
 }
 
 // Helper function for easy usage

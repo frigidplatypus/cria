@@ -42,9 +42,33 @@ impl VikunjaClient {
         Ok(tasks)
     }
 
+    pub async fn get_tasks_filtered(&self, show_completed: bool) -> Result<Vec<Task>, reqwest::Error> {
+        let filter_param = if show_completed { "true" } else { "false" };
+        let url = format!("{}/tasks/all?filter_done={}", self.api_url, filter_param);
+        let tasks = self.client.get(&url).send().await?.json::<Vec<Task>>().await?;
+        Ok(tasks)
+    }
+
     pub async fn get_tasks_with_projects(&self) -> Result<(Vec<Task>, HashMap<i64, String>, HashMap<i64, String>), reqwest::Error> {
         let projects = self.get_projects().await?;
         let tasks = self.get_tasks().await?;
+        
+        let project_map: HashMap<i64, String> = projects
+            .iter()
+            .map(|p| (p.id, p.title.clone()))
+            .collect();
+        
+        let project_colors: HashMap<i64, String> = projects
+            .into_iter()
+            .map(|p| (p.id, p.hex_color))
+            .collect();
+        
+        Ok((tasks, project_map, project_colors))
+    }
+
+    pub async fn get_tasks_with_projects_filtered(&self, show_completed: bool) -> Result<(Vec<Task>, HashMap<i64, String>, HashMap<i64, String>), reqwest::Error> {
+        let projects = self.get_projects().await?;
+        let tasks = self.get_tasks_filtered(show_completed).await?;
         
         let project_map: HashMap<i64, String> = projects
             .iter()

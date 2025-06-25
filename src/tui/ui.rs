@@ -69,6 +69,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         draw_quick_add_modal(f, app);
     } else if app.show_edit_modal {
         draw_edit_modal(f, app);
+    } else if app.show_confirmation_dialog {
+        draw_confirmation_dialog(f, app);
     }
 }
 
@@ -111,7 +113,14 @@ fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
 
         // Create colored cells with icons
         let mut title_spans = get_task_icons(task);
-        title_spans.push(Span::raw(&task.title));
+        
+        // Add task title with strikethrough if completed
+        if task.done {
+            title_spans.push(Span::styled(&task.title, Style::default().add_modifier(Modifier::CROSSED_OUT).fg(Color::DarkGray)));
+        } else {
+            title_spans.push(Span::raw(&task.title));
+        }
+        
         let title_cell = Cell::from(Line::from(title_spans));
         
         let project_cell = Cell::from(project_name).style(Style::default().fg(project_color));
@@ -129,7 +138,7 @@ fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
 
     let table = Table::new(rows, &[Constraint::Percentage(50), Constraint::Percentage(25), Constraint::Percentage(25)])
         .header(header)
-        .block(Block::default().borders(Borders::ALL).title("Tasks"));
+        .block(Block::default().borders(Borders::ALL).title(format!("Tasks ({})", app.get_filter_display_name())));
 
     f.render_widget(table, area);
 }
@@ -450,6 +459,70 @@ fn draw_edit_modal(f: &mut Frame, app: &App) {
     f.render_widget(help_paragraph, modal_chunks[1]);
 }
 
+fn draw_confirmation_dialog(f: &mut Frame, app: &App) {
+    // Calculate centered modal area (60% width, 8 lines height)
+    let area = f.size();
+    let modal_width = (area.width as f32 * 0.6) as u16;
+    let modal_height = 8;
+    
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    
+    let modal_area = Rect {
+        x,
+        y,
+        width: modal_width,
+        height: modal_height,
+    };
+
+    // Clear the area behind the modal
+    f.render_widget(Clear, modal_area);
+
+    // Create the modal layout
+    let modal_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(3),     // Message
+            Constraint::Length(3),  // Buttons
+        ])
+        .split(modal_area);
+
+    // Confirmation message
+    let message_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Confirmation")
+        .title_alignment(Alignment::Center)
+        .style(Style::default().fg(Color::Yellow));
+    
+    let message_paragraph = Paragraph::new(app.get_confirmation_message())
+        .block(message_block)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(Color::White));
+    f.render_widget(message_paragraph, modal_chunks[0]);
+
+    // Buttons
+    let buttons_text = vec![
+        Line::from(vec![
+            Span::styled("Press ", Style::default().fg(Color::Gray)),
+            Span::styled("Y", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(" to confirm, ", Style::default().fg(Color::Gray)),
+            Span::styled("N", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled(" or ", Style::default().fg(Color::Gray)),
+            Span::styled("Esc", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled(" to cancel", Style::default().fg(Color::Gray)),
+        ])
+    ];
+
+    let buttons_block = Block::default()
+        .borders(Borders::ALL)
+        .style(Style::default().fg(Color::Gray));
+    
+    let buttons_paragraph = Paragraph::new(buttons_text)
+        .block(buttons_block)
+        .alignment(Alignment::Center);
+    f.render_widget(buttons_paragraph, modal_chunks[1]);
+}
+
 fn draw_debug_pane(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
@@ -496,6 +569,11 @@ fn draw_debug_pane(f: &mut Frame, app: &App, area: Rect) {
 fn get_task_icons(task: &crate::vikunja::models::Task) -> Vec<Span> {
     let mut icons = Vec::new();
     
+    // Add checkmark if task is completed
+    if task.done {
+        icons.push(Span::styled("\u{f00c} ", Style::default().fg(Color::Green))); // nf-fa-check
+    }
+    
     // Add star icon if task is starred/favorited
     if task.is_favorite {
         icons.push(Span::styled("\u{f005} ", Style::default().fg(Color::Yellow))); // nf-fa-star
@@ -520,7 +598,7 @@ fn get_task_icons(task: &crate::vikunja::models::Task) -> Vec<Span> {
     icons
 }
 
-fn draw_nerdfont_debug(f: &mut Frame, app: &App) {
+fn draw_nerdfont_debug(f: &mut Frame, _app: &App) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title("Nerd Font Debug (Press 'f' to toggle, 'q' to quit)")
@@ -530,13 +608,13 @@ fn draw_nerdfont_debug(f: &mut Frame, app: &App) {
     let nerdfont_icons = vec![
         ("nf-fa-star", "\u{f005}", "FontAwesome Star"),
         ("nf-fa-flag", "\u{f024}", "FontAwesome Flag"), 
+        ("nf-fa-check", "\u{f00c}", "FontAwesome Check"),
         ("nf-fa-heart", "\u{f004}", "FontAwesome Heart"),
         ("nf-fa-home", "\u{f015}", "FontAwesome Home"),
         ("nf-fa-user", "\u{f007}", "FontAwesome User"),
         ("nf-fa-folder", "\u{f07b}", "FontAwesome Folder"),
         ("nf-fa-file", "\u{f15b}", "FontAwesome File"),
         ("nf-fa-circle", "\u{f111}", "FontAwesome Circle"),
-        ("nf-fa-check", "\u{f00c}", "FontAwesome Check"),
         ("nf-fa-times", "\u{f00d}", "FontAwesome Times"),
         ("nf-dev-git", "\u{e602}", "Dev Git"),
         ("nf-dev-github", "\u{e709}", "Dev GitHub"),
