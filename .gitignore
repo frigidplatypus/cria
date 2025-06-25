@@ -1,0 +1,75 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+*.pdb
+
+# IDE and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+.helix/
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+.env.production.local
+.env.development.local
+
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary folders
+tmp/
+temp/
+.tmp/
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Flamegraph
+flamegraph.svg
+perf.data*
+result
