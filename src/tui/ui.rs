@@ -27,12 +27,6 @@ fn hex_to_color(hex: &str) -> Color {
 }
 
 pub fn draw(f: &mut Frame, app: &App) {
-    if app.show_nerdfont_debug {
-        // Show nerd font debug view instead of normal UI
-        draw_nerdfont_debug(f, app);
-        return;
-    }
-
     let _main_layout = if app.show_debug_pane {
         // Three-pane layout: tasks | info | debug
         let horizontal_chunks = Layout::default()
@@ -596,63 +590,4 @@ fn get_task_icons(task: &crate::vikunja::models::Task) -> Vec<Span> {
     }
     
     icons
-}
-
-fn draw_nerdfont_debug(f: &mut Frame, _app: &App) {
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title("Nerd Font Debug (Press 'f' to toggle, 'q' to quit)")
-        .style(Style::default().fg(Color::Cyan));
-
-    // Create a comprehensive list of nerd font icons using Unicode values
-    let nerdfont_icons = vec![
-        ("nf-fa-star", "\u{f005}", "FontAwesome Star"),
-        ("nf-fa-flag", "\u{f024}", "FontAwesome Flag"), 
-        ("nf-fa-check", "\u{f00c}", "FontAwesome Check"),
-        ("nf-fa-heart", "\u{f004}", "FontAwesome Heart"),
-        ("nf-fa-home", "\u{f015}", "FontAwesome Home"),
-        ("nf-fa-user", "\u{f007}", "FontAwesome User"),
-        ("nf-fa-folder", "\u{f07b}", "FontAwesome Folder"),
-        ("nf-fa-file", "\u{f15b}", "FontAwesome File"),
-        ("nf-fa-circle", "\u{f111}", "FontAwesome Circle"),
-        ("nf-fa-times", "\u{f00d}", "FontAwesome Times"),
-        ("nf-dev-git", "\u{e602}", "Dev Git"),
-        ("nf-dev-github", "\u{e709}", "Dev GitHub"),
-        ("nf-dev-rust", "\u{e7a8}", "Dev Rust"),
-        ("nf-dev-terminal", "\u{e795}", "Dev Terminal"),
-        ("nf-dev-vim", "\u{e7c5}", "Dev Vim"),
-        ("nf-oct-star", "\u{f02a}", "Octicons Star"),
-        ("nf-oct-repo", "\u{f001}", "Octicons Repo"),
-        ("nf-oct-issue", "\u{f026}", "Octicons Issue"),
-        ("nf-mdi-star", "\u{f4ce}", "Material Star"),
-        ("nf-mdi-flag", "\u{f238}", "Material Flag"),
-    ];
-
-    let mut lines = vec![
-        Line::from(vec![
-            Span::styled("Testing Nerd Font Icons (Unicode):", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        ]),
-        Line::from(""),
-    ];
-
-    for (name, icon, description) in nerdfont_icons {
-        lines.push(Line::from(vec![
-            Span::styled(format!("{} ", icon), Style::default().fg(Color::Green)),
-            Span::styled(format!("{:<20} ", name), Style::default().fg(Color::White)),
-            Span::styled(description, Style::default().fg(Color::Gray)),
-        ]));
-    }
-
-    lines.push(Line::from(""));
-    lines.push(Line::from(vec![
-        Span::styled("Instructions:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-    ]));
-    lines.push(Line::from("- If you see the icon, your nerd font supports it"));
-    lines.push(Line::from("- If you see a blank space or box, it's not supported"));
-    lines.push(Line::from("- Press 'f' to return to normal view"));
-
-    let paragraph = Paragraph::new(lines)
-        .block(block)
-        .wrap(Wrap { trim: true });
-    f.render_widget(paragraph, f.size());
 }
