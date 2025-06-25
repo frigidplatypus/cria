@@ -144,6 +144,58 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         },
                         _ => {},
                     }
+                } else if app_guard.show_edit_modal {
+                    // Handle edit modal input
+                    match key.code {
+                        KeyCode::Esc => {
+                            app_guard.hide_edit_modal();
+                        },
+                        KeyCode::Enter => {
+                            let input = app_guard.get_edit_input().to_string();
+                            let task_id = app_guard.editing_task_id;
+                            if !input.trim().is_empty() && task_id.is_some() {
+                                debug_log(&format!("Updating task ID {} with input: '{}'", task_id.unwrap(), input));
+                                app_guard.hide_edit_modal();
+                                
+                                drop(app_guard);
+                                
+                                // Update task using API client
+                                let api_client_guard = api_client.lock().await;
+                                match api_client_guard.update_task_with_magic(task_id.unwrap(), &input).await {
+                                    Ok(task) => {
+                                        debug_log(&format!("SUCCESS: Task updated successfully! ID: {:?}, Title: '{}'", task.id, task.title));
+                                        
+                                        // Refresh tasks list
+                                        drop(api_client_guard);
+                                        let (tasks, project_map, project_colors) = client_clone.get_tasks_with_projects().await.unwrap_or_default();
+                                        let mut app_guard = app.lock().await;
+                                        app_guard.tasks = tasks;
+                                        app_guard.project_map = project_map;
+                                        app_guard.project_colors = project_colors;
+                                        debug_log(&format!("Tasks refreshed. Total tasks: {}", app_guard.tasks.len()));
+                                    }
+                                    Err(e) => {
+                                        debug_log(&format!("ERROR: Failed to update task: {}", e));
+                                    }
+                                }
+                            } else {
+                                debug_log("Empty input or no task selected, not updating task");
+                            }
+                        },
+                        KeyCode::Backspace => {
+                            app_guard.delete_char_from_edit();
+                        },
+                        KeyCode::Left => {
+                            app_guard.move_edit_cursor_left();
+                        },
+                        KeyCode::Right => {
+                            app_guard.move_edit_cursor_right();
+                        },
+                        KeyCode::Char(c) => {
+                            app_guard.add_char_to_edit(c);
+                        },
+                        _ => {},
+                    }
                 } else {
                     // Handle normal navigation
                     match key.code {
@@ -162,8 +214,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         KeyCode::Char('n') | KeyCode::Char('a') => {
                             app_guard.show_quick_add_modal();
                         },
+                        KeyCode::Char('e') => {
+                            app_guard.show_edit_modal();
+                        },
                         KeyCode::Char('d') => {
                             app_guard.toggle_debug_pane();
+                        },
+                        KeyCode::Char('f') => {
+                            app_guard.toggle_nerdfont_debug();
                         },
                         KeyCode::Char('c') => {
                             if app_guard.show_debug_pane {

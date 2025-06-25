@@ -341,6 +341,186 @@ impl VikunjaClient {
 
         Ok(())
     }
+
+    pub async fn update_task_with_magic(
+        &self,
+        task_id: i64,
+        magic_text: &str,
+    ) -> ReqwestResult<VikunjaTask> {
+        debug_log(&format!("Updating task {} with magic text: '{}'", task_id, magic_text));
+        let parsed = self.parser.parse(magic_text);
+        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
+                 parsed.title, parsed.labels, parsed.project, parsed.priority));
+        
+        // Step 1: Get the current task to preserve fields we're not updating
+        let current_task = self.get_task(task_id as u64).await?;
+        debug_log(&format!("Retrieved current task: {:?}", current_task));
+        
+        // Step 2: Determine project ID
+        let project_id = if let Some(project_name) = &parsed.project {
+            debug_log(&format!("Looking up project: '{}'", project_name));
+            match self.find_or_get_project_id(project_name).await {
+                Ok(Some(id)) => {
+                    debug_log(&format!("Found project ID: {}", id));
+                    id
+                }
+                Ok(None) => {
+                    debug_log(&format!("Project '{}' not found, keeping current: {}", project_name, current_task.project_id));
+                    current_task.project_id
+                }
+                Err(e) => {
+                    debug_log(&format!("Error looking up project: {}, keeping current: {}", e, current_task.project_id));
+                    current_task.project_id
+                }
+            }
+        } else {
+            debug_log(&format!("No project specified, keeping current: {}", current_task.project_id));
+            current_task.project_id
+        };
+
+        // Step 3: Update the basic task fields
+        let updated_task = VikunjaTask {
+            id: Some(task_id as u64),
+            title: parsed.title.clone(),
+            description: current_task.description, // Preserve description
+            done: current_task.done, // Preserve done status
+            priority: parsed.priority.or(current_task.priority), // Use new priority if provided, otherwise keep current
+            due_date: parsed.due_date.or(current_task.due_date), // Use new due date if provided, otherwise keep current
+            project_id,
+            labels: None, // Will be handled separately
+            assignees: None, // Will be handled separately
+        };
+
+        debug_log(&format!("Updating task with project_id: {}, title: '{}'", project_id, updated_task.title));
+        let updated_task = self.update_task(&updated_task).await?;
+        debug_log(&format!("Task updated with ID: {:?}", updated_task.id));
+
+        // Step 4: Clear existing labels and add new ones
+        if !parsed.labels.is_empty() {
+            // Remove all existing labels
+            if let Some(existing_labels) = &current_task.labels {
+                for label in existing_labels {
+                    if let Some(label_id) = label.id {
+                        let _ = self.remove_label_from_task(task_id as u64, label_id).await;
+                    }
+                }
+            }
+            
+            // Add new labels
+            for label_name in &parsed.labels {
+                if let Ok(label) = self.ensure_label_exists(label_name).await {
+                    let _ = self.add_label_to_task(task_id as u64, label.id.unwrap()).await;
+                }
+            }
+        }
+
+        // Step 5: Clear existing assignees and add new ones
+        if !parsed.assignees.is_empty() {
+            // Remove all existing assignees
+            if let Some(existing_assignees) = &current_task.assignees {
+                for assignee in existing_assignees {
+                    if let Some(user_id) = assignee.id {
+                        let _ = self.remove_assignee_from_task(task_id as u64, user_id).await;
+                    }
+                }
+            }
+            
+            // Add new assignees
+            for username in &parsed.assignees {
+                if let Some(user) = self.find_user_by_username(username).await {
+                    let _ = self.add_assignee_to_task(task_id as u64, user.id.unwrap()).await;
+                }
+            }
+        }
+
+        // Step 6: Handle repeating tasks (if needed)
+        if let Some(_repeat) = &parsed.repeat_interval {
+            // Implement repeat logic based on Vikunja's repeat API
+            // This would involve setting repeat_after or repeat_mode fields
+        }
+
+        // Return the updated task
+        self.get_task(task_id as u64).await
+    }
+
+    async fn update_task(&self, task: &VikunjaTask) -> ReqwestResult<VikunjaTask> {
+        let task_id = task.id.unwrap();
+        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
+        debug_log(&format!("Making POST request to: {}", url));
+        debug_log(&format!("Task payload: {:?}", task));
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .json(task)
+            .send()
+            .await;
+
+        match response {
+            Ok(resp) => {
+                let status = resp.status();
+                debug_log(&format!("Response status: {}", status));
+                debug_log(&format!("Response headers: {:?}", resp.headers()));
+                
+                if resp.status().is_success() {
+                    let result = resp.json::<VikunjaTask>().await;
+                    match &result {
+                        Ok(updated_task) => {
+                            debug_log(&format!("Successfully updated task: {:?}", updated_task));
+                        }
+                        Err(e) => {
+                            debug_log(&format!("Failed to parse response JSON: {}", e));
+                        }
+                    }
+                    result
+                } else {
+                    let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
+                    debug_log(&format!("API error response ({}): {}", status, error_text));
+                    // Return a connection error since we can't easily create custom reqwest errors
+                    let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
+                    Err(fake_response.unwrap_err())
+                }
+            },
+            Err(e) => {
+                debug_log(&format!("Request failed with error: {:?}", e));
+                debug_log(&format!("Error source: {:?}", e.source()));
+                if e.is_connect() {
+                    debug_log(&format!("This is a connection error - is Vikunja running on {}?", self.base_url));
+                }
+                if e.is_timeout() {
+                    debug_log(&format!("This is a timeout error"));
+                }
+                if e.is_request() {
+                    debug_log(&format!("This is a request building error"));
+                }
+                Err(e)
+            }
+        }
+    }
+
+    async fn remove_label_from_task(&self, task_id: u64, label_id: u64) -> ReqwestResult<()> {
+        let url = format!("{}/api/v1/tasks/{}/labels/{}", self.base_url, task_id, label_id);
+        
+        let _response = self.client
+            .delete(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    async fn remove_assignee_from_task(&self, task_id: u64, user_id: u64) -> ReqwestResult<()> {
+        let url = format!("{}/api/v1/tasks/{}/assignees/{}", self.base_url, task_id, user_id);
+        
+        let _response = self.client
+            .delete(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .send()
+            .await?;
+
+        Ok(())
+    }
 }
 
 // Helper function for easy usage

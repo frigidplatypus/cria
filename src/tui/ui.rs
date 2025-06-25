@@ -6,6 +6,7 @@ use ratatui::{
     text::{Line, Span},
     Frame,
 };
+use chrono::Datelike;
 
 fn hex_to_color(hex: &str) -> Color {
     // Remove the # if present
@@ -26,6 +27,12 @@ fn hex_to_color(hex: &str) -> Color {
 }
 
 pub fn draw(f: &mut Frame, app: &App) {
+    if app.show_nerdfont_debug {
+        // Show nerd font debug view instead of normal UI
+        draw_nerdfont_debug(f, app);
+        return;
+    }
+
     let _main_layout = if app.show_debug_pane {
         // Three-pane layout: tasks | info | debug
         let horizontal_chunks = Layout::default()
@@ -60,6 +67,8 @@ pub fn draw(f: &mut Frame, app: &App) {
     // Draw modal on top if active
     if app.show_quick_add_modal {
         draw_quick_add_modal(f, app);
+    } else if app.show_edit_modal {
+        draw_edit_modal(f, app);
     }
 }
 
@@ -100,8 +109,11 @@ fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
             })
             .unwrap_or_else(|| Line::raw(""));
 
-        // Create colored cells
-        let title_cell = Cell::from(task.title.clone());
+        // Create colored cells with icons
+        let mut title_spans = get_task_icons(task);
+        title_spans.push(Span::raw(&task.title));
+        let title_cell = Cell::from(Line::from(title_spans));
+        
         let project_cell = Cell::from(project_name).style(Style::default().fg(project_color));
         let labels_cell = Cell::from(labels_line);
 
@@ -145,7 +157,7 @@ fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
             }
         }
         
-        vec![
+        let mut details_lines = vec![
             Line::from(vec![
                 Span::styled("Title: ", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(&task.title)
@@ -163,11 +175,55 @@ fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
                 Span::raw(if task.done { "Completed" } else { "Pending" })
             ]),
             Line::from(""),
-            Line::from(vec![
-                Span::styled("ID: ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(task.id.to_string())
-            ]),
-        ]
+        ];
+
+        // Only show due date if it exists and is not the epoch start
+        if let Some(due_date) = &task.due_date {
+            if due_date.year() > 1900 { // Check if it's a real date
+                details_lines.push(Line::from(vec![
+                    Span::styled("Due Date: ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(due_date.format("%Y-%m-%d %H:%M").to_string())
+                ]));
+                details_lines.push(Line::from(""));
+            }
+        }
+
+        // Show priority if set
+        if let Some(priority) = task.priority {
+            if priority > 0 {
+                let priority_color = match priority {
+                    5 => Color::Red,
+                    4 => Color::Rgb(255, 165, 0), // Orange
+                    3 => Color::Yellow,
+                    2 => Color::Blue,
+                    1 => Color::Magenta,
+                    _ => Color::White,
+                };
+                details_lines.push(Line::from(vec![
+                    Span::styled("Priority: ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::styled(" ", Style::default().fg(priority_color)), // nf-fa-flag
+                    Span::raw(format!(" !{}", priority))
+                ]));
+                details_lines.push(Line::from(""));
+            }
+        }
+
+        // Show star if favorited
+        if task.is_favorite {
+            details_lines.push(Line::from(vec![
+                Span::styled("Starred: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled(" ", Style::default().fg(Color::Yellow)), // nf-fa-star
+                Span::raw(" Yes")
+            ]));
+            details_lines.push(Line::from(""));
+        }
+
+        details_lines.push(Line::from(vec![
+            Span::styled("ID: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(task.id.to_string())
+        ]));
+        
+        details_lines
     } else {
         vec![Line::from("No task selected")]
     };
@@ -286,6 +342,114 @@ fn draw_quick_add_modal(f: &mut Frame, app: &App) {
     f.render_widget(help_paragraph, modal_chunks[1]);
 }
 
+fn draw_edit_modal(f: &mut Frame, app: &App) {
+    // Calculate centered modal area (80% width, 18 lines height for better visibility)
+    let area = f.size();
+    let modal_width = (area.width as f32 * 0.8) as u16;
+    let modal_height = 18;
+    
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    
+    let modal_area = Rect {
+        x,
+        y,
+        width: modal_width,
+        height: modal_height,
+    };
+
+    // Clear the area behind the modal
+    f.render_widget(Clear, modal_area);
+
+    // Create the modal layout - two sections: input and help
+    let modal_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // Input field with title
+            Constraint::Min(14),   // Help text
+        ])
+        .split(modal_area);
+
+    // Input field with title
+    let input_text = app.get_edit_input();
+    let input_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Edit Task")
+        .title_alignment(Alignment::Center)
+        .style(Style::default().fg(Color::Blue));
+    
+    let input_paragraph = Paragraph::new(input_text)
+        .block(input_block)
+        .style(Style::default().fg(Color::Yellow));
+    f.render_widget(input_paragraph, modal_chunks[0]);
+
+    // Position cursor
+    let cursor_x = modal_chunks[0].x + 1 + app.edit_cursor_position as u16;
+    let cursor_y = modal_chunks[0].y + 1;
+    if cursor_x < modal_chunks[0].x + modal_chunks[0].width - 1 {
+        f.set_cursor(cursor_x, cursor_y);
+    }
+
+    // Help text - same as Quick Add but with Edit context
+    let help_text = vec![
+        Line::from(vec![
+            Span::styled("Edit with Quick Add Magic:", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::raw("• "),
+            Span::styled("Buy groceries *shopping *urgent", Style::default().fg(Color::White)),
+            Span::raw(" - adds labels")
+        ]),
+        Line::from(vec![
+            Span::raw("• "),
+            Span::styled("Review PR @john", Style::default().fg(Color::White)),
+            Span::raw(" - assigns to user")
+        ]),
+        Line::from(vec![
+            Span::raw("• "),
+            Span::styled("Fix bug +work !3", Style::default().fg(Color::White)),
+            Span::raw(" - sets project & priority")
+        ]),
+        Line::from(vec![
+            Span::raw("• "),
+            Span::styled("Call mom tomorrow at 2pm", Style::default().fg(Color::White)),
+            Span::raw(" - sets due date")
+        ]),
+        Line::from(vec![
+            Span::raw("• "),
+            Span::styled("Team meeting every Monday", Style::default().fg(Color::White)),
+            Span::raw(" - recurring task")
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Syntax: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled("*label ", Style::default().fg(Color::Red)),
+            Span::styled("@user ", Style::default().fg(Color::Blue)),
+            Span::styled("+project ", Style::default().fg(Color::Magenta)),
+            Span::styled("!priority ", Style::default().fg(Color::Yellow)),
+            Span::styled("dates", Style::default().fg(Color::Cyan))
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Enter", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw(" to update • "),
+            Span::styled("Escape", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::raw(" to cancel")
+        ]),
+    ];
+
+    let help_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Help")
+        .style(Style::default().fg(Color::Gray));
+    
+    let help_paragraph = Paragraph::new(help_text)
+        .block(help_block)
+        .wrap(Wrap { trim: true });
+    f.render_widget(help_paragraph, modal_chunks[1]);
+}
+
 fn draw_debug_pane(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
@@ -327,4 +491,90 @@ fn draw_debug_pane(f: &mut Frame, app: &App, area: Rect) {
         .scroll((0, 0));
 
     f.render_widget(debug_paragraph, area);
+}
+
+fn get_task_icons(task: &crate::vikunja::models::Task) -> Vec<Span> {
+    let mut icons = Vec::new();
+    
+    // Add star icon if task is starred/favorited
+    if task.is_favorite {
+        icons.push(Span::styled("\u{f005} ", Style::default().fg(Color::Yellow))); // nf-fa-star
+    }
+    
+    // Add priority flag icon based on priority level
+    if let Some(priority) = task.priority {
+        let (icon, color) = match priority {
+            5 => ("\u{f024} ", Color::Red),          // !5 - Highest priority (nf-fa-flag)
+            4 => ("\u{f024} ", Color::Rgb(255, 165, 0)), // !4 - Orange flag
+            3 => ("\u{f024} ", Color::Yellow),       // !3 - Yellow flag
+            2 => ("\u{f024} ", Color::Blue),         // !2 - Blue flag
+            1 => ("\u{f024} ", Color::Magenta),      // !1 - Purple flag
+            _ => ("", Color::White),         // Invalid priority
+        };
+        
+        if !icon.is_empty() {
+            icons.push(Span::styled(icon, Style::default().fg(color)));
+        }
+    }
+    
+    icons
+}
+
+fn draw_nerdfont_debug(f: &mut Frame, app: &App) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Nerd Font Debug (Press 'f' to toggle, 'q' to quit)")
+        .style(Style::default().fg(Color::Cyan));
+
+    // Create a comprehensive list of nerd font icons using Unicode values
+    let nerdfont_icons = vec![
+        ("nf-fa-star", "\u{f005}", "FontAwesome Star"),
+        ("nf-fa-flag", "\u{f024}", "FontAwesome Flag"), 
+        ("nf-fa-heart", "\u{f004}", "FontAwesome Heart"),
+        ("nf-fa-home", "\u{f015}", "FontAwesome Home"),
+        ("nf-fa-user", "\u{f007}", "FontAwesome User"),
+        ("nf-fa-folder", "\u{f07b}", "FontAwesome Folder"),
+        ("nf-fa-file", "\u{f15b}", "FontAwesome File"),
+        ("nf-fa-circle", "\u{f111}", "FontAwesome Circle"),
+        ("nf-fa-check", "\u{f00c}", "FontAwesome Check"),
+        ("nf-fa-times", "\u{f00d}", "FontAwesome Times"),
+        ("nf-dev-git", "\u{e602}", "Dev Git"),
+        ("nf-dev-github", "\u{e709}", "Dev GitHub"),
+        ("nf-dev-rust", "\u{e7a8}", "Dev Rust"),
+        ("nf-dev-terminal", "\u{e795}", "Dev Terminal"),
+        ("nf-dev-vim", "\u{e7c5}", "Dev Vim"),
+        ("nf-oct-star", "\u{f02a}", "Octicons Star"),
+        ("nf-oct-repo", "\u{f001}", "Octicons Repo"),
+        ("nf-oct-issue", "\u{f026}", "Octicons Issue"),
+        ("nf-mdi-star", "\u{f4ce}", "Material Star"),
+        ("nf-mdi-flag", "\u{f238}", "Material Flag"),
+    ];
+
+    let mut lines = vec![
+        Line::from(vec![
+            Span::styled("Testing Nerd Font Icons (Unicode):", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        ]),
+        Line::from(""),
+    ];
+
+    for (name, icon, description) in nerdfont_icons {
+        lines.push(Line::from(vec![
+            Span::styled(format!("{} ", icon), Style::default().fg(Color::Green)),
+            Span::styled(format!("{:<20} ", name), Style::default().fg(Color::White)),
+            Span::styled(description, Style::default().fg(Color::Gray)),
+        ]));
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(vec![
+        Span::styled("Instructions:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+    ]));
+    lines.push(Line::from("- If you see the icon, your nerd font supports it"));
+    lines.push(Line::from("- If you see a blank space or box, it's not supported"));
+    lines.push(Line::from("- Press 'f' to return to normal view"));
+
+    let paragraph = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: true });
+    f.render_widget(paragraph, f.size());
 }

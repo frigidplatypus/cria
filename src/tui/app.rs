@@ -1,6 +1,6 @@
 use crate::vikunja::models::Task;
 use std::collections::HashMap;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Datelike};
 
 pub struct App {
     pub running: bool,
@@ -13,9 +13,15 @@ pub struct App {
     pub show_quick_add_modal: bool,
     pub quick_add_input: String,
     pub quick_add_cursor_position: usize,
+    // Edit Modal state
+    pub show_edit_modal: bool,
+    pub edit_input: String,
+    pub edit_cursor_position: usize,
+    pub editing_task_id: Option<i64>,
     // Debug pane state
     pub show_debug_pane: bool,
     pub debug_messages: Vec<(DateTime<Local>, String)>,
+    pub show_nerdfont_debug: bool,
 }
 
 impl App {
@@ -30,8 +36,13 @@ impl App {
             show_quick_add_modal: false,
             quick_add_input: String::new(),
             quick_add_cursor_position: 0,
+            show_edit_modal: false,
+            edit_input: String::new(),
+            edit_cursor_position: 0,
+            editing_task_id: None,
             show_debug_pane: false,
             debug_messages: Vec::new(),
+            show_nerdfont_debug: false,
         }
     }
 
@@ -124,5 +135,112 @@ impl App {
 
     pub fn clear_debug_messages(&mut self) {
         self.debug_messages.clear();
+    }
+
+    // Edit Modal methods
+    pub fn show_edit_modal(&mut self) {
+        if let Some(task) = self.get_selected_task() {
+            let task_id = task.id;
+            let magic_syntax = self.task_to_magic_syntax(task);
+            
+            self.show_edit_modal = true;
+            self.editing_task_id = Some(task_id);
+            self.edit_input = magic_syntax;
+            self.edit_cursor_position = self.edit_input.len();
+        }
+    }
+
+    pub fn hide_edit_modal(&mut self) {
+        self.show_edit_modal = false;
+        self.edit_input.clear();
+        self.edit_cursor_position = 0;
+        self.editing_task_id = None;
+    }
+
+    pub fn add_char_to_edit(&mut self, c: char) {
+        self.edit_input.insert(self.edit_cursor_position, c);
+        self.edit_cursor_position += 1;
+    }
+
+    pub fn delete_char_from_edit(&mut self) {
+        if self.edit_cursor_position > 0 {
+            self.edit_cursor_position -= 1;
+            self.edit_input.remove(self.edit_cursor_position);
+        }
+    }
+
+    pub fn move_edit_cursor_left(&mut self) {
+        if self.edit_cursor_position > 0 {
+            self.edit_cursor_position -= 1;
+        }
+    }
+
+    pub fn move_edit_cursor_right(&mut self) {
+        if self.edit_cursor_position < self.edit_input.len() {
+            self.edit_cursor_position += 1;
+        }
+    }
+
+    pub fn get_edit_input(&self) -> &str {
+        &self.edit_input
+    }
+
+    pub fn clear_edit_input(&mut self) {
+        self.edit_input.clear();
+        self.edit_cursor_position = 0;
+    }
+
+    pub fn toggle_nerdfont_debug(&mut self) {
+        self.show_nerdfont_debug = !self.show_nerdfont_debug;
+    }
+
+    // Convert task back to Quick Add Magic syntax for editing
+    fn task_to_magic_syntax(&self, task: &crate::vikunja::models::Task) -> String {
+        let mut result = task.title.clone();
+        
+        // Add star if favorited
+        if task.is_favorite {
+            result.push_str(" ^star");
+        }
+        
+        // Add labels
+        if let Some(labels) = &task.labels {
+            for label in labels {
+                result.push_str(&format!(" *{}", label.title));
+            }
+        }
+        
+        // Add assignees
+        if let Some(assignees) = &task.assignees {
+            for assignee in assignees {
+                result.push_str(&format!(" @{}", assignee.username));
+            }
+        }
+        
+        // Add project (if not the default)
+        if let Some(project_name) = self.project_map.get(&task.project_id) {
+            if project_name != "Inbox" && task.project_id != 1 {
+                result.push_str(&format!(" +{}", project_name));
+            }
+        }
+        
+        // Add priority if set
+        if let Some(priority) = task.priority {
+            if priority > 0 {
+                result.push_str(&format!(" !{}", priority));
+            }
+        }
+        
+        // Add due date if set
+        if let Some(due_date) = &task.due_date {
+            // Only show the date if it's a real date (not epoch start)
+            if due_date.year() > 1900 {
+                // Format the due date in a readable format
+                let formatted_date = due_date.format("%Y-%m-%d").to_string();
+                result.push_str(&format!(" {}", formatted_date));
+            }
+        }
+        
+        result
     }
 }
