@@ -461,25 +461,22 @@ impl VikunjaClient {
         self.get_task(task_id as u64).await
     }
 
-    async fn update_task(&self, task: &VikunjaTask) -> ReqwestResult<VikunjaTask> {
+    pub async fn update_task(&self, task: &VikunjaTask) -> ReqwestResult<VikunjaTask> {
         let task_id = task.id.unwrap();
         let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
         debug_log(&format!("Making POST request to: {}", url));
         debug_log(&format!("Task payload: {:?}", task));
-        
         let response = self.client
             .post(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
             .json(task)
             .send()
             .await;
-
         match response {
             Ok(resp) => {
                 let status = resp.status();
                 debug_log(&format!("Response status: {}", status));
                 debug_log(&format!("Response headers: {:?}", resp.headers()));
-                
                 if resp.status().is_success() {
                     let result = resp.json::<VikunjaTask>().await;
                     match &result {

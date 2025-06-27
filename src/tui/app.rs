@@ -765,4 +765,12 @@ impl App {
         self.apply_task_filter();
         self.selected_task_index = 0;
     }
+
+    pub fn toggle_star_selected_task(&mut self) -> Option<i64> {
+        if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
+            task.is_favorite = !task.is_favorite;
+            return Some(task.id);
+        }
+        None
+    }
 }
