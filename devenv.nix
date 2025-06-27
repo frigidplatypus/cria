@@ -11,7 +11,7 @@
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
-  packages = [ pkgs.git ];
+  packages = [ pkgs.git pkgs.openssl pkgs.pkg-config ];
   dotenv.enable = true;
 
   # https://devenv.sh/languages/
