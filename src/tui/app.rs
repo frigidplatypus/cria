@@ -731,20 +731,15 @@ impl App {
 
     pub fn update_filtered_filters(&mut self) {
         let query = self.filter_picker_input.to_lowercase();
+        // Show all filters (negative IDs) and allow search
         let mut filters: Vec<_> = self.filters.iter()
-            .filter(|(id, _)| *id > 0)
             .map(|(id, title)| (*id, title.clone()))
             .collect();
         if !query.is_empty() {
             filters.retain(|(_, title)| title.to_lowercase().contains(&query));
         }
         filters.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
-        if query.is_empty() {
-            self.filtered_filters = vec![(-1, "No Filter".to_string())];
-            self.filtered_filters.extend(filters);
-        } else {
-            self.filtered_filters = filters;
-        }
+        self.filtered_filters = filters;
     }
 
     pub fn apply_filter(&mut self) {

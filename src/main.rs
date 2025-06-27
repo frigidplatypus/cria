@@ -68,12 +68,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         debug_log("No tasks returned from API");
     }
-    // Populate saved filters (views) from negative project IDs
-    let filters: Vec<(i64, String)> = project_map.iter()
-        .filter(|(id, _)| **id < 0)
-        .map(|(id, name)| (*id, name.clone()))
-        .collect();
-    debug_log(&format!("Populated {} saved filters from negative project IDs", filters.len()));
+    // Fetch saved filters (views) from backend
+    let filters = client_clone.lock().await.get_saved_filters().await.unwrap_or_default();
+    debug_log(&format!("Fetched {} saved filters from backend", filters.len()));
     {
         let mut app_guard = app.lock().await;
         app_guard.update_all_tasks(tasks);
@@ -128,7 +125,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         continue;
                     }
                     if app_guard.show_filter_picker {
-                        tui::pickers::handle_filter_picker(&mut app_guard, &key);
+                        // Await the async filter picker handler
+                        drop(app_guard); // Release lock before await
+                        let mut app_guard = app.lock().await;
+                        tui::pickers::handle_filter_picker(&mut app_guard, &key, &api_client).await;
+                        // Force redraw after filter selection
+                        drop(app_guard);
+                        let app_guard = app.lock().await;
+                        terminal.draw(|frame| draw(frame, &app_guard))?;
+                        drop(app_guard);
                         continue;
                     }
                     // Main app key handling (outside modals)
@@ -173,10 +178,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             // Now do the refresh
                             let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
-                            let filters: Vec<(i64, String)> = project_map.iter()
-                                .filter(|(id, _)| **id < 0)
-                                .map(|(id, name)| (*id, name.clone()))
-                                .collect();
+                            let filters = client_clone.lock().await.get_saved_filters().await.unwrap_or_default();
                             {
                                 let mut app_guard = app.lock().await;
                                 app_guard.update_all_tasks(tasks);
