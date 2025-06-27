@@ -2,6 +2,7 @@ use crate::vikunja::models::Task;
 use std::collections::HashMap;
 use chrono::{DateTime, Local, Datelike};
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum TaskFilter {
     ActiveOnly,    // Hide completed tasks (default)
@@ -9,6 +10,7 @@ pub enum TaskFilter {
     CompletedOnly, // Show only completed tasks
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum UndoableAction {
     TaskCompletion { 

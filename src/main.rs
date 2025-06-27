@@ -48,11 +48,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Ok(false) => {
                 debug_log("WARNING: Failed to connect to Vikunja API");
-                debug_log("The app will still work for viewing, but Quick Add won't function.");
+                debug_log("The app requires a connection to the api.");
             }
             Err(e) => {
                 debug_log(&format!("WARNING: Failed to connect to Vikunja API: {}", e));
-                debug_log("The app will still work for viewing, but Quick Add won't function.");
+                debug_log("The app requires a connection to the api.");
             }
         }
     }
@@ -109,248 +109,72 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Event::Key(key) = event_handler.next()? {
             if key.kind == KeyEventKind::Press {
                 let mut app_guard = app.lock().await;
-                
-                // Handle Escape globally to close any modal
-                if key.code == KeyCode::Esc {
-                    if app_guard.show_quick_add_modal {
-                        app_guard.hide_quick_add_modal();
-                        continue;
-                    }
-                    if app_guard.show_edit_modal {
-                        app_guard.hide_edit_modal();
-                        continue;
-                    }
-                    if app_guard.show_confirmation_dialog {
-                        app_guard.cancel_confirmation();
-                        continue;
-                    }
-                    if app_guard.show_project_picker {
-                        app_guard.hide_project_picker();
-                        continue;
-                    }
-                    if app_guard.show_filter_picker {
-                        app_guard.hide_filter_picker();
-                        continue;
-                    }
-                }
 
                 if app_guard.show_quick_add_modal {
-                    // Handle modal input
-                    match key.code {
-                        KeyCode::Esc => {
+                    tui::modals::handle_quick_add_modal(&mut app_guard, &key, &api_client, &client_clone).await;
+                    continue;
+                }
+                if app_guard.show_edit_modal {
+                    tui::modals::handle_edit_modal(&mut app_guard, &key, &api_client, &client_clone).await;
+                    continue;
+                }
+                if app_guard.show_confirmation_dialog {
+                    tui::confirmation::handle_confirmation_dialog(&mut app_guard, &key, &api_client, &client_clone).await;
+                    continue;
+                }
+                if app_guard.show_project_picker {
+                    tui::pickers::handle_project_picker(&mut app_guard, &key);
+                    continue;
+                }
+                if app_guard.show_filter_picker {
+                    tui::pickers::handle_filter_picker(&mut app_guard, &key);
+                    continue;
+                }
+                // Main app key handling (outside modals)
+                match key.code {
+                    KeyCode::Char('q') => {
+                        app_guard.quit();
+                        break;
+                    },
+                    KeyCode::Char('d') => {
+                        app_guard.toggle_task_completion();
+                    },
+                    KeyCode::Char('D') => {
+                        app_guard.request_delete_task();
+                    },
+                    KeyCode::Char('j') => {
+                        app_guard.next_task();
+                    },
+                    KeyCode::Char('k') => {
+                        app_guard.previous_task();
+                    },
+                    KeyCode::Char('f') => {
+                        app_guard.show_filter_picker();
+                    },
+                    KeyCode::Char('a') => {
+                        app_guard.show_quick_add_modal = true;
+                    },
+                    KeyCode::Char('e') => {
+                        app_guard.show_edit_modal = true;
+                    },
+                    KeyCode::Char('p') => {
+                        app_guard.show_project_picker();
+                    },
+                    KeyCode::Esc => {
+                        // Handle Escape globally to close any modal
+                        if app_guard.show_quick_add_modal {
                             app_guard.hide_quick_add_modal();
-                        },
-                        KeyCode::Enter => {
-                            let input = app_guard.get_quick_add_input().to_string();
-                            if !input.trim().is_empty() {
-                                debug_log(&format!("Creating task with input: '{}'", input));
-                                app_guard.hide_quick_add_modal();
-                                // Get default project ID
-                                let default_project_id = std::env::var("VIKUNJA_DEFAULT_PROJECT")
-                                    .unwrap_or_else(|_| "1".to_string())
-                                    .parse::<u64>()
-                                    .unwrap_or(1);
-                                debug_log(&format!("Using project ID: {}", default_project_id));
-                                debug_log("Calling create_task_with_magic...");
-                                drop(app_guard);
-                                // Create task using API client
-                                let api_client_guard = api_client.lock().await;
-                                match api_client_guard.create_task_with_magic(&input, default_project_id).await {
-                                    Ok(task) => {
-                                        debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
-                                        // Refresh tasks list
-                                        drop(api_client_guard);
-                                        let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
-                                        let mut app_guard = app.lock().await;
-                                        app_guard.tasks = tasks;
-                                        app_guard.project_map = project_map;
-                                        app_guard.project_colors = project_colors;
-                                        debug_log(&format!("Tasks refreshed. Total tasks: {}", app_guard.tasks.len()));
-                                    }
-                                    Err(e) => {
-                                        debug_log(&format!("ERROR: Failed to create task: {}", e));
-                                    }
-                                }
-                            } else {
-                                debug_log("Empty input, not creating task");
-                            }
-                        },
-                        KeyCode::Backspace => {
-                            app_guard.delete_char_from_quick_add();
-                        },
-                        KeyCode::Left => {
-                            app_guard.move_cursor_left();
-                        },
-                        KeyCode::Right => {
-                            app_guard.move_cursor_right();
-                        },
-                        KeyCode::Char(c) => {
-                            app_guard.add_char_to_quick_add(c);
-                        },
-                        _ => {},
-                    }
-                } else if app_guard.show_edit_modal {
-                    // Handle edit modal input
-                    match key.code {
-                        KeyCode::Esc => {
+                        } else if app_guard.show_edit_modal {
                             app_guard.hide_edit_modal();
-                        },
-                        KeyCode::Enter => {
-                            let input = app_guard.get_edit_input().to_string();
-                            let task_id = app_guard.editing_task_id;
-                            if !input.trim().is_empty() && task_id.is_some() {
-                                debug_log(&format!("Updating task ID {} with input: '{}'", task_id.unwrap(), input));
-                                app_guard.hide_edit_modal();
-                                drop(app_guard);
-                                // Update task using API client
-                                let api_client_guard = api_client.lock().await;
-                                match api_client_guard.update_task_with_magic(task_id.unwrap(), &input).await {
-                                    Ok(task) => {
-                                        debug_log(&format!("SUCCESS: Task updated successfully! ID: {:?}, Title: '{}'", task.id, task.title));
-                                        // Refresh tasks list
-                                        drop(api_client_guard);
-                                        let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
-                                        let mut app_guard = app.lock().await;
-                                        app_guard.tasks = tasks;
-                                        app_guard.project_map = project_map;
-                                        app_guard.project_colors = project_colors;
-                                        debug_log(&format!("Tasks refreshed. Total tasks: {}", app_guard.tasks.len()));
-                                    }
-                                    Err(e) => {
-                                        debug_log(&format!("ERROR: Failed to update task: {}", e));
-                                    }
-                                }
-                            } else {
-                                debug_log("Empty input or no task selected, not updating task");
-                            }
-                        },
-                        KeyCode::Backspace => {
-                            app_guard.delete_char_from_edit();
-                        },
-                        KeyCode::Left => {
-                            app_guard.move_edit_cursor_left();
-                        },
-                        KeyCode::Right => {
-                            app_guard.move_edit_cursor_right();
-                        }
-                        KeyCode::Char(c) => {
-                            app_guard.add_char_to_edit(c);
-                        },
-                        _ => {},
-                    }
-                } else if app_guard.show_confirmation_dialog {
-                    // Handle confirmation dialog
-                    match key.code {
-                        KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
-                            // Confirm the action
-                            if let Some(task_id) = app_guard.confirm_action() {
-                                debug_log(&format!("Confirmed action for task ID: {}", task_id));
-                                
-                                // If it was a delete action, we need to call the API
-                                if app_guard.pending_action.is_none() { // Action was executed
-                                    drop(app_guard);
-                                    
-                                    // Call delete API
-                                    let api_client_guard = api_client.lock().await;
-                                    if let Err(e) = api_client_guard.delete_task(task_id).await {
-                                        debug_log(&format!("ERROR: Failed to delete task from API: {}", e));
-                                    } else {
-                                        debug_log(&format!("Task {} deleted from API", task_id));
-                                    }
-                                    
-                                    // Refresh tasks list
-                                    drop(api_client_guard);
-                                    let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
-                                    let mut app_guard = app.lock().await;
-                                    app_guard.tasks = tasks;
-                                    app_guard.project_map = project_map;
-                                    app_guard.project_colors = project_colors;
-                                }
-                            }
-                        },
-                        KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-                            // Cancel the action
+                        } else if app_guard.show_confirmation_dialog {
                             app_guard.cancel_confirmation();
-                        },
-                        _ => {},
-                    }
-                } else if app_guard.show_project_picker {
-                    match key.code {
-                        KeyCode::Esc => {
+                        } else if app_guard.show_project_picker {
                             app_guard.hide_project_picker();
-                        },
-                        KeyCode::Enter => {
-                            app_guard.select_project_picker();
-                        },
-                        KeyCode::Backspace => {
-                            app_guard.delete_char_from_project_picker();
-                        },
-                        KeyCode::Up => {
-                            app_guard.move_project_picker_up();
-                        },
-                        KeyCode::Down => {
-                            app_guard.move_project_picker_down();
-                        },
-                        KeyCode::Char(c) => {
-                            app_guard.add_char_to_project_picker(c);
-                        },
-                        _ => {},
-                    }
-                } else if app_guard.show_filter_picker {
-                    match key.code {
-                        KeyCode::Esc => {
+                        } else if app_guard.show_filter_picker {
                             app_guard.hide_filter_picker();
-                        },
-                        KeyCode::Enter => {
-                            app_guard.select_filter_picker();
-                        },
-                        KeyCode::Backspace => {
-                            app_guard.delete_char_from_filter_picker();
-                        },
-                        KeyCode::Up => {
-                            app_guard.move_filter_picker_up();
-                        },
-                        KeyCode::Down => {
-                            app_guard.move_filter_picker_down();
-                        },
-                        KeyCode::Char(c) => {
-                            app_guard.add_char_to_filter_picker(c);
-                        },
-                        _ => {},
-                    }
-                } else {
-                    // Main app key handling (outside modals)
-                    match key.code {
-                        KeyCode::Char('q') => {
-                            app_guard.quit();
-                            break;
-                        },
-                        KeyCode::Char('d') => {
-                            app_guard.toggle_task_completion();
-                        },
-                        KeyCode::Char('D') => {
-                            app_guard.request_delete_task();
-                        },
-                        KeyCode::Char('j') => {
-                            app_guard.next_task();
-                        },
-                        KeyCode::Char('k') => {
-                            app_guard.previous_task();
-                        },
-                        KeyCode::Char('f') => {
-                            app_guard.show_filter_picker();
-                        },
-                        KeyCode::Char('a') => {
-                            app_guard.show_quick_add_modal = true;
-                        },
-                        KeyCode::Char('e') => {
-                            app_guard.show_edit_modal = true;
-                        },
-                        KeyCode::Char('p') => {
-                            app_guard.show_project_picker();
-                        },
-                        _ => {}
-                    }
+                        }
+                    },
+                    _ => {}
                 }
             }
         }
