@@ -18,11 +18,11 @@
 - **Benefit:** Domain logic is separated from UI and event handling.
 
 ## 3. API Client
-- Split `vikunja_client.rs` by resource:
-  - `vikunja_client/tasks.rs`
-  - `vikunja_client/projects.rs`
-  - `vikunja_client/filters.rs`
-  - `vikunja_client/users.rs`
+- Split `vikunja_client.rs` by resource: **(DONE)**
+  - `vikunja_client/tasks.rs` **(DONE)**
+  - `vikunja_client/projects.rs` **(DONE)**
+  - `vikunja_client/filters.rs` **(DONE)**
+  - `vikunja_client/users.rs` **(DONE)**
 - **Benefit:** Each API area is easier to test and extend.
 
 ## 4. Event Handling
