@@ -14,7 +14,7 @@ mod debug;
 
 use crate::tui::app::App;
 use crate::tui::events::{Event, EventHandler};
-use crate::tui::ui::draw;
+use crate::tui::ui::main::draw;
 use crate::vikunja_client::VikunjaClient as ApiClient;
 use crate::debug::debug_log;
 
