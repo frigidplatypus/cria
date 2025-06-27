@@ -30,9 +30,10 @@ pub async fn handle_confirmation_dialog(
                     // Refresh tasks list
                     drop(api_client_guard);
                     let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
-                    app.tasks = tasks;
+                    app.all_tasks = tasks;
                     app.project_map = project_map;
                     app.project_colors = project_colors;
+                    app.apply_task_filter();
                 }
             }
         },
