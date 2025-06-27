@@ -219,6 +219,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     },
+                    KeyCode::Char('i') => {
+                        app_guard.show_info_pane = !app_guard.show_info_pane;
+                    },
                     KeyCode::Esc => {
                         // Handle Escape globally to close any modal
                         if app_guard.show_quick_add_modal {
@@ -232,6 +235,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         } else if app_guard.show_filter_picker {
                             app_guard.hide_filter_picker();
                         }
+                    },
+                    KeyCode::Char('h') => {
+                        // Cycle filter backward
+                        app_guard.task_filter = match app_guard.task_filter {
+                            crate::tui::app::TaskFilter::ActiveOnly => crate::tui::app::TaskFilter::CompletedOnly,
+                            crate::tui::app::TaskFilter::All => crate::tui::app::TaskFilter::ActiveOnly,
+                            crate::tui::app::TaskFilter::CompletedOnly => crate::tui::app::TaskFilter::All,
+                        };
+                        app_guard.apply_task_filter();
+                        app_guard.selected_task_index = 0;
+                        let filter_name = match app_guard.task_filter {
+                            crate::tui::app::TaskFilter::ActiveOnly => "Active Tasks Only",
+                            crate::tui::app::TaskFilter::All => "All Tasks",
+                            crate::tui::app::TaskFilter::CompletedOnly => "Completed Tasks Only",
+                        };
+                        app_guard.add_debug_message(format!("Switched to filter: {}", filter_name));
+                    },
+                    KeyCode::Char('l') => {
+                        // Cycle filter forward
+                        app_guard.cycle_task_filter();
                     },
                     _ => {}
                 }
