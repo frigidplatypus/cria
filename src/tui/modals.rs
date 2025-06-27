@@ -34,6 +34,10 @@ pub async fn handle_quick_add_modal(
                 match api_client_guard.create_task_with_magic(&input, default_project_id).await {
                     Ok(task) => {
                         debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
+                        app.flash_task_id = task.id.map(|id| id as i64);
+                        app.flash_start = Some(std::time::Instant::now());
+                        app.flash_cycle_count = 0;
+                        app.flash_cycle_max = 6;
                         // Refresh tasks list
                         drop(api_client_guard);
                         let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
@@ -42,6 +46,16 @@ pub async fn handle_quick_add_modal(
                         app.project_colors = project_colors;
                         app.apply_task_filter();
                         debug_log(&format!("Tasks refreshed. Total tasks: {}", app.tasks.len()));
+                        // After filtering, find the new task in the filtered list and select/flash it
+                        if let Some(new_id) = task.id.map(|id| id as i64) {
+                            if let Some(idx) = app.tasks.iter().position(|t| t.id == new_id) {
+                                app.selected_task_index = idx;
+                                app.flash_task_id = Some(new_id);
+                                app.flash_start = Some(std::time::Instant::now());
+                                app.flash_cycle_count = 0;
+                                app.flash_cycle_max = 6;
+                            }
+                        }
                     }
                     Err(e) => {
                         debug_log(&format!("ERROR: Failed to create task: {}", e));
@@ -90,6 +104,8 @@ pub async fn handle_edit_modal(
                 match api_client_guard.update_task_with_magic(task_id.unwrap(), &input).await {
                     Ok(task) => {
                         debug_log(&format!("SUCCESS: Task updated successfully! ID: {:?}, Title: '{}'", task.id, task.title));
+                        app.flash_task_id = task.id.map(|id| id as i64);
+                        app.flash_start = Some(std::time::Instant::now());
                         // Refresh tasks list
                         drop(api_client_guard);
                         let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();

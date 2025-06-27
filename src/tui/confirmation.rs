@@ -34,6 +34,14 @@ pub async fn handle_confirmation_dialog(
                     app.project_map = project_map;
                     app.project_colors = project_colors;
                     app.apply_task_filter();
+
+                    // Flash the row for the next selected task (if any)
+                    if let Some(task) = app.tasks.get(app.selected_task_index) {
+                        app.flash_task_id = Some(task.id);
+                        app.flash_start = Some(std::time::Instant::now());
+                    }
+                    app.flash_cycle_count = 0;
+                    app.flash_cycle_max = 6;
                 }
             }
         },

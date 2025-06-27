@@ -79,6 +79,11 @@ pub struct App {
     pub selected_filter_picker_index: usize,
     pub current_filter_id: Option<i64>,
     pub refreshing: bool, // Indicates if a refresh is in progress
+    // Flash effect for task row
+    pub flash_task_id: Option<i64>,
+    pub flash_start: Option<std::time::Instant>,
+    pub flash_cycle_count: u8, // Number of completed flash cycles
+    pub flash_cycle_max: u8,   // Max cycles to flash
 }
 
 impl App {
@@ -119,6 +124,10 @@ impl App {
             selected_filter_picker_index: 0,
             current_filter_id: None,
             refreshing: false,
+            flash_task_id: None,
+            flash_start: None,
+            flash_cycle_count: 0,
+            flash_cycle_max: 6, // 3 full on/off cycles (6 states)
         }
     }
 
@@ -364,6 +373,12 @@ impl App {
                     self.selected_task_index = self.tasks.len() - 1;
                 }
             }
+
+            // Flash the toggled row
+            self.flash_task_id = Some(task_id);
+            self.flash_start = Some(std::time::Instant::now());
+            self.flash_cycle_count = 0;
+            self.flash_cycle_max = 6;
             
             Some(task_id)
         } else {

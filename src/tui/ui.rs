@@ -149,9 +149,45 @@ fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
 
         let mut row = Row::new(vec![title_cell, project_cell, labels_cell]);
         
+        // Flash effect: highlight row if task matches flash_task_id and flash_start is recent
+        let flash_duration = std::time::Duration::from_millis(200);
+        // Multi-cycle flash effect: alternate color every 50ms, up to flash_cycle_max
+        let mut is_flash = false;
+        // Simulated fade: alternate between project color and lighter/darker version
+        let mut flash_bg = None;
+        if let (Some(flash_id), Some(start)) = (app.flash_task_id, app.flash_start) {
+            if task.id == flash_id {
+                let elapsed = start.elapsed().as_millis() as u64;
+                let cycle = (elapsed / 50) as u8;
+                if cycle < app.flash_cycle_max {
+                    // Simulate fade: use lighter project color for even cycles, normal for odd
+                    let base = match project_color {
+                        Color::Rgb(r, g, b) => (r, g, b),
+                        _ => (255, 255, 0), // fallback to yellow
+                    };
+                    let fade = if cycle % 2 == 0 {
+                        (
+                            (((base.0 as u16 + 255) / 2) as u8),
+                            (((base.1 as u16 + 255) / 2) as u8),
+                            (((base.2 as u16 + 255) / 2) as u8),
+                        )
+                    } else {
+                        (base.0, base.1, base.2)
+                    };
+                    flash_bg = Some(Color::Rgb(fade.0, fade.1, fade.2));
+                }
+            }
+        }
+
         // Highlight the selected row
         if i == app.selected_task_index {
-            row = row.style(Style::default().bg(Color::DarkGray));
+            if let Some(bg) = flash_bg {
+                row = row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD));
+            } else {
+                row = row.style(Style::default().bg(Color::DarkGray));
+            }
+        } else if let Some(bg) = flash_bg {
+            row = row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD));
         }
         
         row
