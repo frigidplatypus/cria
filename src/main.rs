@@ -68,9 +68,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         debug_log("No tasks returned from API");
     }
-    // Fetch saved filters (views) from Vikunja API
-    let filters = client_clone.lock().await.get_saved_filters().await.unwrap_or_default();
-    debug_log(&format!("Fetched {} saved filters from API", filters.len()));
+    // Populate saved filters (views) from negative project IDs
+    let filters: Vec<(i64, String)> = project_map.iter()
+        .filter(|(id, _)| **id < 0)
+        .map(|(id, name)| (*id, name.clone()))
+        .collect();
+    debug_log(&format!("Populated {} saved filters from negative project IDs", filters.len()));
     {
         let mut app_guard = app.lock().await;
         app_guard.update_all_tasks(tasks);
@@ -88,6 +91,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         debug_log(&format!("App initial tasks: {:?}", app_guard.tasks));
         debug_log(&format!("App initial filters: {:?}", app_guard.filters));
         debug_log(&format!("App initial project_map: {:?}", app_guard.project_map));
+        debug_log(&format!("App filters after set_filters: {:?}", app_guard.filters));
+        debug_log(&format!("App filtered_filters after set_filters: {:?}", app_guard.filtered_filters));
+        debug_log(&format!("App filter_picker_input: {:?}", app_guard.filter_picker_input));
+        debug_log(&format!("App selected_filter_picker_index: {}", app_guard.selected_filter_picker_index));
     }
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
@@ -289,6 +296,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         },
                         _ => {},
                     }
+                } else if app_guard.show_filter_picker {
+                    match key.code {
+                        KeyCode::Esc => {
+                            app_guard.hide_filter_picker();
+                        },
+                        KeyCode::Enter => {
+                            app_guard.select_filter_picker();
+                        },
+                        KeyCode::Backspace => {
+                            app_guard.delete_char_from_filter_picker();
+                        },
+                        KeyCode::Up => {
+                            app_guard.move_filter_picker_up();
+                        },
+                        KeyCode::Down => {
+                            app_guard.move_filter_picker_down();
+                        },
+                        KeyCode::Char(c) => {
+                            app_guard.add_char_to_filter_picker(c);
+                        },
+                        _ => {},
+                    }
                 } else {
                     // Main app key handling (outside modals)
                     match key.code {
@@ -309,7 +338,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             app_guard.previous_task();
                         },
                         KeyCode::Char('f') => {
-                            app_guard.show_filter_picker = true;
+                            app_guard.show_filter_picker();
                         },
                         KeyCode::Char('a') => {
                             app_guard.show_quick_add_modal = true;
@@ -318,7 +347,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             app_guard.show_edit_modal = true;
                         },
                         KeyCode::Char('p') => {
-                            app_guard.show_project_picker = true;
+                            app_guard.show_project_picker();
                         },
                         _ => {}
                     }

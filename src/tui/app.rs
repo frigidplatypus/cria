@@ -747,9 +747,10 @@ impl App {
         }
     }
 
-    // Set the list of saved filters (called after fetching from API)
+    /// Set the list of saved filters (called after fetching from API or project_map)
     pub fn set_filters(&mut self, filters: Vec<(i64, String)>) {
-        self.filters = filters;
+        // Only keep negative IDs (filter views)
+        self.filters = filters.into_iter().filter(|(id, _)| *id < 0).collect();
         self.update_filtered_filters();
         self.selected_filter_picker_index = 0;
     }

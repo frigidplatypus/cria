@@ -542,7 +542,7 @@ impl VikunjaClient {
 
     /// Fetch saved filters (views) from Vikunja API
     pub async fn get_saved_filters(&self) -> ReqwestResult<Vec<(i64, String)>> {
-        let url = format!("{}/api/v1/filter", self.base_url);
+        let url = format!("{}/api/v1/filters", self.base_url); // FIX: use /filters not /filter
         let response = self.client
             .get(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
