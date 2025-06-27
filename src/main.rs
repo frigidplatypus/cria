@@ -160,6 +160,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     KeyCode::Char('p') => {
                         app_guard.show_project_picker();
                     },
+                    KeyCode::Char('r') => {
+                        debug_log("Refresh key pressed");
+                        app_guard.refreshing = true;
+                        drop(app_guard); // Release lock before drawing
+                        {
+                            let app_guard = app.lock().await;
+                            if let Err(e) = terminal.draw(|frame| draw(frame, &app_guard)) {
+                                debug_log(&format!("Error drawing refresh indicator: {}", e));
+                            }
+                        }
+                        // Now do the refresh
+                        let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
+                        let filters: Vec<(i64, String)> = project_map.iter()
+                            .filter(|(id, _)| **id < 0)
+                            .map(|(id, name)| (*id, name.clone()))
+                            .collect();
+                        {
+                            let mut app_guard = app.lock().await;
+                            app_guard.update_all_tasks(tasks);
+                            app_guard.project_map = project_map;
+                            app_guard.project_colors = project_colors;
+                            app_guard.set_filters(filters);
+                            app_guard.refreshing = false;
+                        }
+                        {
+                            let app_guard = app.lock().await;
+                            if let Err(e) = terminal.draw(|frame| draw(frame, &app_guard)) {
+                                debug_log(&format!("Error drawing after refresh: {}", e));
+                            }
+                        }
+                        debug_log("Refreshed tasks, projects, and filters from API");
+                    },
                     KeyCode::Esc => {
                         // Handle Escape globally to close any modal
                         if app_guard.show_quick_add_modal {

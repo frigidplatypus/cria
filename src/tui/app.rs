@@ -78,6 +78,7 @@ pub struct App {
     pub filtered_filters: Vec<(i64, String)>,
     pub selected_filter_picker_index: usize,
     pub current_filter_id: Option<i64>,
+    pub refreshing: bool, // Indicates if a refresh is in progress
 }
 
 impl App {
@@ -117,6 +118,7 @@ impl App {
             filtered_filters: Vec::new(),
             selected_filter_picker_index: 0,
             current_filter_id: None,
+            refreshing: false,
         }
     }
 

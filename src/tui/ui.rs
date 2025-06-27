@@ -78,6 +78,21 @@ pub fn draw(f: &mut Frame, app: &App) {
     } else if app.show_filter_picker {
         draw_filter_picker_modal(f, app);
     }
+
+    // Draw refreshing indicator if refreshing
+    if app.refreshing {
+        let refresh_area = Rect {
+            x: 0,
+            y: f.size().height.saturating_sub(1),
+            width: f.size().width,
+            height: 1,
+        };
+        let refresh_msg = Paragraph::new("Refreshing...")
+            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+        f.render_widget(Clear, refresh_area);
+        f.render_widget(refresh_msg, refresh_area);
+    }
 }
 
 fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
