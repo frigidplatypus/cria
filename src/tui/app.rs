@@ -63,6 +63,19 @@ pub struct App {
     pub pending_action: Option<PendingAction>,
     // Task filtering
     pub task_filter: TaskFilter,
+    // Project picker modal state
+    pub show_project_picker: bool,
+    pub project_picker_input: String,
+    pub filtered_projects: Vec<(i64, String)>, // (project_id, name)
+    pub selected_project_picker_index: usize,
+    pub current_project_id: Option<i64>,
+    // Saved filter picker modal state
+    pub show_filter_picker: bool,
+    pub filter_picker_input: String,
+    pub filters: Vec<(i64, String)>, // (filter_id, title)
+    pub filtered_filters: Vec<(i64, String)>,
+    pub selected_filter_picker_index: usize,
+    pub current_filter_id: Option<i64>,
 }
 
 impl App {
@@ -91,6 +104,17 @@ impl App {
             confirmation_message: String::new(),
             pending_action: None,
             task_filter: TaskFilter::ActiveOnly,
+            show_project_picker: false,
+            project_picker_input: String::new(),
+            filtered_projects: Vec::new(),
+            selected_project_picker_index: 0,
+            current_project_id: None,
+            show_filter_picker: false,
+            filter_picker_input: String::new(),
+            filters: Vec::new(),
+            filtered_filters: Vec::new(),
+            selected_filter_picker_index: 0,
+            current_filter_id: None,
         }
     }
 
@@ -174,10 +198,18 @@ impl App {
     }
 
     pub fn add_debug_message(&mut self, message: String) {
-        self.debug_messages.push((Local::now(), message));
+        use std::fs::OpenOptions;
+        use std::io::Write;
+        let now = Local::now();
+        self.debug_messages.push((now, message.clone()));
         // Keep only the last 100 messages to prevent memory issues
         if self.debug_messages.len() > 100 {
             self.debug_messages.remove(0);
+        }
+        // Write to logfile
+        let log_line = format!("{}: {}\n", now.format("%Y-%m-%d %H:%M:%S"), message);
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open("cria_debug.log") {
+            let _ = file.write_all(log_line.as_bytes());
         }
     }
 
@@ -534,5 +566,198 @@ impl App {
     
     pub fn should_hide_completed_immediately(&self) -> bool {
         matches!(self.task_filter, TaskFilter::ActiveOnly)
+    }
+
+    // Project picker modal methods
+    pub fn show_project_picker(&mut self) {
+        self.show_project_picker = true;
+        self.project_picker_input.clear();
+        self.update_filtered_projects();
+        self.selected_project_picker_index = 0;
+    }
+
+    pub fn hide_project_picker(&mut self) {
+        self.show_project_picker = false;
+        self.project_picker_input.clear();
+    }
+
+    pub fn add_char_to_project_picker(&mut self, c: char) {
+        self.project_picker_input.push(c);
+        self.update_filtered_projects();
+        self.selected_project_picker_index = 0;
+    }
+
+    pub fn delete_char_from_project_picker(&mut self) {
+        self.project_picker_input.pop();
+        self.update_filtered_projects();
+        self.selected_project_picker_index = 0;
+    }
+
+    pub fn move_project_picker_up(&mut self) {
+        if self.selected_project_picker_index > 0 {
+            self.selected_project_picker_index -= 1;
+        }
+    }
+
+    pub fn move_project_picker_down(&mut self) {
+        if self.selected_project_picker_index + 1 < self.filtered_projects.len() {
+            self.selected_project_picker_index += 1;
+        }
+    }
+
+    pub fn select_project_picker(&mut self) {
+        if let Some((id, _)) = self.filtered_projects.get(self.selected_project_picker_index) {
+            if *id == -1 {
+                self.current_project_id = None;
+            } else {
+                self.current_project_id = Some(*id);
+            }
+            self.apply_project_filter();
+            self.hide_project_picker();
+        }
+    }
+
+    pub fn update_filtered_projects(&mut self) {
+        let query = self.project_picker_input.to_lowercase();
+        let mut projects: Vec<_> = self.project_map.iter()
+            .filter(|(id, _)| **id > 0)
+            .map(|(id, name)| (*id, name.clone()))
+            .collect();
+        if !query.is_empty() {
+            projects.retain(|(_, name)| name.to_lowercase().contains(&query));
+        }
+        projects.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
+        if query.is_empty() {
+            self.filtered_projects = vec![(-1, "All Projects".to_string())];
+            self.filtered_projects.extend(projects);
+        } else {
+            self.filtered_projects = projects;
+        }
+    }
+
+    pub fn apply_project_filter(&mut self) {
+        if let Some(pid) = self.current_project_id {
+            // Filter by project AND current task filter (e.g., hide completed)
+            self.tasks = self.all_tasks.iter()
+                .filter(|t| t.project_id == pid)
+                .filter(|t| match self.task_filter {
+                    TaskFilter::ActiveOnly => !t.done,
+                    TaskFilter::All => true,
+                    TaskFilter::CompletedOnly => t.done,
+                })
+                .cloned()
+                .collect();
+        } else {
+            self.apply_task_filter();
+        }
+        self.selected_task_index = 0;
+    }
+
+    pub fn get_current_project_name(&self) -> String {
+        if let Some(pid) = self.current_project_id {
+            self.project_map.get(&pid).cloned().unwrap_or_else(|| "Unknown Project".to_string())
+        } else {
+            "All Projects".to_string()
+        }
+    }
+
+    // Saved filter picker modal methods
+    pub fn show_filter_picker(&mut self) {
+        self.show_filter_picker = true;
+        self.filter_picker_input.clear();
+        self.update_filtered_filters();
+        self.selected_filter_picker_index = 0;
+    }
+
+    pub fn hide_filter_picker(&mut self) {
+        self.show_filter_picker = false;
+        self.filter_picker_input.clear();
+    }
+
+    pub fn add_char_to_filter_picker(&mut self, c: char) {
+        self.filter_picker_input.push(c);
+        self.update_filtered_filters();
+        self.selected_filter_picker_index = 0;
+    }
+
+    pub fn delete_char_from_filter_picker(&mut self) {
+        self.filter_picker_input.pop();
+        self.update_filtered_filters();
+        self.selected_filter_picker_index = 0;
+    }
+
+    pub fn move_filter_picker_up(&mut self) {
+        if self.selected_filter_picker_index > 0 {
+            self.selected_filter_picker_index -= 1;
+        }
+    }
+
+    pub fn move_filter_picker_down(&mut self) {
+        if self.selected_filter_picker_index + 1 < self.filtered_filters.len() {
+            self.selected_filter_picker_index += 1;
+        }
+    }
+
+    pub fn select_filter_picker(&mut self) {
+        if let Some((id, _)) = self.filtered_filters.get(self.selected_filter_picker_index) {
+            if *id == -1 {
+                self.current_filter_id = None;
+            } else {
+                self.current_filter_id = Some(*id);
+            }
+            self.apply_filter();
+            self.hide_filter_picker();
+        }
+    }
+
+    pub fn update_filtered_filters(&mut self) {
+        let query = self.filter_picker_input.to_lowercase();
+        let mut filters: Vec<_> = self.filters.iter()
+            .filter(|(id, _)| *id > 0)
+            .map(|(id, title)| (*id, title.clone()))
+            .collect();
+        if !query.is_empty() {
+            filters.retain(|(_, title)| title.to_lowercase().contains(&query));
+        }
+        filters.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
+        if query.is_empty() {
+            self.filtered_filters = vec![(-1, "No Filter".to_string())];
+            self.filtered_filters.extend(filters);
+        } else {
+            self.filtered_filters = filters;
+        }
+    }
+
+    pub fn apply_filter(&mut self) {
+        if let Some(fid) = self.current_filter_id {
+            // Apply the saved filter logic here
+            // This is a placeholder for the actual filter application code
+            self.add_debug_message(format!("Applied filter ID: {}", fid));
+        } else {
+            self.apply_task_filter();
+        }
+        self.selected_task_index = 0;
+    }
+
+    pub fn get_current_filter_name(&self) -> String {
+        if let Some(fid) = self.current_filter_id {
+            self.filters.iter().find(|(id, _)| *id == fid).map(|(_, title)| title.clone()).unwrap_or_else(|| "Unknown Filter".to_string())
+        } else {
+            "No Filter".to_string()
+        }
+    }
+
+    // Set the list of saved filters (called after fetching from API)
+    pub fn set_filters(&mut self, filters: Vec<(i64, String)>) {
+        self.filters = filters;
+        self.update_filtered_filters();
+        self.selected_filter_picker_index = 0;
+    }
+
+    // Update tasks after fetching for a saved filter
+    pub fn apply_filter_tasks(&mut self, tasks: Vec<Task>) {
+        self.all_tasks = tasks;
+        self.apply_task_filter();
+        self.selected_task_index = 0;
     }
 }

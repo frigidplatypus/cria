@@ -35,7 +35,7 @@ pub struct VikunjaUser {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VikunjaProject {
-    pub id: u64,
+    pub id: i64, // Changed from u64 to i64 to support negative IDs
     pub title: String,
 }
 
@@ -103,26 +103,33 @@ impl VikunjaClient {
                  parsed.title, parsed.labels, parsed.project, parsed.priority));
         
         // Step 1: Determine project ID
+        if let Some(project_name) = &parsed.project {
+            debug_log(&format!("Magic syntax project: '{}'. Attempting lookup...", project_name));
+        } else {
+            debug_log("No project specified in magic syntax.");
+        }
         let project_id = if let Some(project_name) = &parsed.project {
-            debug_log(&format!("Looking up project: '{}'", project_name));
+            debug_log(&format!("Looking up project: '{}'.", project_name));
             match self.find_or_get_project_id(project_name).await {
                 Ok(Some(id)) => {
-                    debug_log(&format!("Found project ID: {}", id));
+                    debug_log(&format!("Found project ID: {} for project '{}'.", id, project_name));
                     id
                 }
                 Ok(None) => {
-                    debug_log(&format!("Project '{}' not found, using default: {}", project_name, default_project_id));
-                    default_project_id
+                    debug_log(&format!("Project '{}' not found, using default: {}.", project_name, default_project_id));
+                    default_project_id.try_into().unwrap()
                 }
                 Err(e) => {
-                    debug_log(&format!("Error looking up project: {}, using default: {}", e, default_project_id));
-                    default_project_id
+                    debug_log(&format!("Error looking up project '{}': {}. Using default: {}.", project_name, e, default_project_id));
+                    default_project_id.try_into().unwrap()
                 }
             }
         } else {
-            debug_log(&format!("No project specified, using default: {}", default_project_id));
-            default_project_id
+            debug_log(&format!("No project specified, using default: {}.", default_project_id));
+            default_project_id.try_into().unwrap()
         };
+
+        debug_log(&format!("Final project_id to use: {}", project_id));
 
         // Step 2: Create the basic task
         let task = VikunjaTask {
@@ -132,7 +139,7 @@ impl VikunjaClient {
             done: Some(false),
             priority: parsed.priority,
             due_date: parsed.due_date,
-            project_id,
+            project_id: project_id.try_into().unwrap(),
             labels: None,
             assignees: None,
         };
@@ -233,19 +240,30 @@ impl VikunjaClient {
         response.json().await
     }
 
-    async fn find_or_get_project_id(&self, project_name: &str) -> ReqwestResult<Option<u64>> {
+    async fn find_or_get_project_id(&self, project_name: &str) -> ReqwestResult<Option<i64>> {
         let url = format!("{}/api/v1/projects", self.base_url);
-        
+        let normalized_input = project_name.trim().to_ascii_lowercase();
+        debug_log(&format!("Looking for project: '{}' (normalized: '{}')", project_name, normalized_input));
+
         let response = self.client
             .get(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
             .send()
             .await?;
 
-        let projects: Vec<VikunjaProject> = response.json().await?;
-        
+        let text = response.text().await?;
+        debug_log(&format!("Raw project list response: {}", text));
+        let projects: Vec<VikunjaProject> = match serde_json::from_str(&text) {
+            Ok(projects) => projects,
+            Err(e) => {
+                debug_log(&format!("Failed to decode project list: {}", e));
+                return Ok(None);
+            }
+        };
+        debug_log(&format!("Available projects: {:?}", projects.iter().map(|p| format!("{} (id={})", p.title, p.id)).collect::<Vec<_>>()));
         Ok(projects.iter()
-            .find(|p| p.title.eq_ignore_ascii_case(project_name))
+            .filter(|p| p.id > 0) // Only real projects, not saved views
+            .find(|p| p.title.trim().to_ascii_lowercase() == normalized_input)
             .map(|p| p.id))
     }
 
@@ -358,7 +376,7 @@ impl VikunjaClient {
         
         // Step 2: Determine project ID
         let project_id = if let Some(project_name) = &parsed.project {
-            debug_log(&format!("Looking up project: '{}'", project_name));
+            debug_log(&format!("Looking up project: '{}', current: {}.", project_name, current_task.project_id));
             match self.find_or_get_project_id(project_name).await {
                 Ok(Some(id)) => {
                     debug_log(&format!("Found project ID: {}", id));
@@ -366,16 +384,16 @@ impl VikunjaClient {
                 }
                 Ok(None) => {
                     debug_log(&format!("Project '{}' not found, keeping current: {}", project_name, current_task.project_id));
-                    current_task.project_id
+                    current_task.project_id.try_into().unwrap()
                 }
                 Err(e) => {
                     debug_log(&format!("Error looking up project: {}, keeping current: {}", e, current_task.project_id));
-                    current_task.project_id
+                    current_task.project_id.try_into().unwrap()
                 }
             }
         } else {
             debug_log(&format!("No project specified, keeping current: {}", current_task.project_id));
-            current_task.project_id
+            current_task.project_id.try_into().unwrap()
         };
 
         // Step 3: Update the basic task fields
@@ -386,7 +404,7 @@ impl VikunjaClient {
             done: current_task.done, // Preserve done status
             priority: parsed.priority.or(current_task.priority), // Use new priority if provided, otherwise keep current
             due_date: parsed.due_date.or(current_task.due_date), // Use new due date if provided, otherwise keep current
-            project_id,
+            project_id: project_id.try_into().unwrap(),
             labels: None, // Will be handled separately
             assignees: None, // Will be handled separately
         };
@@ -522,86 +540,90 @@ impl VikunjaClient {
         Ok(())
     }
 
-    // Update task completion status
-    pub async fn update_task_completion(&self, task_id: i64, done: bool) -> ReqwestResult<VikunjaTask> {
-        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
-        debug_log(&format!("Updating task {} completion to: {}", task_id, done));
-        
-        // Create minimal task update payload
-        let task_update = serde_json::json!({
-            "done": done
-        });
-        
+    /// Fetch saved filters (views) from Vikunja API
+    pub async fn get_saved_filters(&self) -> ReqwestResult<Vec<(i64, String)>> {
+        let url = format!("{}/api/v1/filter", self.base_url);
         let response = self.client
-            .post(&url)
+            .get(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
-            .json(&task_update)
             .send()
-            .await;
-
-        match response {
-            Ok(resp) => {
-                let status = resp.status();
-                debug_log(&format!("Response status: {}", status));
-                
-                if resp.status().is_success() {
-                    let result = resp.json::<VikunjaTask>().await;
-                    match &result {
-                        Ok(updated_task) => {
-                            debug_log(&format!("Successfully updated task completion: {:?}", updated_task));
-                        }
-                        Err(e) => {
-                            debug_log(&format!("Failed to parse response JSON: {}", e));
-                        }
-                    }
-                    result
-                } else {
-                    let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                    debug_log(&format!("API error response ({}): {}", status, error_text));
-                    // Return a connection error since we can't easily create custom reqwest errors
-                    let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
-                    Err(fake_response.unwrap_err())
-                }
-            },
-            Err(e) => {
-                debug_log(&format!("Request failed with error: {:?}", e));
-                Err(e)
-            }
-        }
+            .await?;
+        #[derive(serde::Deserialize)]
+        struct Filter { id: i64, title: String }
+        let filters: Vec<Filter> = response.json().await?;
+        Ok(filters.into_iter().map(|f| (f.id, f.title)).collect())
     }
 
-    // Delete a task
-    pub async fn delete_task(&self, task_id: i64) -> ReqwestResult<()> {
-        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
-        debug_log(&format!("Deleting task with ID: {}", task_id));
-        
+    /// Fetch tasks for a saved filter (view) from Vikunja API
+    pub async fn get_tasks_for_filter(&self, filter_id: i64) -> ReqwestResult<Vec<crate::vikunja::models::Task>> {
+        let url = format!("{}/api/v1/filter/{}/tasks", self.base_url, filter_id);
         let response = self.client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .send()
+            .await?;
+        let tasks: Vec<crate::vikunja::models::Task> = response.json().await?;
+        Ok(tasks)
+    }
+
+    /// Fetch all tasks, project names, and project colors (hex) as required by the TUI app
+    pub async fn get_tasks_with_projects(&self) -> Result<(
+        Vec<crate::vikunja::models::Task>,
+        std::collections::HashMap<i64, String>,
+        std::collections::HashMap<i64, String>,
+    ), reqwest::Error> {
+        // Fetch projects
+        let url = format!("{}/api/v1/projects", self.base_url);
+        let projects_resp = self.client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .send()
+            .await?;
+        let projects: Vec<crate::vikunja::models::Project> = projects_resp.json().await?;
+
+        // Build project_map and project_colors
+        let mut project_map = std::collections::HashMap::new();
+        let mut project_colors = std::collections::HashMap::new();
+        for project in &projects {
+            project_map.insert(project.id, project.title.clone());
+            project_colors.insert(project.id, project.hex_color.clone());
+        }
+
+        // Fetch all tasks
+        let url = format!("{}/api/v1/tasks/all", self.base_url);
+        let tasks_resp = self.client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .send()
+            .await?;
+        let tasks: Vec<crate::vikunja::models::Task> = tasks_resp.json().await?;
+
+        Ok((tasks, project_map, project_colors))
+    }
+
+    /// Delete a task by ID
+    pub async fn delete_task(&self, task_id: i64) -> Result<(), reqwest::Error> {
+        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
+        self.client
             .delete(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
             .send()
-            .await;
+            .await?;
+        Ok(())
+    }
 
-        match response {
-            Ok(resp) => {
-                let status = resp.status();
-                debug_log(&format!("Response status: {}", status));
-                
-                if resp.status().is_success() {
-                    debug_log(&format!("Successfully deleted task: {}", task_id));
-                    Ok(())
-                } else {
-                    let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                    debug_log(&format!("API error response ({}): {}", status, error_text));
-                    // Return a connection error since we can't easily create custom reqwest errors
-                    let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
-                    Err(fake_response.unwrap_err())
-                }
-            },
-            Err(e) => {
-                debug_log(&format!("Request failed with error: {:?}", e));
-                Err(e)
-            }
-        }
+    /// Update a task's completion state
+    pub async fn update_task_completion(&self, task_id: i64, done: bool) -> Result<(), reqwest::Error> {
+        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
+        let mut map = HashMap::new();
+        map.insert("done", done);
+        self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .json(&map)
+            .send()
+            .await?;
+        Ok(())
     }
 }
 

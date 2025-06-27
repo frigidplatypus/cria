@@ -27,6 +27,17 @@ fn hex_to_color(hex: &str) -> Color {
 }
 
 pub fn draw(f: &mut Frame, app: &App) {
+    // Draw header with current project
+    let header = Paragraph::new(vec![Line::from(vec![
+        Span::styled("Project: ", Style::default().add_modifier(Modifier::BOLD)),
+        Span::styled(app.get_current_project_name(), Style::default().fg(Color::Cyan)),
+    ])])
+    .block(Block::default().borders(Borders::ALL).title("cria"))
+    .alignment(Alignment::Center);
+    let header_area = Rect { x: 0, y: 0, width: f.size().width, height: 3 };
+    f.render_widget(header, header_area);
+    let body_area = Rect { x: 0, y: 3, width: f.size().width, height: f.size().height.saturating_sub(3) };
+
     let _main_layout = if app.show_debug_pane {
         // Three-pane layout: tasks | info | debug
         let horizontal_chunks = Layout::default()
@@ -36,35 +47,36 @@ pub fn draw(f: &mut Frame, app: &App) {
                 Constraint::Percentage(30),  // Info
                 Constraint::Percentage(30),  // Debug
             ])
-            .split(f.size());
-        
+            .split(body_area);
         draw_tasks_table(f, app, horizontal_chunks[0]);
         if app.show_info_pane {
             draw_task_details(f, app, horizontal_chunks[1]);
         }
         draw_debug_pane(f, app, horizontal_chunks[2]);
-        
     } else if app.show_info_pane {
         // Two-pane layout: tasks | info
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(60), Constraint::Percentage(40)].as_ref())
-            .split(f.size());
-        
+            .split(body_area);
         draw_tasks_table(f, app, chunks[0]);
         draw_task_details(f, app, chunks[1]);
     } else {
         // Single pane: just tasks
-        draw_tasks_table(f, app, f.size());
+        draw_tasks_table(f, app, body_area);
     };
 
     // Draw modal on top if active
-    if app.show_quick_add_modal {
+    if app.show_project_picker {
+        draw_project_picker_modal(f, app);
+    } else if app.show_quick_add_modal {
         draw_quick_add_modal(f, app);
     } else if app.show_edit_modal {
         draw_edit_modal(f, app);
     } else if app.show_confirmation_dialog {
         draw_confirmation_dialog(f, app);
+    } else if app.show_filter_picker {
+        draw_filter_picker_modal(f, app);
     }
 }
 
@@ -558,6 +570,113 @@ fn draw_debug_pane(f: &mut Frame, app: &App, area: Rect) {
         .scroll((0, 0));
 
     f.render_widget(debug_paragraph, area);
+}
+
+fn draw_project_picker_modal(f: &mut Frame, app: &App) {
+    let area = f.size();
+    let modal_width = (area.width as f32 * 0.6) as u16;
+    let modal_height = (area.height as f32 * 0.7) as u16;
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    let modal_area = Rect { x, y, width: modal_width, height: modal_height };
+    f.render_widget(Clear, modal_area);
+    let modal_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // Input
+            Constraint::Min(3),   // List
+        ])
+        .split(modal_area);
+    // Input field
+    let input_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Filter Projects (type to search)")
+        .title_alignment(Alignment::Center)
+        .style(Style::default().fg(Color::Magenta));
+    let input_paragraph = Paragraph::new(app.project_picker_input.as_str())
+        .block(input_block)
+        .style(Style::default().fg(Color::Yellow));
+    f.render_widget(input_paragraph, modal_chunks[0]);
+    // Project list
+    let mut project_lines = Vec::new();
+    for (i, (pid, name)) in app.filtered_projects.iter().enumerate() {
+        let is_selected = i == app.selected_project_picker_index;
+        let color = if *pid == -1 {
+            Color::Cyan
+        } else {
+            app.project_colors.get(pid).map(|hex| hex_to_color(hex)).unwrap_or(Color::White)
+        };
+        let mut style = Style::default().fg(color);
+        if is_selected {
+            style = style.add_modifier(Modifier::REVERSED | Modifier::BOLD);
+        }
+        project_lines.push(Line::from(vec![Span::styled(name, style)]));
+    }
+    let list_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Select Project (Enter to confirm, Esc to cancel)")
+        .title_alignment(Alignment::Center);
+    let list_paragraph = Paragraph::new(project_lines)
+        .block(list_block)
+        .wrap(Wrap { trim: false });
+    f.render_widget(list_paragraph, modal_chunks[1]);
+    // Position cursor in input
+    let cursor_x = modal_chunks[0].x + 1 + app.project_picker_input.len() as u16;
+    let cursor_y = modal_chunks[0].y + 1;
+    if cursor_x < modal_chunks[0].x + modal_chunks[0].width - 1 {
+        f.set_cursor(cursor_x, cursor_y);
+    }
+}
+
+pub fn draw_filter_picker_modal(f: &mut Frame, app: &App) {
+    let area = f.size();
+    let modal_width = (area.width as f32 * 0.6) as u16;
+    let modal_height = (area.height as f32 * 0.7) as u16;
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    let modal_area = Rect { x, y, width: modal_width, height: modal_height };
+    f.render_widget(Clear, modal_area);
+    let modal_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // Input
+            Constraint::Min(3),   // List
+        ])
+        .split(modal_area);
+    // Input field
+    let input_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Filter Saved Views (type to search)")
+        .title_alignment(Alignment::Center)
+        .style(Style::default().fg(Color::Magenta));
+    let input_paragraph = Paragraph::new(app.filter_picker_input.as_str())
+        .block(input_block)
+        .style(Style::default().fg(Color::Yellow));
+    f.render_widget(input_paragraph, modal_chunks[0]);
+    // Filter list
+    let mut filter_lines = Vec::new();
+    for (i, (_, title)) in app.filtered_filters.iter().enumerate() {
+        let is_selected = i == app.selected_filter_picker_index;
+        let mut style = Style::default().fg(Color::Cyan);
+        if is_selected {
+            style = style.add_modifier(Modifier::REVERSED | Modifier::BOLD);
+        }
+        filter_lines.push(Line::from(vec![Span::styled(title, style)]));
+    }
+    let list_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Select Saved Filter (Enter to confirm, Esc to cancel)")
+        .title_alignment(Alignment::Center);
+    let list_paragraph = Paragraph::new(filter_lines)
+        .block(list_block)
+        .wrap(Wrap { trim: false });
+    f.render_widget(list_paragraph, modal_chunks[1]);
+    // Position cursor in input
+    let cursor_x = modal_chunks[0].x + 1 + app.filter_picker_input.len() as u16;
+    let cursor_y = modal_chunks[0].y + 1;
+    if cursor_x < modal_chunks[0].x + modal_chunks[0].width - 1 {
+        f.set_cursor(cursor_x, cursor_y);
+    }
 }
 
 fn get_task_icons(task: &crate::vikunja::models::Task) -> Vec<Span> {

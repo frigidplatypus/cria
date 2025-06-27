@@ -15,7 +15,6 @@ mod debug;
 use crate::tui::app::App;
 use crate::tui::events::{Event, EventHandler};
 use crate::tui::ui::draw;
-use crate::vikunja::client::VikunjaClient;
 use crate::vikunja_client::VikunjaClient as ApiClient;
 use crate::debug::debug_log;
 
@@ -31,11 +30,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     debug_log(&format!("  VIKUNJA_TOKEN: {:?}", std::env::var("VIKUNJA_TOKEN").map(|t| format!("{}...", &t[..t.len().min(8)]))));
     debug_log(&format!("  VIKUNJA_DEFAULT_PROJECT: {:?}", std::env::var("VIKUNJA_DEFAULT_PROJECT")));
 
-    let client = VikunjaClient::new();
     let api_client = Arc::new(Mutex::new(
         ApiClient::new(
-            std::env::var("VIKUNJA_URL").unwrap_or_else(|_| "http://localhost:3456".to_string()),
-            std::env::var("VIKUNJA_TOKEN").unwrap_or_else(|_| "demo-token".to_string())
+            std::env::var("VIKUNJA_API_URL").unwrap_or_else(|_| "http://localhost:3456/api/v1".to_string()),
+            std::env::var("VIKUNJA_API_TOKEN").unwrap_or_else(|_| "demo-token".to_string())
         )
     ));
     
@@ -60,15 +58,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let event_handler = EventHandler::new(250);
 
-    let client_clone = client.clone();
+    let client_clone = api_client.clone();
 
     // Load tasks and projects before starting the UI
-    let (tasks, project_map, project_colors) = client_clone.get_tasks_with_projects().await.unwrap_or_default();
+    let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
+    debug_log(&format!("Fetched {} tasks from API", tasks.len()));
+    if let Some(first) = tasks.get(0) {
+        debug_log(&format!("First task: {:?}", first));
+    } else {
+        debug_log("No tasks returned from API");
+    }
+    // Fetch saved filters (views) from Vikunja API
+    let filters = client_clone.lock().await.get_saved_filters().await.unwrap_or_default();
+    debug_log(&format!("Fetched {} saved filters from API", filters.len()));
     {
         let mut app_guard = app.lock().await;
         app_guard.update_all_tasks(tasks);
         app_guard.project_map = project_map;
         app_guard.project_colors = project_colors;
+        app_guard.set_filters(filters);
+        debug_log(&format!("App all_tasks count: {}", app_guard.all_tasks.len()));
+        debug_log(&format!("App tasks count after filter: {}", app_guard.tasks.len()));
+        debug_log(&format!("App project_map: {:?}", app_guard.project_map));
+        debug_log(&format!("App filters: {:?}", app_guard.filters));
+        debug_log(&format!("App filtered_filters: {:?}", app_guard.filtered_filters));
+        debug_log(&format!("App filtered_projects: {:?}", app_guard.filtered_projects));
+        debug_log(&format!("App show_project_picker: {} show_filter_picker: {}", app_guard.show_project_picker, app_guard.show_filter_picker));
+        debug_log(&format!("App keybindings: q(quit), d(toggle), D(delete), f(filter), a(add), e(edit), p(project)"));
+        debug_log(&format!("App initial tasks: {:?}", app_guard.tasks));
+        debug_log(&format!("App initial filters: {:?}", app_guard.filters));
+        debug_log(&format!("App initial project_map: {:?}", app_guard.project_map));
     }
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
@@ -84,6 +103,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if key.kind == KeyEventKind::Press {
                 let mut app_guard = app.lock().await;
                 
+                // Handle Escape globally to close any modal
+                if key.code == KeyCode::Esc {
+                    if app_guard.show_quick_add_modal {
+                        app_guard.hide_quick_add_modal();
+                        continue;
+                    }
+                    if app_guard.show_edit_modal {
+                        app_guard.hide_edit_modal();
+                        continue;
+                    }
+                    if app_guard.show_confirmation_dialog {
+                        app_guard.cancel_confirmation();
+                        continue;
+                    }
+                    if app_guard.show_project_picker {
+                        app_guard.hide_project_picker();
+                        continue;
+                    }
+                    if app_guard.show_filter_picker {
+                        app_guard.hide_filter_picker();
+                        continue;
+                    }
+                }
+
                 if app_guard.show_quick_add_modal {
                     // Handle modal input
                     match key.code {
@@ -95,27 +138,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if !input.trim().is_empty() {
                                 debug_log(&format!("Creating task with input: '{}'", input));
                                 app_guard.hide_quick_add_modal();
-                                
                                 // Get default project ID
                                 let default_project_id = std::env::var("VIKUNJA_DEFAULT_PROJECT")
                                     .unwrap_or_else(|_| "1".to_string())
                                     .parse::<u64>()
                                     .unwrap_or(1);
-                                
                                 debug_log(&format!("Using project ID: {}", default_project_id));
                                 debug_log("Calling create_task_with_magic...");
-                                
                                 drop(app_guard);
-                                
                                 // Create task using API client
                                 let api_client_guard = api_client.lock().await;
                                 match api_client_guard.create_task_with_magic(&input, default_project_id).await {
                                     Ok(task) => {
                                         debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
-                                        
                                         // Refresh tasks list
                                         drop(api_client_guard);
-                                        let (tasks, project_map, project_colors) = client_clone.get_tasks_with_projects().await.unwrap_or_default();
+                                        let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
                                         let mut app_guard = app.lock().await;
                                         app_guard.tasks = tasks;
                                         app_guard.project_map = project_map;
@@ -156,18 +194,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if !input.trim().is_empty() && task_id.is_some() {
                                 debug_log(&format!("Updating task ID {} with input: '{}'", task_id.unwrap(), input));
                                 app_guard.hide_edit_modal();
-                                
                                 drop(app_guard);
-                                
                                 // Update task using API client
                                 let api_client_guard = api_client.lock().await;
                                 match api_client_guard.update_task_with_magic(task_id.unwrap(), &input).await {
                                     Ok(task) => {
                                         debug_log(&format!("SUCCESS: Task updated successfully! ID: {:?}, Title: '{}'", task.id, task.title));
-                                        
                                         // Refresh tasks list
                                         drop(api_client_guard);
-                                        let (tasks, project_map, project_colors) = client_clone.get_tasks_with_projects().await.unwrap_or_default();
+                                        let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
                                         let mut app_guard = app.lock().await;
                                         app_guard.tasks = tasks;
                                         app_guard.project_map = project_map;
@@ -190,7 +225,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         },
                         KeyCode::Right => {
                             app_guard.move_edit_cursor_right();
-                        },
+                        }
                         KeyCode::Char(c) => {
                             app_guard.add_char_to_edit(c);
                         },
@@ -218,7 +253,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     
                                     // Refresh tasks list
                                     drop(api_client_guard);
-                                    let (tasks, project_map, project_colors) = client_clone.get_tasks_with_projects().await.unwrap_or_default();
+                                    let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
                                     let mut app_guard = app.lock().await;
                                     app_guard.tasks = tasks;
                                     app_guard.project_map = project_map;
@@ -232,11 +267,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         },
                         _ => {},
                     }
+                } else if app_guard.show_project_picker {
+                    match key.code {
+                        KeyCode::Esc => {
+                            app_guard.hide_project_picker();
+                        },
+                        KeyCode::Enter => {
+                            app_guard.select_project_picker();
+                        },
+                        KeyCode::Backspace => {
+                            app_guard.delete_char_from_project_picker();
+                        },
+                        KeyCode::Up => {
+                            app_guard.move_project_picker_up();
+                        },
+                        KeyCode::Down => {
+                            app_guard.move_project_picker_down();
+                        },
+                        KeyCode::Char(c) => {
+                            app_guard.add_char_to_project_picker(c);
+                        },
+                        _ => {},
+                    }
                 } else {
-                    // Handle normal navigation
+                    // Main app key handling (outside modals)
                     match key.code {
                         KeyCode::Char('q') => {
                             app_guard.quit();
+                            break;
+                        },
+                        KeyCode::Char('d') => {
+                            app_guard.toggle_task_completion();
+                        },
+                        KeyCode::Char('D') => {
+                            app_guard.request_delete_task();
                         },
                         KeyCode::Char('j') => {
                             app_guard.next_task();
@@ -244,83 +308,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         KeyCode::Char('k') => {
                             app_guard.previous_task();
                         },
-                        KeyCode::Char('i') => {
-                            app_guard.toggle_info_pane();
+                        KeyCode::Char('f') => {
+                            app_guard.show_filter_picker = true;
                         },
-                        KeyCode::Char('n') | KeyCode::Char('a') => {
-                            app_guard.show_quick_add_modal();
+                        KeyCode::Char('a') => {
+                            app_guard.show_quick_add_modal = true;
                         },
                         KeyCode::Char('e') => {
-                            app_guard.show_edit_modal();
+                            app_guard.show_edit_modal = true;
                         },
-                        KeyCode::Char('d') => {
-                            // Toggle task completion
-                            if let Some(task_id) = app_guard.toggle_task_completion() {
-                                drop(app_guard);
-                                
-                                // Update task completion via API
-                                let api_client_guard = api_client.lock().await;
-                                let task_clone = {
-                                    let app_guard = app.lock().await;
-                                    app_guard.tasks.iter().find(|t| t.id == task_id).cloned()
-                                };
-                                
-                                if let Some(task) = task_clone {
-                                    if let Err(e) = api_client_guard.update_task_completion(task_id, task.done).await {
-                                        debug_log(&format!("ERROR: Failed to update task completion: {}", e));
-                                    } else {
-                                        debug_log(&format!("Task {} completion updated to {}", task_id, task.done));
-                                    }
-                                }
-                            }
+                        KeyCode::Char('p') => {
+                            app_guard.show_project_picker = true;
                         },
-                        KeyCode::Char('D') => {
-                            app_guard.toggle_debug_pane();
-                        },
-                        KeyCode::Char('f') => {
-                            app_guard.toggle_nerdfont_debug();
-                        },
-                        KeyCode::Char('c') => {
-                            if app_guard.show_debug_pane {
-                                app_guard.clear_debug_messages();
-                            }
-                        },
-                        KeyCode::Char('h') => {
-                            // Toggle task filter (hide/show completed)
-                            app_guard.cycle_task_filter();
-                        },
-                        KeyCode::Char('X') => {
-                            // Request task deletion
-                            app_guard.request_delete_task();
-                        },
-                        KeyCode::Char('U') => {
-                            // Undo last action
-                            if let Some(task_id) = app_guard.undo_last_action() {
-                                debug_log(&format!("Undid action for task ID: {}", task_id));
-                                
-                                // For undo actions that affect API state, we might need to refresh
-                                drop(app_guard);
-                                let (tasks, project_map, project_colors) = client_clone.get_tasks_with_projects().await.unwrap_or_default();
-                                let mut app_guard = app.lock().await;
-                                app_guard.update_all_tasks(tasks);
-                                app_guard.project_map = project_map;
-                                app_guard.project_colors = project_colors;
-                            }
-                        },
-                        _ => {},
+                        _ => {}
                     }
                 }
             }
         }
-
-        let app_guard = app.lock().await;
-        if !app_guard.running {
-            break;
-        }
     }
 
-    stdout().execute(LeaveAlternateScreen)?;
     disable_raw_mode()?;
+    stdout().execute(LeaveAlternateScreen)?;
 
     Ok(())
 }
