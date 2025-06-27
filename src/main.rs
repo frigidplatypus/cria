@@ -161,7 +161,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             app_guard.show_quick_add_modal = true;
                         },
                         KeyCode::Char('e') => {
-                            app_guard.show_edit_modal = true;
+                            app_guard.show_edit_modal();
                         },
                         KeyCode::Char('p') => {
                             app_guard.show_project_picker();
