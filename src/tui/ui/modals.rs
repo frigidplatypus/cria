@@ -84,10 +84,9 @@ pub fn draw_quick_add_modal(f: &mut Frame, app: &App) {
         let max_visible = 4; // Match the visible lines in the UI
         let total = app.suggestions.len();
         let mut start = 0;
-        let mut end = total.min(max_visible);
+        let end = total.min(max_visible);
         if app.selected_suggestion >= end {
             start = app.selected_suggestion + 1 - max_visible;
-            end = app.selected_suggestion + 1;
         }
         let suggestion_lines: Vec<Line> = app.suggestions.iter().enumerate()
             .skip(start)
@@ -268,7 +267,7 @@ pub fn draw_edit_modal(f: &mut Frame, app: &App) {
     f.render_widget(help_paragraph, modal_chunks[1]);
 }
 
-pub fn draw_confirmation_dialog(f: &mut Frame, app: &App) {
+pub fn draw_confirmation_dialog(f: &mut Frame, _app: &App) {
     let area = f.size();
     let modal_width = (area.width as f32 * 0.6) as u16;
     let modal_height = 8;

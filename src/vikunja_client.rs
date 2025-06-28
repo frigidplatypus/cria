@@ -1,9 +1,4 @@
 use reqwest::{Client, Result as ReqwestResult};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::error::Error;
-use chrono::{DateTime, Utc};
-use crate::vikunja_parser::{QuickAddParser};
 use crate::debug::debug_log;
 
 // --- Task-related types and functions ---
@@ -30,7 +25,6 @@ pub struct VikunjaClient {
     client: Client,
     base_url: String,
     auth_token: String,
-    parser: QuickAddParser,
 }
 
 impl VikunjaClient {
@@ -41,7 +35,6 @@ impl VikunjaClient {
             client: Client::new(),
             base_url,
             auth_token,
-            parser: QuickAddParser::new(),
         }
     }
 

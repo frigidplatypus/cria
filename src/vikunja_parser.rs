@@ -14,6 +14,7 @@ pub struct ParsedTask {
     pub repeat_interval: Option<RepeatInterval>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct RepeatInterval {
     pub amount: u32,

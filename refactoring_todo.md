@@ -26,12 +26,19 @@
 - **Benefit:** Each API area is easier to test and extend.
 
 ## 4. Event Handling
-- If event handler files grow, split by modal/picker type:
-  - `tui/modals/quick_add.rs`
-  - `tui/modals/edit.rs`
-  - `tui/pickers/project.rs`
-  - `tui/pickers/filter.rs`
-- **Benefit:** Each handler is focused and easier to maintain.
+- If event handler files grow, split by modal/picker type (✅ done):
+  - `tui/modals/quick_add.rs` (quick add modal event handler)
+  - `tui/modals/edit.rs` (edit modal event handler)
+  - `tui/pickers/project.rs` (project picker event handler)
+  - `tui/pickers/filter.rs` (filter picker event handler)
+- **Benefit:** Each handler is focused, easier to maintain, and can be tested or extended independently.
+- **Post-split:**
+  - [x] Update all imports and re-exports to use new module paths.
+  - [x] Remove old function definitions to avoid duplicates.
+  - [x] Review for unused imports and dead code in both old and new files.
+  - [x] Update module-level comments and documentation to reflect the new structure.
+  - [ ] Continue to monitor and split any new or growing event handler files by type as the codebase evolves.
+  - [ ] Optionally, address remaining non-breaking warnings for a cleaner build.
 
 ## 5. Helpers and Utilities
 - Create a `tui/utils.rs` or `tui/helpers.rs` for:

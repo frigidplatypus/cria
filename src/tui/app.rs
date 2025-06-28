@@ -62,6 +62,7 @@ pub struct App {
     // Debug pane state
     pub show_debug_pane: bool,
     pub debug_messages: Vec<(DateTime<Local>, String)>,
+    #[allow(dead_code)]
     pub show_nerdfont_debug: bool,
     // Undo system
     pub undo_stack: Vec<UndoableAction>,

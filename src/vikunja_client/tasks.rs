@@ -1,15 +1,13 @@
 // Task-related API functions for Vikunja
 // ...will be filled in from vikunja_client.rs...
 
-use reqwest::{Client, Result as ReqwestResult};
+use crate::debug::debug_log;
+use crate::vikunja_client::VikunjaUser;
+use chrono::{DateTime, Utc};
+use reqwest::{Result as ReqwestResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
-use chrono::{DateTime, Utc};
-use crate::vikunja_parser::QuickAddParser;
-use crate::debug::debug_log;
-use crate::vikunja_client::VikunjaUser;
-use crate::vikunja_client::projects::VikunjaProject;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VikunjaTask {
@@ -38,7 +36,9 @@ impl super::VikunjaClient {
         default_project_id: u64,
     ) -> ReqwestResult<VikunjaTask> {
         debug_log(&format!("Parsing magic text: '{}'", magic_text));
-        let parsed = self.parser.parse(magic_text);
+        // Use a local parser instance instead of self.parser
+        let parser = crate::vikunja_parser::QuickAddParser::new();
+        let parsed = parser.parse(magic_text);
         debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
                  parsed.title, parsed.labels, parsed.project, parsed.priority));
         // Step 1: Determine project ID
@@ -178,7 +178,9 @@ impl super::VikunjaClient {
         magic_text: &str,
     ) -> ReqwestResult<VikunjaTask> {
         debug_log(&format!("Updating task {} with magic text: '{}'", task_id, magic_text));
-        let parsed = self.parser.parse(magic_text);
+        // Use a local parser instance instead of self.parser
+        let parser = crate::vikunja_parser::QuickAddParser::new();
+        let parsed = parser.parse(magic_text);
         debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
                  parsed.title, parsed.labels, parsed.project, parsed.priority));
         let current_task = self.get_task(task_id as u64).await?;
