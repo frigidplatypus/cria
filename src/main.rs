@@ -16,19 +16,12 @@ use crate::tui::app::App;
 use crate::tui::events::{Event, EventHandler};
 use crate::tui::ui::main::draw;
 use crate::vikunja_client::VikunjaClient as ApiClient;
-use crate::debug::debug_log;
+use crate::tui::utils::{debug_log, info_log, warn_log, error_log};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     dotenv::dotenv().ok();
-
-    // Debug environment variables
-    debug_log("Starting CRIA application");
-    debug_log(&format!("Environment variables:"));
-    debug_log(&format!("  VIKUNJA_URL: {:?}", std::env::var("VIKUNJA_URL")));
-    debug_log(&format!("  VIKUNJA_TOKEN: {:?}", std::env::var("VIKUNJA_TOKEN").map(|t| format!("{}...", &t[..t.len().min(8)]))));
-    debug_log(&format!("  VIKUNJA_DEFAULT_PROJECT: {:?}", std::env::var("VIKUNJA_DEFAULT_PROJECT")));
 
     let api_client = Arc::new(Mutex::new(
         ApiClient::new(
@@ -42,17 +35,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test API connection
     {
         let api_client_guard = api_client.lock().await;
+        let mut app_guard = app.lock().await;
         match api_client_guard.test_connection().await {
             Ok(true) => {
-                debug_log("SUCCESS: Connected to Vikunja API");
+                debug_log(&mut app_guard, "SUCCESS: Connected to Vikunja API");
             }
             Ok(false) => {
-                debug_log("WARNING: Failed to connect to Vikunja API");
-                debug_log("The app requires a connection to the api.");
+                debug_log(&mut app_guard, "WARNING: Failed to connect to Vikunja API");
+                debug_log(&mut app_guard, "The app requires a connection to the api.");
             }
             Err(e) => {
-                debug_log(&format!("WARNING: Failed to connect to Vikunja API: {}", e));
-                debug_log("The app requires a connection to the api.");
+                debug_log(&mut app_guard, &format!("WARNING: Failed to connect to Vikunja API: {}", e));
+                debug_log(&mut app_guard, "The app requires a connection to the api.");
             }
         }
     }
@@ -62,46 +56,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load tasks and projects before starting the UI
     let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
-    debug_log(&format!("Fetched {} tasks from API", tasks.len()));
-    // Fetch all labels from API
     let all_labels = client_clone.lock().await.get_all_labels().await.unwrap_or_default();
-    debug_log(&format!("Fetched {} labels from API", all_labels.len()));
-    if let Some(first) = tasks.get(0) {
-        debug_log(&format!("First task: {:?}", first));
-    } else {
-        debug_log("No tasks returned from API");
-    }
-    // Fetch saved filters (views) from backend
-    let filters = client_clone.lock().await.get_saved_filters().await.unwrap_or_default();
-    debug_log(&format!("Fetched {} saved filters from backend", filters.len()));
+    // Move filters loading into the app_guard block below
     {
         let mut app_guard = app.lock().await;
-        app_guard.update_all_tasks(tasks);
-        app_guard.project_map = project_map;
-        app_guard.project_colors = project_colors;
-        app_guard.set_filters(filters);
-        // Merge all_labels into label_map and label_colors
-        for label in all_labels {
-            if let Some(id) = label.id {
-                app_guard.label_map.insert(id as i64, label.title.clone());
-                app_guard.label_colors.insert(id as i64, label.hex_color.unwrap_or_default());
-            }
+        let filters = client_clone.lock().await.get_saved_filters(&mut app_guard).await.unwrap_or_default();
+        debug_log(&mut app_guard, "Starting CRIA application");
+        debug_log(&mut app_guard, &format!("Environment variables:"));
+        debug_log(&mut app_guard, &format!("  VIKUNJA_URL: {:?}", std::env::var("VIKUNJA_URL")));
+        debug_log(&mut app_guard, &format!("  VIKUNJA_TOKEN: {:?}", std::env::var("VIKUNJA_TOKEN").map(|t| format!("{}...", &t[..t.len().min(8)]))));
+        debug_log(&mut app_guard, &format!("  VIKUNJA_DEFAULT_PROJECT: {:?}", std::env::var("VIKUNJA_DEFAULT_PROJECT")));
+        debug_log(&mut app_guard, &format!("Fetched {} tasks from API", tasks.len()));
+        debug_log(&mut app_guard, &format!("Fetched {} labels from API", all_labels.len()));
+        if let Some(first) = tasks.get(0) {
+            debug_log(&mut app_guard, &format!("First task: {:?}", first));
+        } else {
+            debug_log(&mut app_guard, "No tasks returned from API");
         }
-        debug_log(&format!("App all_tasks count: {}", app_guard.all_tasks.len()));
-        debug_log(&format!("App tasks count after filter: {}", app_guard.tasks.len()));
-        debug_log(&format!("App project_map: {:?}", app_guard.project_map));
-        debug_log(&format!("App filters: {:?}", app_guard.filters));
-        debug_log(&format!("App filtered_filters: {:?}", app_guard.filtered_filters));
-        debug_log(&format!("App filtered_projects: {:?}", app_guard.filtered_projects));
-        debug_log(&format!("App show_project_picker: {} show_filter_picker: {}", app_guard.show_project_picker, app_guard.show_filter_picker));
-        debug_log(&format!("App keybindings: q(quit), d(toggle), D(delete), f(filter), a(add), e(edit), p(project)"));
-        debug_log(&format!("App initial tasks: {:?}", app_guard.tasks));
-        debug_log(&format!("App initial filters: {:?}", app_guard.filters));
-        debug_log(&format!("App initial project_map: {:?}", app_guard.project_map));
-        debug_log(&format!("App filters after set_filters: {:?}", app_guard.filters));
-        debug_log(&format!("App filtered_filters after set_filters: {:?}", app_guard.filtered_filters));
-        debug_log(&format!("App filter_picker_input: {:?}", app_guard.filter_picker_input));
-        debug_log(&format!("App selected_filter_picker_index: {}", app_guard.selected_filter_picker_index));
+        debug_log(&mut app_guard, &format!("Fetched {} saved filters from backend", filters.len()));
+        {
+            app_guard.update_all_tasks(tasks);
+            app_guard.project_map = project_map;
+            app_guard.project_colors = project_colors;
+            app_guard.set_filters(filters);
+            // Merge all_labels into label_map and label_colors
+            for label in all_labels {
+                if let Some(id) = label.id {
+                    app_guard.label_map.insert(id as i64, label.title.clone());
+                    app_guard.label_colors.insert(id as i64, label.hex_color.unwrap_or_default());
+                }
+            }
+            let all_tasks_count = app_guard.all_tasks.len();
+            debug_log(&mut app_guard, &format!("App all_tasks count: {}", all_tasks_count));
+            let tasks_count = app_guard.tasks.len();
+            debug_log(&mut app_guard, &format!("App tasks count after filter: {}", tasks_count));
+            let project_map = format!("{:?}", app_guard.project_map);
+            debug_log(&mut app_guard, &format!("App project_map: {}", project_map));
+            let filters = format!("{:?}", app_guard.filters);
+            debug_log(&mut app_guard, &format!("App filters: {}", filters));
+            let filtered_filters = format!("{:?}", app_guard.filtered_filters);
+            debug_log(&mut app_guard, &format!("App filtered_filters: {}", filtered_filters));
+            let filtered_projects = format!("{:?}", app_guard.filtered_projects);
+            debug_log(&mut app_guard, &format!("App filtered_projects: {}", filtered_projects));
+            let show_project_picker = app_guard.show_project_picker;
+            let show_filter_picker = app_guard.show_filter_picker;
+            debug_log(&mut app_guard, &format!("App show_project_picker: {} show_filter_picker: {}", show_project_picker, show_filter_picker));
+            debug_log(&mut app_guard, &format!("App keybindings: q(quit), d(toggle), D(delete), f(filter), a(add), e(edit), p(project)"));
+            let initial_tasks = format!("{:?}", app_guard.tasks);
+            debug_log(&mut app_guard, &format!("App initial tasks: {}", initial_tasks));
+            let initial_filters = format!("{:?}", app_guard.filters);
+            debug_log(&mut app_guard, &format!("App initial filters: {}", initial_filters));
+            let initial_project_map = format!("{:?}", app_guard.project_map);
+            debug_log(&mut app_guard, &format!("App initial project_map: {}", initial_project_map));
+            let filters_after = format!("{:?}", app_guard.filters);
+            debug_log(&mut app_guard, &format!("App filters after set_filters: {}", filters_after));
+            let filtered_filters_after = format!("{:?}", app_guard.filtered_filters);
+            debug_log(&mut app_guard, &format!("App filtered_filters after set_filters: {}", filtered_filters_after));
+        }
     }
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
@@ -177,43 +188,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             app_guard.show_project_picker();
                         },
                         KeyCode::Char('r') => {
-                            debug_log("Refresh key pressed");
+                            let mut app_guard = app.lock().await;
+                            debug_log(&mut app_guard, "Refresh key pressed");
                             app_guard.refreshing = true;
                             drop(app_guard); // Release lock before drawing
                             {
-                                let app_guard = app.lock().await;
-                                if let Err(e) = terminal.draw(|frame| draw(frame, &app_guard)) {
-                                    debug_log(&format!("Error drawing refresh indicator: {}", e));
-                            }
+                                let app_guard_draw = app.lock().await;
+                                if let Err(e) = terminal.draw(|frame| draw(frame, &app_guard_draw)) {
+                                    let mut app_guard_log = app.lock().await;
+                                    debug_log(&mut app_guard_log, &format!("Error drawing refresh indicator: {}", e));
+                                }
                             }
                             // Now do the refresh
                             let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
                             let all_labels = client_clone.lock().await.get_all_labels().await.unwrap_or_default();
-                            let filters = client_clone.lock().await.get_saved_filters().await.unwrap_or_default();
-                            {
-                                let mut app_guard = app.lock().await;
-                                app_guard.update_all_tasks(tasks);
-                                app_guard.project_map = project_map;
-                                app_guard.project_colors = project_colors;
-                                app_guard.set_filters(filters);
-                                // Merge all_labels into label_map and label_colors
-                                for label in all_labels {
-                                    if let Some(id) = label.id {
-                                        app_guard.label_map.insert(id as i64, label.title.clone());
-                                        app_guard.label_colors.insert(id as i64, label.hex_color.unwrap_or_default());
-                                    }
+                            let mut app_guard = app.lock().await;
+                            let filters = client_clone.lock().await.get_saved_filters(&mut app_guard).await.unwrap_or_default();
+                            app_guard.update_all_tasks(tasks);
+                            app_guard.project_map = project_map;
+                            app_guard.project_colors = project_colors;
+                            app_guard.set_filters(filters);
+                            // Merge all_labels into label_map and label_colors
+                            for label in all_labels {
+                                if let Some(id) = label.id {
+                                    app_guard.label_map.insert(id as i64, label.title.clone());
+                                    app_guard.label_colors.insert(id as i64, label.hex_color.unwrap_or_default());
                                 }
-                                app_guard.refreshing = false;
                             }
+                            app_guard.refreshing = false;
+                            drop(app_guard);
                             {
-                                let app_guard = app.lock().await;
-                                if let Err(e) = terminal.draw(|frame| draw(frame, &app_guard)) {
-                                    debug_log(&format!("Error drawing after refresh: {}", e));
+                                let app_guard_draw = app.lock().await;
+                                if let Err(e) = terminal.draw(|frame| draw(frame, &app_guard_draw)) {
+                                    let mut app_guard_log = app.lock().await;
+                                    debug_log(&mut app_guard_log, &format!("Error drawing after refresh: {}", e));
+                                }
                             }
-                            }
-                            debug_log("Refreshed tasks, projects, and filters from API");
+                            let mut app_guard = app.lock().await;
+                            debug_log(&mut app_guard, "Refreshed tasks, projects, and filters from API");
                         },
                         KeyCode::Char('s') => {
+                            let mut app_guard = app.lock().await;
                             // Toggle star (favorite) for selected task
                             if let Some(task_id) = app_guard.toggle_star_selected_task() {
                                 // Find the task in all_tasks and update it too
@@ -236,12 +251,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         assignees: None, // Not editing assignees here
                                         // Add is_favorite if VikunjaTask supports it
                                     };
-                                    let _ = client_clone.lock().await.update_task(&api_task).await;
+                                    let mut app_guard = app.lock().await;
+                                    let _ = client_clone.lock().await.update_task(&mut app_guard, &api_task).await;
                                 }
                             }
                         },
                         KeyCode::Char('i') => {
                             app_guard.show_info_pane = !app_guard.show_info_pane;
+                        },
+                        KeyCode::Char('I') => {
+                            app_guard.show_debug_pane = !app_guard.show_debug_pane;
                         },
                         KeyCode::Esc => {
                             // Handle Escape globally to close any modal

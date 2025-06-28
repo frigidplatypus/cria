@@ -46,7 +46,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Creating task with Quick Add Magic: {}", task_text);
 
-    match create_quick_task(vikunja_url, auth_token, task_text, project_id).await {
+    // Create a minimal App for logging/debugging
+    let mut app = cria::tui::app::App::new();
+    match create_quick_task(&mut app, vikunja_url, auth_token, task_text, project_id).await {
         Ok(task) => {
             println!("✅ Task created successfully!");
             println!("   ID: {}", task.id.unwrap_or(0));

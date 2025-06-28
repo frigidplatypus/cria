@@ -47,13 +47,13 @@ pub async fn handle_edit_modal(
             let input = app.get_edit_input().to_string();
             let task_id = app.editing_task_id;
             if !input.trim().is_empty() && task_id.is_some() {
-                debug_log(&format!("Updating task ID {} with input: '{}'", task_id.unwrap(), input));
+                debug_log(app, &format!("Updating task ID {} with input: '{}'", task_id.unwrap(), input));
                 app.hide_edit_modal();
                 // Update task using API client
                 let api_client_guard = api_client.lock().await;
-                match api_client_guard.update_task_with_magic(task_id.unwrap(), &input).await {
+                match api_client_guard.update_task_with_magic(app, task_id.unwrap(), &input).await {
                     Ok(task) => {
-                        debug_log(&format!("SUCCESS: Task updated successfully! ID: {:?}, Title: '{}'", task.id, task.title));
+                        debug_log(app, &format!("SUCCESS: Task updated successfully! ID: {:?}, Title: '{}'", task.id, task.title));
                         app.flash_task_id = task.id.map(|id| id as i64);
                         app.flash_start = Some(std::time::Instant::now());
                         // Refresh tasks list
@@ -63,14 +63,14 @@ pub async fn handle_edit_modal(
                         app.project_map = project_map;
                         app.project_colors = project_colors;
                         app.apply_task_filter();
-                        debug_log(&format!("Tasks refreshed. Total tasks: {}", app.tasks.len()));
+                        debug_log(app, &format!("Tasks refreshed. Total tasks: {}", app.tasks.len()));
                     }
                     Err(e) => {
-                        debug_log(&format!("ERROR: Failed to update task: {}", e));
+                        debug_log(app, &format!("ERROR: Failed to update task: {}", e));
                     }
                 }
             } else {
-                debug_log("Empty input or no task selected, not updating task");
+                debug_log(app, "Empty input or no task selected, not updating task");
             }
         },
         KeyCode::Tab => {

@@ -11,6 +11,7 @@ use super::task_details::draw_task_details;
 use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dialog};
 use super::pickers::{draw_project_picker_modal, draw_filter_picker_modal};
 use crate::tui::utils::hex_to_color;
+use super::debug::draw_debug_modal;
 
 pub fn draw(f: &mut Frame, app: &App) {
     // Draw header with current project
@@ -28,16 +29,16 @@ pub fn draw(f: &mut Frame, app: &App) {
         let horizontal_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
+                Constraint::Percentage(60),
                 Constraint::Percentage(40),
-                Constraint::Percentage(30),
-                Constraint::Percentage(30),
             ])
             .split(body_area);
         draw_tasks_table(f, app, horizontal_chunks[0]);
         if app.show_info_pane {
             draw_task_details(f, app, horizontal_chunks[1]);
         }
-        // draw_debug_pane(f, app, horizontal_chunks[2]);
+        // Draw debug modal on top if toggled
+        draw_debug_modal(f, app);
     } else if app.show_info_pane {
         let chunks = Layout::default()
             .direction(Direction::Horizontal)

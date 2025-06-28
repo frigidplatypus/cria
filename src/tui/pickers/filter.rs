@@ -26,7 +26,7 @@ pub async fn handle_filter_picker(app: &mut App, key: &KeyEvent, api_client: &Ar
             } else {
                 app.current_filter_id = Some(id);
                 app.add_debug_message(format!("Filter picker: Fetching tasks for filter id={}", id));
-                match api_client.lock().await.get_tasks_for_filter(id).await {
+                match api_client.lock().await.get_tasks_for_filter(app, id).await {
                     Ok(tasks) => {
                         app.add_debug_message(format!("Filter picker: Got {} tasks for filter {}", tasks.len(), id));
                         app.apply_filter_tasks(tasks);

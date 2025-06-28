@@ -54,20 +54,20 @@ pub async fn handle_quick_add_modal(
             }
             let input = app.get_quick_add_input().to_string();
             if !input.trim().is_empty() {
-                info_log(&format!("Creating task with input: '{}'", input));
+                info_log(app, &format!("Creating task with input: '{}'", input));
                 app.hide_quick_add_modal();
                 // Get default project ID
                 let default_project_id = std::env::var("VIKUNJA_DEFAULT_PROJECT")
                     .unwrap_or_else(|_| "1".to_string())
                     .parse::<u64>()
                     .unwrap_or(1);
-                debug_log(&format!("Using project ID: {}", default_project_id));
-                debug_log("Calling create_task_with_magic...");
+                debug_log(app, &format!("Using project ID: {}", default_project_id));
+                debug_log(app, "Calling create_task_with_magic...");
                 // Create task using API client
                 let api_client_guard = api_client.lock().await;
-                match api_client_guard.create_task_with_magic(&input, default_project_id).await {
+                match api_client_guard.create_task_with_magic(app, &input, default_project_id).await {
                     Ok(task) => {
-                        info_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
+                        info_log(app, &format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
                         app.flash_task_id = task.id.map(|id| id as i64);
                         app.flash_start = Some(std::time::Instant::now());
                         app.flash_cycle_count = 0;
@@ -79,7 +79,7 @@ pub async fn handle_quick_add_modal(
                         app.project_map = project_map;
                         app.project_colors = project_colors;
                         app.apply_task_filter();
-                        info_log(&format!("Tasks refreshed. Total tasks: {}", app.tasks.len()));
+                        info_log(app, &format!("Tasks refreshed. Total tasks: {}", app.tasks.len()));
                         // After filtering, find the new task in the filtered list and select/flash it
                         if let Some(new_id) = task.id.map(|id| id as i64) {
                             if let Some(idx) = app.tasks.iter().position(|t| t.id == new_id) {
@@ -92,11 +92,11 @@ pub async fn handle_quick_add_modal(
                         }
                     }
                     Err(e) => {
-                        error_log(&format!("Failed to create task: {}", e));
+                        error_log(app, &format!("Failed to create task: {}", e));
                     }
                 }
             } else {
-                warn_log("Empty input, not creating task");
+                warn_log(app, "Empty input, not creating task");
             }
         },
         KeyCode::Tab => {

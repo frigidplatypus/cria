@@ -17,15 +17,15 @@ pub async fn handle_confirmation_dialog(
         KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
             // Confirm the action
             if let Some(task_id) = app.confirm_action() {
-                info_log(&format!("Confirmed action for task ID: {}", task_id));
+                info_log(app, &format!("Confirmed action for task ID: {}", task_id));
                 // If it was a delete action, we need to call the API
                 if app.pending_action.is_none() { // Action was executed
                     // Call delete API
                     let api_client_guard = api_client.lock().await;
                     if let Err(e) = api_client_guard.delete_task(task_id).await {
-                        error_log(&format!("Failed to delete task from API: {}", e));
+                        error_log(app, &format!("Failed to delete task from API: {}", e));
                     } else {
-                        info_log(&format!("Task {} deleted from API", task_id));
+                        info_log(app, &format!("Task {} deleted from API", task_id));
                     }
                     // Refresh tasks list
                     drop(api_client_guard);

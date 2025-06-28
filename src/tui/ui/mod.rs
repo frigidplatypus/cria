@@ -1,3 +1,4 @@
+pub mod debug;
 pub mod main;
 pub mod task_list;
 pub mod task_details;

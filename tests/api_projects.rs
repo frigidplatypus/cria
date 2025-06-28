@@ -17,9 +17,9 @@ async fn test_find_or_get_project_id() {
     let base_url = get_env_var(&["VIKUNJA_URL", "VIKUNJA_API_URL"], "http://localhost:3456");
     let token = get_env_var(&["VIKUNJA_TOKEN", "VIKUNJA_API_TOKEN"], "");
     let client = VikunjaClient::new(base_url, token);
-
+    let mut app = cria::tui::app::App::new();
     // Try to find a project by name (replace with a real project name in your test instance)
     let project_name = get_env_var(&["VIKUNJA_PROJECT_NAME"], "Inbox");
-    let id = client.find_or_get_project_id(&project_name).await.expect("find_or_get_project_id failed");
+    let id = client.find_or_get_project_id(&mut app, &project_name).await.expect("find_or_get_project_id failed");
     assert!(id.is_some(), "Project '{}' not found", project_name);
 }

@@ -1,3 +1,4 @@
+use chrono::Local;
 use ratatui::style::Color;
 use crate::tui::app::App;
 
@@ -128,21 +129,24 @@ pub enum LogLevel {
     Error,
 }
 
-/// Log a message with a given level. Debug logs only print in debug builds.
-pub fn log(level: LogLevel, msg: &str) {
-    match level {
-        LogLevel::Debug => {
-            #[cfg(debug_assertions)]
-            println!("[DEBUG] {}", msg);
-        }
-        LogLevel::Info => println!("[INFO] {}", msg),
-        LogLevel::Warn => eprintln!("[WARN] {}", msg),
-        LogLevel::Error => eprintln!("[ERROR] {}", msg),
+/// Log a message with a given level. Debug logs only go to the App's debug buffer.
+pub fn log(app: &mut App, level: LogLevel, msg: &str) {
+    let now = Local::now();
+    let formatted = match level {
+        LogLevel::Debug => format!("[DEBUG] {}", msg),
+        LogLevel::Info => format!("[INFO] {}", msg),
+        LogLevel::Warn => format!("[WARN] {}", msg),
+        LogLevel::Error => format!("[ERROR] {}", msg),
+    };
+    app.debug_messages.push((now, formatted));
+    // Optionally, truncate buffer to max N messages
+    if app.debug_messages.len() > 500 {
+        app.debug_messages.drain(0..(app.debug_messages.len() - 500));
     }
 }
 
 /// Convenience wrappers
-pub fn debug_log(msg: &str) { log(LogLevel::Debug, msg); }
-pub fn info_log(msg: &str) { log(LogLevel::Info, msg); }
-pub fn warn_log(msg: &str) { log(LogLevel::Warn, msg); }
-pub fn error_log(msg: &str) { log(LogLevel::Error, msg); }
+pub fn debug_log(app: &mut App, msg: &str) { log(app, LogLevel::Debug, msg); }
+pub fn info_log(app: &mut App, msg: &str) { log(app, LogLevel::Info, msg); }
+pub fn warn_log(app: &mut App, msg: &str) { log(app, LogLevel::Warn, msg); }
+pub fn error_log(app: &mut App, msg: &str) { log(app, LogLevel::Error, msg); }

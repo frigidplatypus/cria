@@ -18,7 +18,7 @@ async fn test_create_and_delete_task() {
     let token = get_env_var(&["VIKUNJA_TOKEN", "VIKUNJA_API_TOKEN"], "");
     let project_id = get_env_var(&["VIKUNJA_PROJECT_ID"], "1").parse().unwrap_or(1);
     let client = VikunjaClient::new(base_url, token);
-
+    let mut app = cria::tui::app::App::new();
     // Create a task
     let task = VikunjaTask {
         id: None,
@@ -31,9 +31,8 @@ async fn test_create_and_delete_task() {
         labels: None,
         assignees: None,
     };
-    let created = client.create_task(&task).await.expect("create_task failed");
+    let created = client.create_task(&mut app, &task).await.expect("create_task failed");
     assert_eq!(created.title, task.title);
-
     // Delete the task
     client.delete_task(created.id.unwrap() as i64).await.expect("delete_task failed");
 }

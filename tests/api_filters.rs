@@ -17,8 +17,8 @@ async fn test_get_saved_filters() {
     let base_url = get_env_var(&["VIKUNJA_URL", "VIKUNJA_API_URL"], "http://localhost:3456");
     let token = get_env_var(&["VIKUNJA_TOKEN", "VIKUNJA_API_TOKEN"], "");
     let client = VikunjaClient::new(base_url, token);
-
-    let filters = client.get_saved_filters().await.expect("get_saved_filters failed");
+    let mut app = cria::tui::app::App::new();
+    let filters = client.get_saved_filters(&mut app).await.expect("get_saved_filters failed");
     // Should not error, may be empty
     println!("Filters: {:?}", filters);
 }

@@ -1,5 +1,4 @@
 use reqwest::{Client, Result as ReqwestResult};
-use crate::debug::debug_log;
 
 // --- Task-related types and functions ---
 pub mod tasks;
@@ -26,8 +25,8 @@ pub struct VikunjaClient {
 
 impl VikunjaClient {
     pub fn new(base_url: String, auth_token: String) -> Self {
-        debug_log(&format!("Creating VikunjaClient with URL: {}", base_url));
-        debug_log(&format!("Auth token length: {}", auth_token.len()));
+        // debug_log(&format!("Creating VikunjaClient with URL: {}", base_url));
+        // debug_log(&format!("Auth token length: {}", auth_token.len()));
         Self {
             client: Client::new(),
             base_url,
@@ -36,28 +35,28 @@ impl VikunjaClient {
     }
 
     pub async fn test_connection(&self) -> ReqwestResult<bool> {
-        debug_log(&format!("Testing connection to {}", self.base_url));
+        // debug_log(&format!("Testing connection to {}", self.base_url));
         let url = format!("{}/api/v1/info", self.base_url);
-        debug_log(&format!("Testing with URL: {}", url));
+        // debug_log(&format!("Testing with URL: {}", url));
         let response = self.client
             .get(&url)
             .send()
             .await;
         match response {
             Ok(resp) => {
-                debug_log(&format!("Connection test - Status: {}", resp.status()));
+                // debug_log(&format!("Connection test - Status: {}", resp.status()));
                 if resp.status().is_success() {
-                    debug_log("Connection successful!");
+                    // debug_log("Connection successful!");
                     Ok(true)
                 } else {
-                    debug_log(&format!("Connection failed with status: {}", resp.status()));
+                    // debug_log(&format!("Connection failed with status: {}", resp.status()));
                     Ok(false)
                 }
             },
             Err(e) => {
-                debug_log(&format!("Connection test failed: {:?}", e));
+                // debug_log(&format!("Connection test failed: {:?}", e));
                 if e.is_connect() {
-                    debug_log(&format!("Cannot connect to Vikunja at {}. Is it running?", self.base_url));
+                    // debug_log(&format!("Cannot connect to Vikunja at {}. Is it running?", self.base_url));
                 }
                 Err(e)
             }
@@ -67,13 +66,14 @@ impl VikunjaClient {
 
 // Helper function for easy usage
 pub async fn create_quick_task(
+    app: &mut crate::tui::app::App,
     vikunja_url: &str,
     auth_token: &str,
     magic_text: &str,
     default_project_id: u64,
 ) -> ReqwestResult<crate::vikunja_client::tasks::VikunjaTask> {
     let client = VikunjaClient::new(vikunja_url.to_string(), auth_token.to_string());
-    client.create_task_with_magic(magic_text, default_project_id).await
+    client.create_task_with_magic(app, magic_text, default_project_id).await
 }
 
 #[cfg(test)]

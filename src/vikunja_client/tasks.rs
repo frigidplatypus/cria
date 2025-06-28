@@ -1,7 +1,7 @@
+use crate::tui::utils;
 // Task-related API functions for Vikunja
 // ...will be filled in from vikunja_client.rs...
 
-use crate::debug::debug_log;
 use crate::vikunja_client::VikunjaUser;
 use chrono::{DateTime, Utc};
 use reqwest::{Result as ReqwestResult};
@@ -32,43 +32,44 @@ pub struct VikunjaLabel {
 impl super::VikunjaClient {
     pub async fn create_task_with_magic(
         &self,
+        app: &mut crate::tui::app::App,
         magic_text: &str,
         default_project_id: u64,
     ) -> ReqwestResult<VikunjaTask> {
-        debug_log(&format!("Parsing magic text: '{}'", magic_text));
+        utils::debug_log(app, &format!("Parsing magic text: '{}'", magic_text));
         // Use a local parser instance instead of self.parser
         let parser = crate::vikunja_parser::QuickAddParser::new();
         let parsed = parser.parse(magic_text);
-        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
+        utils::debug_log(app, &format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
                  parsed.title, parsed.labels, parsed.project, parsed.priority));
         // Step 1: Determine project ID
         if let Some(project_name) = &parsed.project {
-            debug_log(&format!("Magic syntax project: '{}'. Attempting lookup...", project_name));
+            utils::debug_log(app, &format!("Magic syntax project: '{}'. Attempting lookup...", project_name));
         } else {
-            debug_log("No project specified in magic syntax.");
+            utils::debug_log(app, "No project specified in magic syntax.");
         }
         let project_id = if let Some(project_name) = &parsed.project {
-            debug_log(&format!("Looking up project: '{}'.", project_name));
-            match self.find_or_get_project_id(project_name).await {
+            utils::debug_log(app, &format!("Looking up project: '{}'.", project_name));
+            match self.find_or_get_project_id(app, project_name).await {
                 Ok(Some(id)) => {
-                    debug_log(&format!("Found project ID: {} for project '{}'.", id, project_name));
+                    utils::debug_log(app, &format!("Found project ID: {} for project '{}'.", id, project_name));
                     id
                 }
                 Ok(None) => {
-                    debug_log(&format!("Project '{}' not found, using default: {}.", project_name, default_project_id));
+                    utils::debug_log(app, &format!("Project '{}' not found, using default: {}.", project_name, default_project_id));
                     default_project_id.try_into().unwrap()
                 }
                 Err(e) => {
-                    debug_log(&format!("Error looking up project '{}': {}. Using default: {}.", project_name, e, default_project_id));
+                    utils::debug_log(app, &format!("Error looking up project '{}': {}. Using default: {}.", project_name, e, default_project_id));
                     default_project_id.try_into().unwrap()
                 }
             }
         } else {
-            debug_log(&format!("No project specified, using default: {}.", default_project_id));
+            utils::debug_log(app, &format!("No project specified, using default: {}.", default_project_id));
             default_project_id.try_into().unwrap()
         };
 
-        debug_log(&format!("Final project_id to use: {}", project_id));
+        utils::debug_log(app, &format!("Final project_id to use: {}", project_id));
 
         // Step 2: Create the basic task
         let task = VikunjaTask {
@@ -83,14 +84,14 @@ impl super::VikunjaClient {
             assignees: None,
         };
 
-        debug_log(&format!("Creating task with project_id: {}, title: '{}'", project_id, task.title));
-        let created_task = self.create_task(&task).await?;
-        debug_log(&format!("Task created with ID: {:?}", created_task.id));
+        utils::debug_log(app, &format!("Creating task with project_id: {}, title: '{}'", project_id, task.title));
+        let created_task = self.create_task(app, &task).await?;
+        utils::debug_log(app, &format!("Task created with ID: {:?}", created_task.id));
         let task_id = created_task.id.unwrap();
 
         // Step 3: Add labels
         for label_name in &parsed.labels {
-            if let Ok(label) = self.ensure_label_exists(label_name).await {
+            if let Ok(label) = self.ensure_label_exists(app, label_name).await {
                 let _ = self.add_label_to_task(task_id, label.id.unwrap()).await;
             }
         }
@@ -112,10 +113,10 @@ impl super::VikunjaClient {
         self.get_task(task_id).await
     }
 
-    pub async fn create_task(&self, task: &VikunjaTask) -> ReqwestResult<VikunjaTask> {
+    pub async fn create_task(&self, app: &mut crate::tui::app::App, task: &VikunjaTask) -> ReqwestResult<VikunjaTask> {
         let url = format!("{}/api/v1/projects/{}/tasks", self.base_url, task.project_id);
-        debug_log(&format!("Making PUT request to: {}", url));
-        debug_log(&format!("Task payload: {:?}", task));
+        utils::debug_log(app, &format!("Making PUT request to: {}", url));
+        utils::debug_log(app, &format!("Task payload: {:?}", task));
         let response = self.client
             .put(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
@@ -125,37 +126,37 @@ impl super::VikunjaClient {
         match response {
             Ok(resp) => {
                 let status = resp.status();
-                debug_log(&format!("Response status: {}", status));
-                debug_log(&format!("Response headers: {:?}", resp.headers()));
+                utils::debug_log(app, &format!("Response status: {}", status));
+                utils::debug_log(app, &format!("Response headers: {:?}", resp.headers()));
                 if resp.status().is_success() {
                     let result = resp.json::<VikunjaTask>().await;
                     match &result {
                         Ok(created_task) => {
-                            debug_log(&format!("Successfully created task: {:?}", created_task));
+                            utils::debug_log(app, &format!("Successfully created task: {:?}", created_task));
                         }
                         Err(e) => {
-                            debug_log(&format!("Failed to parse response JSON: {}", e));
+                            utils::debug_log(app, &format!("Failed to parse response JSON: {}", e));
                         }
                     }
                     result
                 } else {
                     let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                    debug_log(&format!("API error response ({}): {}", status, error_text));
+                    utils::debug_log(app, &format!("API error response ({}): {}", status, error_text));
                     let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
                     Err(fake_response.unwrap_err())
                 }
             },
             Err(e) => {
-                debug_log(&format!("Request failed with error: {:?}", e));
-                debug_log(&format!("Error source: {:?}", e.source()));
+                utils::debug_log(app, &format!("Request failed with error: {:?}", e));
+                utils::debug_log(app, &format!("Error source: {:?}", e.source()));
                 if e.is_connect() {
-                    debug_log(&format!("This is a connection error - is Vikunja running on {}?", self.base_url));
+                    utils::debug_log(app, &format!("This is a connection error - is Vikunja running on {}?", self.base_url));
                 }
                 if e.is_timeout() {
-                    debug_log(&format!("This is a timeout error"));
+                    utils::debug_log(app, &format!("This is a timeout error"));
                 }
                 if e.is_request() {
-                    debug_log(&format!("This is a request building error"));
+                    utils::debug_log(app, &format!("This is a request building error"));
                 }
                 Err(e)
             }
@@ -174,40 +175,41 @@ impl super::VikunjaClient {
 
     pub async fn update_task_with_magic(
         &self,
+        app: &mut crate::tui::app::App,
         task_id: i64,
         magic_text: &str,
     ) -> ReqwestResult<VikunjaTask> {
-        debug_log(&format!("Updating task {} with magic text: '{}'", task_id, magic_text));
+        utils::debug_log(app, &format!("Updating task {} with magic text: '{}'", task_id, magic_text));
         // Use a local parser instance instead of self.parser
         let parser = crate::vikunja_parser::QuickAddParser::new();
         let parsed = parser.parse(magic_text);
-        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
+        utils::debug_log(app, &format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
                  parsed.title, parsed.labels, parsed.project, parsed.priority));
         let current_task = self.get_task(task_id as u64).await?;
-        debug_log(&format!("Retrieved current task: {:?}", current_task));
+        utils::debug_log(app, &format!("Retrieved current task: {:?}", current_task));
         let project_id = if let Some(project_name) = &parsed.project {
-            debug_log(&format!("Looking up project: '{}', current: {}.", project_name, current_task.project_id));
-            match self.find_or_get_project_id(project_name).await {
+            utils::debug_log(app, &format!("Looking up project: '{}', current: {}.", project_name, current_task.project_id));
+            match self.find_or_get_project_id(app, project_name).await {
                 Ok(Some(id)) => {
-                    debug_log(&format!("Found project ID: {}", id));
+                    utils::debug_log(app, &format!("Found project ID: {}", id));
                     id
                 }
                 Ok(None) => {
-                    debug_log(&format!("Project '{}' not found, keeping current: {}", project_name, current_task.project_id));
+                    utils::debug_log(app, &format!("Project '{}' not found, keeping current: {}", project_name, current_task.project_id));
                     current_task.project_id.try_into().unwrap()
                 }
                 Err(e) => {
-                    debug_log(&format!("Error looking up project: {}, keeping current: {}", e, current_task.project_id));
+                    utils::debug_log(app, &format!("Error looking up project: {}, keeping current: {}", e, current_task.project_id));
                     current_task.project_id.try_into().unwrap()
                 }
             }
         } else {
-            debug_log(&format!("No project specified, keeping current: {}", current_task.project_id));
+            utils::debug_log(app, &format!("No project specified, keeping current: {}", current_task.project_id));
             current_task.project_id.try_into().unwrap()
         };
         let mut label_objs = Vec::new();
         for label_name in &parsed.labels {
-            if let Ok(label) = self.ensure_label_exists(label_name).await {
+            if let Ok(label) = self.ensure_label_exists(app, label_name).await {
                 label_objs.push(label);
             }
         }
@@ -222,9 +224,9 @@ impl super::VikunjaClient {
             labels: Some(label_objs),
             assignees: None,
         };
-        debug_log(&format!("Updating task with project_id: {}, title: '{}'", project_id, updated_task.title));
-        let updated_task = self.update_task(&updated_task).await?;
-        debug_log(&format!("Task updated with ID: {:?}", updated_task.id));
+        utils::debug_log(app, &format!("Updating task with project_id: {}, title: '{}'", project_id, updated_task.title));
+        let updated_task = self.update_task(app, &updated_task).await?;
+        utils::debug_log(app, &format!("Task updated with ID: {:?}", updated_task.id));
         // Always remove all existing labels and re-add only the parsed ones (even if empty)
         if let Some(existing_labels) = &current_task.labels {
             for label in existing_labels {
@@ -234,7 +236,7 @@ impl super::VikunjaClient {
             }
         }
         for label_name in &parsed.labels {
-            if let Ok(label) = self.ensure_label_exists(label_name).await {
+            if let Ok(label) = self.ensure_label_exists(app, label_name).await {
                 let _ = self.add_label_to_task(task_id as u64, label.id.unwrap()).await;
             }
         }
@@ -258,11 +260,11 @@ impl super::VikunjaClient {
         self.get_task(task_id as u64).await
     }
 
-    pub async fn update_task(&self, task: &VikunjaTask) -> ReqwestResult<VikunjaTask> {
+    pub async fn update_task(&self, app: &mut crate::tui::app::App, task: &VikunjaTask) -> ReqwestResult<VikunjaTask> {
         let task_id = task.id.unwrap();
         let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
-        debug_log(&format!("Making POST request to: {}", url));
-        debug_log(&format!("Task payload: {:?}", task));
+        utils::debug_log(app, &format!("Making POST request to: {}", url));
+        utils::debug_log(app, &format!("Task payload: {:?}", task));
         let response = self.client
             .post(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
@@ -272,51 +274,53 @@ impl super::VikunjaClient {
         match response {
             Ok(resp) => {
                 let status = resp.status();
-                debug_log(&format!("Response status: {}", status));
-                debug_log(&format!("Response headers: {:?}", resp.headers()));
+                utils::debug_log(app, &format!("Response status: {}", status));
+                utils::debug_log(app, &format!("Response headers: {:?}", resp.headers()));
                 if resp.status().is_success() {
                     let result = resp.json::<VikunjaTask>().await;
                     match &result {
                         Ok(updated_task) => {
-                            debug_log(&format!("Successfully updated task: {:?}", updated_task));
+                            utils::debug_log(app, &format!("Successfully updated task: {:?}", updated_task));
                         }
                         Err(e) => {
-                            debug_log(&format!("Failed to parse response JSON: {}", e));
+                            utils::debug_log(app, &format!("Failed to parse response JSON: {}", e));
                         }
                     }
                     result
                 } else {
                     let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                    debug_log(&format!("API error response ({}): {}", status, error_text));
+                    utils::debug_log(app, &format!("API error response ({}): {}", status, error_text));
                     let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
                     Err(fake_response.unwrap_err())
                 }
             },
             Err(e) => {
-                debug_log(&format!("Request failed with error: {:?}", e));
-                debug_log(&format!("Error source: {:?}", e.source()));
+                utils::debug_log(app, &format!("Request failed with error: {:?}", e));
+                utils::debug_log(app, &format!("Error source: {:?}", e.source()));
                 if e.is_connect() {
-                    debug_log(&format!("This is a connection error - is Vikunja running on {}?", self.base_url));
+                    utils::debug_log(app, &format!("This is a connection error - is Vikunja running on {}?", self.base_url));
                 }
                 if e.is_timeout() {
-                    debug_log(&format!("This is a timeout error"));
+                    utils::debug_log(app, &format!("This is a timeout error"));
                 }
                 if e.is_request() {
-                    debug_log(&format!("This is a request building error"));
+                    utils::debug_log(app, &format!("This is a request building error"));
                 }
                 Err(e)
             }
         }
     }
 
-    pub async fn ensure_label_exists(&self, label_name: &str) -> ReqwestResult<VikunjaLabel> {
-        if let Ok(Some(label)) = self.find_label_by_name(label_name).await {
+    pub async fn ensure_label_exists(&self, app: &mut crate::tui::app::App, label_name: &str) -> ReqwestResult<VikunjaLabel> {
+        utils::debug_log(app, &format!("Ensuring label exists: {}", label_name));
+        if let Ok(Some(label)) = self.find_label_by_name(app, label_name).await {
             return Ok(label);
         }
-        self.create_label(label_name).await
+        self.create_label(app, label_name).await
     }
 
-    pub async fn find_label_by_name(&self, label_name: &str) -> ReqwestResult<Option<VikunjaLabel>> {
+    pub async fn find_label_by_name(&self, app: &mut crate::tui::app::App, label_name: &str) -> ReqwestResult<Option<VikunjaLabel>> {
+        utils::debug_log(app, &format!("Looking up label by name: {}", label_name));
         let url = format!("{}/api/v1/labels", self.base_url);
         let response = self.client
             .get(&url)
@@ -327,7 +331,8 @@ impl super::VikunjaClient {
         Ok(labels.into_iter().find(|l| l.title.eq_ignore_ascii_case(label_name)))
     }
 
-    pub async fn create_label(&self, label_name: &str) -> ReqwestResult<VikunjaLabel> {
+    pub async fn create_label(&self, app: &mut crate::tui::app::App, label_name: &str) -> ReqwestResult<VikunjaLabel> {
+        utils::debug_log(app, &format!("Creating label: {}", label_name));
         let url = format!("{}/api/v1/labels", self.base_url);
         let label = VikunjaLabel {
             id: None,
