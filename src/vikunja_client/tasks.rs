@@ -203,6 +203,12 @@ impl super::VikunjaClient {
             debug_log(&format!("No project specified, keeping current: {}", current_task.project_id));
             current_task.project_id.try_into().unwrap()
         };
+        let mut label_objs = Vec::new();
+        for label_name in &parsed.labels {
+            if let Ok(label) = self.ensure_label_exists(label_name).await {
+                label_objs.push(label);
+            }
+        }
         let updated_task = VikunjaTask {
             id: Some(task_id as u64),
             title: parsed.title.clone(),
@@ -211,24 +217,23 @@ impl super::VikunjaClient {
             priority: parsed.priority.or(current_task.priority),
             due_date: parsed.due_date.or(current_task.due_date),
             project_id: project_id.try_into().unwrap(),
-            labels: None,
+            labels: Some(label_objs),
             assignees: None,
         };
         debug_log(&format!("Updating task with project_id: {}, title: '{}'", project_id, updated_task.title));
         let updated_task = self.update_task(&updated_task).await?;
         debug_log(&format!("Task updated with ID: {:?}", updated_task.id));
-        if !parsed.labels.is_empty() {
-            if let Some(existing_labels) = &current_task.labels {
-                for label in existing_labels {
-                    if let Some(label_id) = label.id {
-                        let _ = self.remove_label_from_task(task_id as u64, label_id).await;
-                    }
+        // Always remove all existing labels and re-add only the parsed ones (even if empty)
+        if let Some(existing_labels) = &current_task.labels {
+            for label in existing_labels {
+                if let Some(label_id) = label.id {
+                    let _ = self.remove_label_from_task(task_id as u64, label_id).await;
                 }
             }
-            for label_name in &parsed.labels {
-                if let Ok(label) = self.ensure_label_exists(label_name).await {
-                    let _ = self.add_label_to_task(task_id as u64, label.id.unwrap()).await;
-                }
+        }
+        for label_name in &parsed.labels {
+            if let Ok(label) = self.ensure_label_exists(label_name).await {
+                let _ = self.add_label_to_task(task_id as u64, label.id.unwrap()).await;
             }
         }
         if !parsed.assignees.is_empty() {

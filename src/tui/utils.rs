@@ -26,7 +26,8 @@ pub fn get_label_color(label_name: &str, app: &App) -> Color {
             }
         }
     }
-    Color::Red
+    // If no color is found, use white (not red)
+    Color::White
 }
 
 pub fn get_project_color(project_name: &str, app: &App) -> Color {
@@ -41,5 +42,6 @@ pub fn get_project_color(project_name: &str, app: &App) -> Color {
             }
         }
     }
-    Color::Magenta
+    // If no color is found, use white (not magenta)
+    Color::White
 }
