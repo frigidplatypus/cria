@@ -18,6 +18,33 @@ pub async fn handle_quick_add_modal(
             app.hide_quick_add_modal();
         },
         KeyCode::Enter => {
+            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                let suggestion = app.suggestions[app.selected_suggestion].clone();
+                let cursor = app.quick_add_cursor_position;
+                let input = app.get_quick_add_input();
+                // Find the last * or + before the cursor
+                if let Some(pos) = input[..cursor].rfind(|c| c == '*' || c == '+') {
+                    let prefix_start = pos + 1;
+                    let prefix_end = cursor;
+                    let mut new_input = String::new();
+                    new_input.push_str(&input[..prefix_start]);
+                    new_input.push_str(&suggestion);
+                    // Only add a space if at the end of the token or next char is space
+                    if input.get(cursor..cursor+1).map_or(true, |c| c == " " || c == "") {
+                        new_input.push(' ');
+                        new_input.push_str(&input[cursor..]);
+                        app.quick_add_cursor_position = prefix_start + suggestion.len() + 1;
+                    } else {
+                        new_input.push_str(&input[cursor..]);
+                        app.quick_add_cursor_position = prefix_start + suggestion.len();
+                    }
+                    app.quick_add_input = new_input;
+                }
+                let input = app.quick_add_input.clone();
+                let cursor = app.quick_add_cursor_position;
+                app.update_suggestions(&input, cursor);
+                return;
+            }
             let input = app.get_quick_add_input().to_string();
             if !input.trim().is_empty() {
                 debug_log(&format!("Creating task with input: '{}'", input));
@@ -65,17 +92,75 @@ pub async fn handle_quick_add_modal(
                 debug_log("Empty input, not creating task");
             }
         },
+        KeyCode::Tab => {
+            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                let suggestion = app.suggestions[app.selected_suggestion].clone();
+                let cursor = app.quick_add_cursor_position;
+                let input = app.get_quick_add_input();
+                if let Some(pos) = input[..cursor].rfind(|c| c == '*' || c == '+') {
+                    let prefix_start = pos + 1;
+                    let prefix_end = cursor;
+                    let mut new_input = String::new();
+                    new_input.push_str(&input[..prefix_start]);
+                    new_input.push_str(&suggestion);
+                    if input.get(cursor..cursor+1).map_or(true, |c| c == " " || c == "") {
+                        new_input.push(' ');
+                        new_input.push_str(&input[cursor..]);
+                        app.quick_add_cursor_position = prefix_start + suggestion.len() + 1;
+                    } else {
+                        new_input.push_str(&input[cursor..]);
+                        app.quick_add_cursor_position = prefix_start + suggestion.len();
+                    }
+                    app.quick_add_input = new_input;
+                }
+                let input = app.quick_add_input.clone();
+                let cursor = app.quick_add_cursor_position;
+                app.update_suggestions(&input, cursor);
+            }
+        },
+        KeyCode::Down => {
+            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                app.selected_suggestion = (app.selected_suggestion + 1) % app.suggestions.len();
+                let input = app.quick_add_input.clone();
+                let cursor = app.quick_add_cursor_position;
+                app.update_suggestions(&input, cursor);
+            }
+        },
+        KeyCode::Up => {
+            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                if app.selected_suggestion == 0 {
+                    app.selected_suggestion = app.suggestions.len() - 1;
+                } else {
+                    app.selected_suggestion -= 1;
+                }
+                let input = app.quick_add_input.clone();
+                let cursor = app.quick_add_cursor_position;
+                app.update_suggestions(&input, cursor);
+            }
+        },
         KeyCode::Backspace => {
             app.delete_char_from_quick_add();
+            let input = app.quick_add_input.clone();
+            let cursor = app.quick_add_cursor_position;
+            app.update_suggestions(&input, cursor);
         },
         KeyCode::Left => {
             app.move_cursor_left();
+            let input = app.quick_add_input.clone();
+            let cursor = app.quick_add_cursor_position;
+            app.update_suggestions(&input, cursor);
         },
         KeyCode::Right => {
             app.move_cursor_right();
+            let input = app.quick_add_input.clone();
+            let cursor = app.quick_add_cursor_position;
+            app.update_suggestions(&input, cursor);
         },
         KeyCode::Char(c) => {
             app.add_char_to_quick_add(c);
+            let input = app.quick_add_input.clone();
+            let cursor = app.quick_add_cursor_position;
+            app.update_suggestions(&input, cursor);
         },
         _ => {},
     }
@@ -94,6 +179,24 @@ pub async fn handle_edit_modal(
             app.hide_edit_modal();
         },
         KeyCode::Enter => {
+            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                let suggestion = app.suggestions[app.selected_suggestion].clone();
+                let cursor = app.edit_cursor_position;
+                let input = app.get_edit_input();
+                let mut new_input = input[..cursor].to_string();
+                if let Some(pos) = new_input.rfind(|c| c == '*' || c == '+') {
+                    new_input.truncate(pos + 1);
+                    new_input.push_str(&suggestion);
+                    new_input.push(' ');
+                    new_input.push_str(&input[cursor..]);
+                    app.edit_input = new_input;
+                    app.edit_cursor_position = pos + 1 + suggestion.len() + 1;
+                }
+                let input = app.edit_input.clone();
+                let cursor = app.edit_cursor_position;
+                app.update_suggestions(&input, cursor);
+                return;
+            }
             let input = app.get_edit_input().to_string();
             let task_id = app.editing_task_id;
             if !input.trim().is_empty() && task_id.is_some() {
@@ -123,17 +226,68 @@ pub async fn handle_edit_modal(
                 debug_log("Empty input or no task selected, not updating task");
             }
         },
+        KeyCode::Tab => {
+            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                let suggestion = app.suggestions[app.selected_suggestion].clone();
+                let cursor = app.edit_cursor_position;
+                let input = app.get_edit_input();
+                let mut new_input = input[..cursor].to_string();
+                if let Some(pos) = new_input.rfind(|c| c == '*' || c == '+') {
+                    new_input.truncate(pos + 1);
+                    new_input.push_str(&suggestion);
+                    new_input.push(' ');
+                    new_input.push_str(&input[cursor..]);
+                    app.edit_input = new_input;
+                    app.edit_cursor_position = pos + 1 + suggestion.len() + 1;
+                }
+                let input = app.edit_input.clone();
+                let cursor = app.edit_cursor_position;
+                app.update_suggestions(&input, cursor);
+            }
+        },
+        KeyCode::Down => {
+            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                app.selected_suggestion = (app.selected_suggestion + 1) % app.suggestions.len();
+                let input = app.edit_input.clone();
+                let cursor = app.edit_cursor_position;
+                app.update_suggestions(&input, cursor);
+            }
+        },
+        KeyCode::Up => {
+            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                if app.selected_suggestion == 0 {
+                    app.selected_suggestion = app.suggestions.len() - 1;
+                } else {
+                    app.selected_suggestion -= 1;
+                }
+                let input = app.edit_input.clone();
+                let cursor = app.edit_cursor_position;
+                app.update_suggestions(&input, cursor);
+            }
+        },
         KeyCode::Backspace => {
             app.delete_char_from_edit();
+            let input = app.edit_input.clone();
+            let cursor = app.edit_cursor_position;
+            app.update_suggestions(&input, cursor);
         },
         KeyCode::Left => {
             app.move_edit_cursor_left();
+            let input = app.edit_input.clone();
+            let cursor = app.edit_cursor_position;
+            app.update_suggestions(&input, cursor);
         },
         KeyCode::Right => {
             app.move_edit_cursor_right();
+            let input = app.edit_input.clone();
+            let cursor = app.edit_cursor_position;
+            app.update_suggestions(&input, cursor);
         },
         KeyCode::Char(c) => {
             app.add_char_to_edit(c);
+            let input = app.edit_input.clone();
+            let cursor = app.edit_cursor_position;
+            app.update_suggestions(&input, cursor);
         },
         _ => {},
     }

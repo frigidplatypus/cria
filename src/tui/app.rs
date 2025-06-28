@@ -35,12 +35,19 @@ pub enum PendingAction {
     DeleteTask { task_id: i64 },
 }
 
+pub enum SuggestionMode {
+    Label,
+    Project,
+}
+
 pub struct App {
     pub running: bool,
     pub tasks: Vec<Task>,
     pub all_tasks: Vec<Task>, // Store all tasks for local filtering
     pub project_map: HashMap<i64, String>,
     pub project_colors: HashMap<i64, String>,
+    pub label_map: HashMap<i64, String>,
+    pub label_colors: HashMap<i64, String>,
     pub selected_task_index: usize,
     pub show_info_pane: bool,
     // Quick Add Modal state
@@ -84,6 +91,10 @@ pub struct App {
     pub flash_start: Option<std::time::Instant>,
     pub flash_cycle_count: u8, // Number of completed flash cycles
     pub flash_cycle_max: u8,   // Max cycles to flash
+    pub suggestions: Vec<String>,
+    pub selected_suggestion: usize,
+    pub suggestion_mode: Option<SuggestionMode>,
+    pub suggestion_prefix: String,
 }
 
 impl App {
@@ -94,6 +105,8 @@ impl App {
             all_tasks: Vec::new(),
             project_map: HashMap::new(),
             project_colors: HashMap::new(),
+            label_map: HashMap::new(),
+            label_colors: HashMap::new(),
             selected_task_index: 0,
             show_info_pane: true,
             show_quick_add_modal: false,
@@ -128,6 +141,10 @@ impl App {
             flash_start: None,
             flash_cycle_count: 0,
             flash_cycle_max: 6, // 3 full on/off cycles (6 states)
+            suggestions: Vec::new(),
+            selected_suggestion: 0,
+            suggestion_mode: None,
+            suggestion_prefix: String::new(),
         }
     }
 
@@ -570,9 +587,25 @@ impl App {
         }
     }
     
+    /// Update label cache from all tasks
+    pub fn update_label_cache(&mut self) {
+        self.label_map.clear();
+        self.label_colors.clear();
+        for task in &self.all_tasks {
+            if let Some(labels) = &task.labels {
+                for label in labels {
+                    self.label_map.insert(label.id, label.title.clone());
+                    self.label_colors.insert(label.id, label.hex_color.clone());
+                }
+            }
+        }
+    }
+
     pub fn update_all_tasks(&mut self, tasks: Vec<Task>) {
         self.all_tasks = tasks;
+        self.update_label_cache();
         self.apply_task_filter();
+        self.selected_task_index = 0;
     }
     
     pub fn get_filter_display_name(&self) -> &str {
@@ -782,5 +815,55 @@ impl App {
             return Some(task.id);
         }
         None
+    }
+
+    /// Update suggestions based on current input and cursor position
+    pub fn update_suggestions(&mut self, input: &str, cursor: usize) {
+        // Find the last * or + before the cursor
+        let before_cursor = &input[..cursor];
+        if let Some(pos) = before_cursor.rfind('*') {
+            let after = &before_cursor[pos+1..];
+            if after.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+                self.suggestion_mode = Some(SuggestionMode::Label);
+                self.suggestion_prefix = after.to_string();
+                let prefix = after.to_lowercase();
+                let mut labels: Vec<_> = self.label_map.values().cloned().collect();
+                labels.sort();
+                let filtered: Vec<_> = labels.into_iter().filter(|l| l.to_lowercase().starts_with(&prefix)).collect();
+                // Only reset selected_suggestion if suggestions changed
+                if filtered != self.suggestions {
+                    self.selected_suggestion = 0;
+                } else if self.selected_suggestion >= filtered.len() {
+                    self.selected_suggestion = 0;
+                }
+                self.suggestions = filtered;
+                return;
+            }
+        }
+        if let Some(pos) = before_cursor.rfind('+') {
+            let after = &before_cursor[pos+1..];
+            if after.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+                self.suggestion_mode = Some(SuggestionMode::Project);
+                self.suggestion_prefix = after.to_string();
+                let prefix = after.to_lowercase();
+                let mut projects: Vec<_> = self.project_map.iter()
+                    .filter(|(id, _)| **id > 0)
+                    .map(|(_, name)| name.clone())
+                    .collect();
+                projects.sort();
+                let filtered: Vec<_> = projects.into_iter().filter(|p| p.to_lowercase().starts_with(&prefix)).collect();
+                if filtered != self.suggestions {
+                    self.selected_suggestion = 0;
+                } else if self.selected_suggestion >= filtered.len() {
+                    self.selected_suggestion = 0;
+                }
+                self.suggestions = filtered;
+                return;
+            }
+        }
+        self.suggestion_mode = None;
+        self.suggestions.clear();
+        self.selected_suggestion = 0;
+        self.suggestion_prefix.clear();
     }
 }

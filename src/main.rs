@@ -63,6 +63,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load tasks and projects before starting the UI
     let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
     debug_log(&format!("Fetched {} tasks from API", tasks.len()));
+    // Fetch all labels from API
+    let all_labels = client_clone.lock().await.get_all_labels().await.unwrap_or_default();
+    debug_log(&format!("Fetched {} labels from API", all_labels.len()));
     if let Some(first) = tasks.get(0) {
         debug_log(&format!("First task: {:?}", first));
     } else {
@@ -77,6 +80,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         app_guard.project_map = project_map;
         app_guard.project_colors = project_colors;
         app_guard.set_filters(filters);
+        // Merge all_labels into label_map and label_colors
+        for label in all_labels {
+            if let Some(id) = label.id {
+                app_guard.label_map.insert(id as i64, label.title.clone());
+                app_guard.label_colors.insert(id as i64, label.hex_color.unwrap_or_default());
+            }
+        }
         debug_log(&format!("App all_tasks count: {}", app_guard.all_tasks.len()));
         debug_log(&format!("App tasks count after filter: {}", app_guard.tasks.len()));
         debug_log(&format!("App project_map: {:?}", app_guard.project_map));
@@ -178,6 +188,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             // Now do the refresh
                             let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
+                            let all_labels = client_clone.lock().await.get_all_labels().await.unwrap_or_default();
                             let filters = client_clone.lock().await.get_saved_filters().await.unwrap_or_default();
                             {
                                 let mut app_guard = app.lock().await;
@@ -185,6 +196,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 app_guard.project_map = project_map;
                                 app_guard.project_colors = project_colors;
                                 app_guard.set_filters(filters);
+                                // Merge all_labels into label_map and label_colors
+                                for label in all_labels {
+                                    if let Some(id) = label.id {
+                                        app_guard.label_map.insert(id as i64, label.title.clone());
+                                        app_guard.label_colors.insert(id as i64, label.hex_color.unwrap_or_default());
+                                    }
+                                }
                                 app_guard.refreshing = false;
                             }
                             {

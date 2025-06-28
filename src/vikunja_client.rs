@@ -22,6 +22,10 @@ pub use filters::*;
 pub mod users;
 pub use users::*;
 
+// --- Label-related types and functions ---
+pub mod labels;
+pub use labels::*;
+
 pub struct VikunjaClient {
     client: Client,
     base_url: String,
