@@ -296,6 +296,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // Cycle filter forward
                             app_guard.cycle_task_filter();
                         },
+                        KeyCode::Char('u') => {
+                            app_guard.undo_last_action();
+                        },
                         _ => {}
                     }
                 }
