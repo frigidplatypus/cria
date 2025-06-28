@@ -32,6 +32,7 @@
   - `tui/pickers/project.rs` (project picker event handler)
   - `tui/pickers/filter.rs` (filter picker event handler)
 - **Benefit:** Each handler is focused, easier to maintain, and can be tested or extended independently.
+
 - **Post-split:**
   - [x] Update all imports and re-exports to use new module paths.
   - [x] Remove old function definitions to avoid duplicates.

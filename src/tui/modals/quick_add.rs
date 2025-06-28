@@ -9,7 +9,7 @@ use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::debug::debug_log;
+use crate::tui::utils::{debug_log, info_log, warn_log, error_log};
 
 // Quick Add Modal event handler
 // Move logic from modals.rs here
@@ -54,7 +54,7 @@ pub async fn handle_quick_add_modal(
             }
             let input = app.get_quick_add_input().to_string();
             if !input.trim().is_empty() {
-                debug_log(&format!("Creating task with input: '{}'", input));
+                info_log(&format!("Creating task with input: '{}'", input));
                 app.hide_quick_add_modal();
                 // Get default project ID
                 let default_project_id = std::env::var("VIKUNJA_DEFAULT_PROJECT")
@@ -67,7 +67,7 @@ pub async fn handle_quick_add_modal(
                 let api_client_guard = api_client.lock().await;
                 match api_client_guard.create_task_with_magic(&input, default_project_id).await {
                     Ok(task) => {
-                        debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
+                        info_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
                         app.flash_task_id = task.id.map(|id| id as i64);
                         app.flash_start = Some(std::time::Instant::now());
                         app.flash_cycle_count = 0;
@@ -79,7 +79,7 @@ pub async fn handle_quick_add_modal(
                         app.project_map = project_map;
                         app.project_colors = project_colors;
                         app.apply_task_filter();
-                        debug_log(&format!("Tasks refreshed. Total tasks: {}", app.tasks.len()));
+                        info_log(&format!("Tasks refreshed. Total tasks: {}", app.tasks.len()));
                         // After filtering, find the new task in the filtered list and select/flash it
                         if let Some(new_id) = task.id.map(|id| id as i64) {
                             if let Some(idx) = app.tasks.iter().position(|t| t.id == new_id) {
@@ -92,11 +92,11 @@ pub async fn handle_quick_add_modal(
                         }
                     }
                     Err(e) => {
-                        debug_log(&format!("ERROR: Failed to create task: {}", e));
+                        error_log(&format!("Failed to create task: {}", e));
                     }
                 }
             } else {
-                debug_log("Empty input, not creating task");
+                warn_log("Empty input, not creating task");
             }
         },
         KeyCode::Tab => {

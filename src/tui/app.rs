@@ -671,15 +671,21 @@ impl App {
     }
 
     pub fn update_filtered_projects(&mut self) {
-        let query = self.project_picker_input.to_lowercase();
+        let query = crate::tui::utils::normalize_string(&self.project_picker_input);
         let mut projects: Vec<_> = self.project_map.iter()
             .filter(|(id, _)| **id > 0)
             .map(|(id, name)| (*id, name.clone()))
             .collect();
         if !query.is_empty() {
-            projects.retain(|(_, name)| name.to_lowercase().contains(&query));
+            projects.retain(|(_, name)| crate::tui::utils::fuzzy_match_score(&query, &crate::tui::utils::normalize_string(name)) > 0);
+            projects.sort_by(|a, b| {
+                let sa = crate::tui::utils::fuzzy_match_score(&query, &crate::tui::utils::normalize_string(&a.1));
+                let sb = crate::tui::utils::fuzzy_match_score(&query, &crate::tui::utils::normalize_string(&b.1));
+                sb.cmp(&sa).then_with(|| crate::tui::utils::normalize_string(&a.1).cmp(&crate::tui::utils::normalize_string(&b.1)))
+            });
+        } else {
+            projects.sort_by(|a, b| crate::tui::utils::normalize_string(&a.1).cmp(&crate::tui::utils::normalize_string(&b.1)));
         }
-        projects.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
         if query.is_empty() {
             self.filtered_projects = vec![(-1, "All Projects".to_string())];
             self.filtered_projects.extend(projects);
@@ -764,15 +770,20 @@ impl App {
     }
 
     pub fn update_filtered_filters(&mut self) {
-        let query = self.filter_picker_input.to_lowercase();
-        // Show all filters (negative IDs) and allow search
+        let query = crate::tui::utils::normalize_string(&self.filter_picker_input);
         let mut filters: Vec<_> = self.filters.iter()
             .map(|(id, title)| (*id, title.clone()))
             .collect();
         if !query.is_empty() {
-            filters.retain(|(_, title)| title.to_lowercase().contains(&query));
+            filters.retain(|(_, title)| crate::tui::utils::fuzzy_match_score(&query, &crate::tui::utils::normalize_string(title)) > 0);
+            filters.sort_by(|a, b| {
+                let sa = crate::tui::utils::fuzzy_match_score(&query, &crate::tui::utils::normalize_string(&a.1));
+                let sb = crate::tui::utils::fuzzy_match_score(&query, &crate::tui::utils::normalize_string(&b.1));
+                sb.cmp(&sa).then_with(|| crate::tui::utils::normalize_string(&a.1).cmp(&crate::tui::utils::normalize_string(&b.1)))
+            });
+        } else {
+            filters.sort_by(|a, b| crate::tui::utils::normalize_string(&a.1).cmp(&crate::tui::utils::normalize_string(&b.1)));
         }
-        filters.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
         self.filtered_filters = filters;
     }
 
@@ -827,10 +838,17 @@ impl App {
             if after.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
                 self.suggestion_mode = Some(SuggestionMode::Label);
                 self.suggestion_prefix = after.to_string();
-                let prefix = after.to_lowercase();
+                let prefix = crate::tui::utils::normalize_string(after);
                 let mut labels: Vec<_> = self.label_map.values().cloned().collect();
-                labels.sort();
-                let filtered: Vec<_> = labels.into_iter().filter(|l| l.to_lowercase().starts_with(&prefix)).collect();
+                labels.sort_by(|a, b| crate::tui::utils::normalize_string(a).cmp(&crate::tui::utils::normalize_string(b)));
+                let mut filtered: Vec<_> = labels.into_iter()
+                    .filter(|l| crate::tui::utils::fuzzy_match_score(&prefix, &crate::tui::utils::normalize_string(l)) > 0)
+                    .collect();
+                filtered.sort_by(|a, b| {
+                    let sa = crate::tui::utils::fuzzy_match_score(&prefix, &crate::tui::utils::normalize_string(a));
+                    let sb = crate::tui::utils::fuzzy_match_score(&prefix, &crate::tui::utils::normalize_string(b));
+                    sb.cmp(&sa).then_with(|| crate::tui::utils::normalize_string(a).cmp(&crate::tui::utils::normalize_string(b)))
+                });
                 // Only reset selected_suggestion if suggestions changed
                 if filtered != self.suggestions {
                     self.selected_suggestion = 0;
@@ -846,13 +864,20 @@ impl App {
             if after.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
                 self.suggestion_mode = Some(SuggestionMode::Project);
                 self.suggestion_prefix = after.to_string();
-                let prefix = after.to_lowercase();
+                let prefix = crate::tui::utils::normalize_string(after);
                 let mut projects: Vec<_> = self.project_map.iter()
                     .filter(|(id, _)| **id > 0)
                     .map(|(_, name)| name.clone())
                     .collect();
-                projects.sort();
-                let filtered: Vec<_> = projects.into_iter().filter(|p| p.to_lowercase().starts_with(&prefix)).collect();
+                projects.sort_by(|a, b| crate::tui::utils::normalize_string(a).cmp(&crate::tui::utils::normalize_string(b)));
+                let mut filtered: Vec<_> = projects.into_iter()
+                    .filter(|p| crate::tui::utils::fuzzy_match_score(&prefix, &crate::tui::utils::normalize_string(p)) > 0)
+                    .collect();
+                filtered.sort_by(|a, b| {
+                    let sa = crate::tui::utils::fuzzy_match_score(&prefix, &crate::tui::utils::normalize_string(a));
+                    let sb = crate::tui::utils::fuzzy_match_score(&prefix, &crate::tui::utils::normalize_string(b));
+                    sb.cmp(&sa).then_with(|| crate::tui::utils::normalize_string(a).cmp(&crate::tui::utils::normalize_string(b)))
+                });
                 if filtered != self.suggestions {
                     self.selected_suggestion = 0;
                 } else if self.selected_suggestion >= filtered.len() {

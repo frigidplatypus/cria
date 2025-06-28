@@ -10,20 +10,7 @@ use super::task_list::draw_tasks_table;
 use super::task_details::draw_task_details;
 use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dialog};
 use super::pickers::{draw_project_picker_modal, draw_filter_picker_modal};
-
-pub fn hex_to_color(hex: &str) -> Color {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() == 6 {
-        if let (Ok(r), Ok(g), Ok(b)) = (
-            u8::from_str_radix(&hex[0..2], 16),
-            u8::from_str_radix(&hex[2..4], 16),
-            u8::from_str_radix(&hex[4..6], 16),
-        ) {
-            return Color::Rgb(r, g, b);
-        }
-    }
-    Color::White
-}
+use crate::tui::utils::hex_to_color;
 
 pub fn draw(f: &mut Frame, app: &App) {
     // Draw header with current project

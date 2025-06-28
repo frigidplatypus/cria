@@ -5,7 +5,7 @@ use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Table, Row, Cell, Block, Borders};
 use ratatui::text::{Line, Span};
-use super::hex_to_color;
+use crate::tui::utils::hex_to_color;
 
 pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
     let header_cells = ["Title", "Project", "Labels"]
@@ -18,14 +18,14 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
             .cloned()
             .unwrap_or_else(|| "Unknown Project".to_string());
         let project_color = app.project_colors.get(&task.project_id)
-            .map(|hex| hex_to_color(hex))
+            .and_then(|hex| hex_to_color(hex))
             .unwrap_or(Color::White);
         let labels_line = task.labels.as_ref()
             .map(|labels| {
                 let spans: Vec<Span> = labels.iter()
                     .enumerate()
                     .flat_map(|(j, label)| {
-                        let color = hex_to_color(&label.hex_color);
+                        let color = hex_to_color(&label.hex_color).unwrap_or(Color::White);
                         let mut spans = vec![Span::styled(&label.title, Style::default().fg(color))];
                         if j < labels.len() - 1 {
                             spans.push(Span::raw(", "));

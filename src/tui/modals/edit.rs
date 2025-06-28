@@ -9,7 +9,7 @@ use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::debug::debug_log;
+use crate::tui::utils::{debug_log, info_log, warn_log, error_log};
 
 // Edit Modal event handler
 // Move logic from modals.rs here

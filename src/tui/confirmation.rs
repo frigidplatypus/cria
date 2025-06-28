@@ -3,7 +3,7 @@ use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::debug::debug_log;
+use crate::tui::utils::{debug_log, info_log, warn_log, error_log};
 
 // Confirmation dialog handler
 pub async fn handle_confirmation_dialog(
@@ -17,15 +17,15 @@ pub async fn handle_confirmation_dialog(
         KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
             // Confirm the action
             if let Some(task_id) = app.confirm_action() {
-                debug_log(&format!("Confirmed action for task ID: {}", task_id));
+                info_log(&format!("Confirmed action for task ID: {}", task_id));
                 // If it was a delete action, we need to call the API
                 if app.pending_action.is_none() { // Action was executed
                     // Call delete API
                     let api_client_guard = api_client.lock().await;
                     if let Err(e) = api_client_guard.delete_task(task_id).await {
-                        debug_log(&format!("ERROR: Failed to delete task from API: {}", e));
+                        error_log(&format!("Failed to delete task from API: {}", e));
                     } else {
-                        debug_log(&format!("Task {} deleted from API", task_id));
+                        info_log(&format!("Task {} deleted from API", task_id));
                     }
                     // Refresh tasks list
                     drop(api_client_guard);

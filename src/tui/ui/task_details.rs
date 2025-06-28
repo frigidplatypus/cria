@@ -6,7 +6,7 @@ use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Paragraph, Block, Borders, Wrap};
 use ratatui::text::{Line, Span};
 use chrono::Datelike;
-use super::hex_to_color;
+use crate::tui::utils::hex_to_color;
 
 pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
     let selected_task = app.get_selected_task();
@@ -17,7 +17,7 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
         let mut labels_line_spans = vec![Span::styled("Labels: ", Style::default().add_modifier(Modifier::BOLD))];
         if let Some(labels) = &task.labels {
             for (i, label) in labels.iter().enumerate() {
-                let color = hex_to_color(&label.hex_color);
+                let color = hex_to_color(&label.hex_color).unwrap_or(Color::White);
                 labels_line_spans.push(Span::styled(&label.title, Style::default().fg(color)));
                 if i < labels.len() - 1 {
                     labels_line_spans.push(Span::raw(", "));
