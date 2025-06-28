@@ -299,6 +299,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         KeyCode::Char('u') => {
                             app_guard.undo_last_action();
                         },
+                        KeyCode::Char('g') => {
+                            app_guard.selected_task_index = 0;
+                        },
+                        KeyCode::Char('G') => {
+                            if !app_guard.tasks.is_empty() {
+                                app_guard.selected_task_index = app_guard.tasks.len() - 1;
+                            }
+                        },
                         _ => {}
                     }
                 }
