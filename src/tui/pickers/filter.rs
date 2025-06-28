@@ -9,14 +9,20 @@ use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use crate::tui::keybinds::{action_for_keycode, KeyAction};
 
-pub async fn handle_filter_picker(app: &mut App, key: &KeyEvent, api_client: &Arc<Mutex<VikunjaClient>>) {
+pub enum PickerResult {
+    Cancel,
+    // ...other variants as needed...
+}
+
+pub async fn handle_filter_picker(app: &mut App, key: &KeyEvent, api_client: &Arc<Mutex<VikunjaClient>>) -> PickerResult {
     use crossterm::event::KeyCode;
     match key.code {
-        KeyCode::Esc => {
-            app.hide_filter_picker();
-        },
-        KeyCode::Enter => {
+        code if action_for_keycode(&code) == Some(KeyAction::CloseModal) => {
+            return PickerResult::Cancel;
+        }
+        code if action_for_keycode(&code) == Some(KeyAction::ShowFilterPicker) || code == KeyCode::Enter => {
             let (id, name) = app.filtered_filters.get(app.selected_filter_picker_index).cloned().unwrap_or((-1, "No Filter".to_string()));
             app.add_debug_message(format!("Filter picker: Enter pressed, id={}, name={}", id, name));
             if id == -1 {
@@ -37,20 +43,21 @@ pub async fn handle_filter_picker(app: &mut App, key: &KeyEvent, api_client: &Ar
                 }
             }
             app.hide_filter_picker();
-        },
-        KeyCode::Backspace => {
+        }
+        code if code == KeyCode::Backspace => {
             app.delete_char_from_filter_picker();
-        },
-        KeyCode::Up => {
+        }
+        code if action_for_keycode(&code) == Some(KeyAction::MoveUp) => {
             app.move_filter_picker_up();
-        },
-        KeyCode::Down => {
+        }
+        code if action_for_keycode(&code) == Some(KeyAction::MoveDown) => {
             app.move_filter_picker_down();
-        },
+        }
         KeyCode::Char(c) => {
             app.add_char_to_filter_picker(c);
-        },
-        _ => {},
+        }
+        _ => {}
     }
+    PickerResult::Cancel // or another default
 }
 

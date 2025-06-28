@@ -5,30 +5,37 @@
 //! Moved from `pickers.rs` as part of modularization by picker type.
 
 use crate::tui::app::App;
+use crate::tui::keybinds::{action_for_keycode, KeyAction};
 use crossterm::event::KeyEvent;
 
-pub fn handle_project_picker(app: &mut App, key: &KeyEvent) {
+pub enum PickerResult {
+    Cancel,
+    // ...other variants as needed...
+}
+
+pub fn handle_project_picker(app: &mut App, key: &KeyEvent) -> PickerResult {
     use crossterm::event::KeyCode;
     match key.code {
-        KeyCode::Esc => {
-            app.hide_project_picker();
-        },
-        KeyCode::Enter => {
+        code if action_for_keycode(&code) == Some(KeyAction::CloseModal) => {
+            return PickerResult::Cancel;
+        }
+        code if action_for_keycode(&code) == Some(KeyAction::ShowProjectPicker) || code == KeyCode::Enter => {
             app.select_project_picker();
-        },
-        KeyCode::Backspace => {
+        }
+        code if code == KeyCode::Backspace => {
             app.delete_char_from_project_picker();
-        },
-        KeyCode::Up => {
+        }
+        code if action_for_keycode(&code) == Some(KeyAction::MoveUp) => {
             app.move_project_picker_up();
-        },
-        KeyCode::Down => {
+        }
+        code if action_for_keycode(&code) == Some(KeyAction::MoveDown) => {
             app.move_project_picker_down();
-        },
+        }
         KeyCode::Char(c) => {
             app.add_char_to_project_picker(c);
-        },
-        _ => {},
+        }
+        _ => {}
     }
+    PickerResult::Cancel // or another default
 }
 

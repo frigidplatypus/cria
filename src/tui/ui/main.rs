@@ -12,6 +12,7 @@ use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dia
 use super::pickers::{draw_project_picker_modal, draw_filter_picker_modal};
 use crate::tui::utils::hex_to_color;
 use super::debug::draw_debug_modal;
+use super::keybinds::draw_keybinds_modal;
 
 pub fn draw(f: &mut Frame, app: &App) {
     // Draw header with current project
@@ -61,6 +62,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         draw_confirmation_dialog(f, app);
     } else if app.show_filter_picker {
         draw_filter_picker_modal(f, app);
+    } else if app.show_keybinds_modal {
+        draw_keybinds_modal(f, f.size(), app);
     }
 
     // Draw refreshing indicator if refreshing

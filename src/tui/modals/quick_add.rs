@@ -10,22 +10,28 @@ use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::tui::utils::{debug_log, info_log, warn_log, error_log};
+use crate::tui::keybinds::{action_for_keycode, KeyAction};
 
 // Quick Add Modal event handler
 // Move logic from modals.rs here
+
+pub enum QuickAddResult {
+    Cancel,
+    // ...other variants as needed...
+}
 
 pub async fn handle_quick_add_modal(
     app: &mut App,
     key: &KeyEvent,
     api_client: &Arc<Mutex<VikunjaClient>>,
     client_clone: &Arc<Mutex<VikunjaClient>>,
-) {
+) -> Option<QuickAddResult> {
     use crossterm::event::KeyCode;
     match key.code {
-        KeyCode::Esc => {
-            app.hide_quick_add_modal();
-        },
-        KeyCode::Enter => {
+        code if action_for_keycode(&code) == Some(KeyAction::CloseModal) => {
+            return Some(QuickAddResult::Cancel);
+        }
+        code if action_for_keycode(&code) == Some(KeyAction::AddTask) || code == KeyCode::Enter => {
             if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
                 let suggestion = app.suggestions[app.selected_suggestion].clone();
                 let cursor = app.quick_add_cursor_position;
@@ -50,7 +56,7 @@ pub async fn handle_quick_add_modal(
                 let input = app.quick_add_input.clone();
                 let cursor = app.quick_add_cursor_position;
                 app.update_suggestions(&input, cursor);
-                return;
+                return None;
             }
             let input = app.get_quick_add_input().to_string();
             if !input.trim().is_empty() {
@@ -99,7 +105,7 @@ pub async fn handle_quick_add_modal(
                 warn_log(app, "Empty input, not creating task");
             }
         },
-        KeyCode::Tab => {
+        code if code == KeyCode::Tab => {
             if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
                 let suggestion = app.suggestions[app.selected_suggestion].clone();
                 let cursor = app.quick_add_cursor_position;
@@ -124,7 +130,7 @@ pub async fn handle_quick_add_modal(
                 app.update_suggestions(&input, cursor);
             }
         },
-        KeyCode::Down => {
+        code if action_for_keycode(&code) == Some(KeyAction::MoveDown) => {
             if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
                 app.selected_suggestion = (app.selected_suggestion + 1) % app.suggestions.len();
                 let input = app.quick_add_input.clone();
@@ -132,7 +138,7 @@ pub async fn handle_quick_add_modal(
                 app.update_suggestions(&input, cursor);
             }
         },
-        KeyCode::Up => {
+        code if action_for_keycode(&code) == Some(KeyAction::MoveUp) => {
             if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
                 if app.selected_suggestion == 0 {
                     app.selected_suggestion = app.suggestions.len() - 1;
@@ -144,19 +150,19 @@ pub async fn handle_quick_add_modal(
                 app.update_suggestions(&input, cursor);
             }
         },
-        KeyCode::Backspace => {
+        code if code == KeyCode::Backspace => {
             app.delete_char_from_quick_add();
             let input = app.quick_add_input.clone();
             let cursor = app.quick_add_cursor_position;
             app.update_suggestions(&input, cursor);
         },
-        KeyCode::Left => {
+        code if code == KeyCode::Left => {
             app.move_cursor_left();
             let input = app.quick_add_input.clone();
             let cursor = app.quick_add_cursor_position;
             app.update_suggestions(&input, cursor);
         },
-        KeyCode::Right => {
+        code if code == KeyCode::Right => {
             app.move_cursor_right();
             let input = app.quick_add_input.clone();
             let cursor = app.quick_add_cursor_position;
@@ -168,7 +174,8 @@ pub async fn handle_quick_add_modal(
             let cursor = app.quick_add_cursor_position;
             app.update_suggestions(&input, cursor);
         },
-        _ => {},
+        _ => {}
     }
+    None
 }
 

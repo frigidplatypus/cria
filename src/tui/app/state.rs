@@ -73,6 +73,7 @@ pub struct App {
     pub selected_suggestion: usize,
     pub suggestion_mode: Option<SuggestionMode>,
     pub suggestion_prefix: String,
+    pub show_keybinds_modal: bool,
 }
 
 impl App {
@@ -123,6 +124,7 @@ impl App {
             selected_suggestion: 0,
             suggestion_mode: None,
             suggestion_prefix: String::new(),
+            show_keybinds_modal: false,
         }
     }
 

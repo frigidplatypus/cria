@@ -10,6 +10,13 @@ use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::tui::utils::{debug_log, info_log, warn_log, error_log};
+use crate::tui::keybinds::{action_for_keycode, KeyAction};
+
+// Edit result enum
+pub enum EditResult {
+    Cancel,
+    // ...other variants as needed...
+}
 
 // Edit Modal event handler
 // Move logic from modals.rs here
@@ -19,13 +26,13 @@ pub async fn handle_edit_modal(
     key: &KeyEvent,
     api_client: &Arc<Mutex<VikunjaClient>>,
     client_clone: &Arc<Mutex<VikunjaClient>>,
-) {
+) -> Option<EditResult> {
     use crossterm::event::KeyCode;
     match key.code {
-        KeyCode::Esc => {
-            app.hide_edit_modal();
-        },
-        KeyCode::Enter => {
+        code if action_for_keycode(&code) == Some(KeyAction::CloseModal) => {
+            return Some(EditResult::Cancel);
+        }
+        code if action_for_keycode(&code) == Some(KeyAction::EditTask) || code == KeyCode::Enter => {
             if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
                 let suggestion = app.suggestions[app.selected_suggestion].clone();
                 let cursor = app.edit_cursor_position;
@@ -42,7 +49,7 @@ pub async fn handle_edit_modal(
                 let input = app.edit_input.clone();
                 let cursor = app.edit_cursor_position;
                 app.update_suggestions(&input, cursor);
-                return;
+                return None;
             }
             let input = app.get_edit_input().to_string();
             let task_id = app.editing_task_id;
@@ -73,7 +80,7 @@ pub async fn handle_edit_modal(
                 debug_log(app, "Empty input or no task selected, not updating task");
             }
         },
-        KeyCode::Tab => {
+        code if code == KeyCode::Tab => {
             if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
                 let suggestion = app.suggestions[app.selected_suggestion].clone();
                 let cursor = app.edit_cursor_position;
@@ -92,7 +99,7 @@ pub async fn handle_edit_modal(
                 app.update_suggestions(&input, cursor);
             }
         },
-        KeyCode::Down => {
+        code if action_for_keycode(&code) == Some(KeyAction::MoveDown) => {
             if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
                 app.selected_suggestion = (app.selected_suggestion + 1) % app.suggestions.len();
                 let input = app.edit_input.clone();
@@ -100,7 +107,7 @@ pub async fn handle_edit_modal(
                 app.update_suggestions(&input, cursor);
             }
         },
-        KeyCode::Up => {
+        code if action_for_keycode(&code) == Some(KeyAction::MoveUp) => {
             if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
                 if app.selected_suggestion == 0 {
                     app.selected_suggestion = app.suggestions.len() - 1;
@@ -112,19 +119,19 @@ pub async fn handle_edit_modal(
                 app.update_suggestions(&input, cursor);
             }
         },
-        KeyCode::Backspace => {
+        code if code == KeyCode::Backspace => {
             app.delete_char_from_edit();
             let input = app.edit_input.clone();
             let cursor = app.edit_cursor_position;
             app.update_suggestions(&input, cursor);
         },
-        KeyCode::Left => {
+        code if code == KeyCode::Left => {
             app.move_edit_cursor_left();
             let input = app.edit_input.clone();
             let cursor = app.edit_cursor_position;
             app.update_suggestions(&input, cursor);
         },
-        KeyCode::Right => {
+        code if code == KeyCode::Right => {
             app.move_edit_cursor_right();
             let input = app.edit_input.clone();
             let cursor = app.edit_cursor_position;
@@ -136,7 +143,8 @@ pub async fn handle_edit_modal(
             let cursor = app.edit_cursor_position;
             app.update_suggestions(&input, cursor);
         },
-        _ => {},
+        _ => {}
     }
+    None
 }
 
