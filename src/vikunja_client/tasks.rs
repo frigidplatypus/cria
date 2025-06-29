@@ -438,4 +438,11 @@ impl super::VikunjaClient {
     }
 }
 
+// Make VikunjaClient fields public for setup_test_env.rs
+impl crate::vikunja_client::VikunjaClient {
+    pub fn base_url(&self) -> &str { &self.base_url }
+    pub fn client(&self) -> &reqwest::Client { &self.client }
+    pub fn auth_token(&self) -> &str { &self.auth_token }
+}
+
 // ... Project, Filter, User impls remain in their files ...
