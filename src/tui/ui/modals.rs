@@ -169,16 +169,18 @@ pub fn draw_quick_add_modal(f: &mut Frame, app: &App) {
 pub fn draw_edit_modal(f: &mut Frame, app: &App) {
     let area = f.size();
     let modal_width = (area.width as f32 * 0.8) as u16;
-    let modal_height = 18;
+    let modal_height = 22; // Match quick add modal height
     let x = (area.width.saturating_sub(modal_width)) / 2;
     let y = (area.height.saturating_sub(modal_height)) / 2;
     let modal_area = Rect { x, y, width: modal_width, height: modal_height };
     f.render_widget(Clear, modal_area);
+    // Layout: input (3), suggestions (6), help (rest)
     let modal_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3), // Input field with title
-            Constraint::Min(14),   // Help text
+            Constraint::Length(6), // Suggestions (fixed height)
+            Constraint::Min(10),   // Help text
         ])
         .split(modal_area);
     let input_text = app.get_edit_input();
@@ -197,40 +199,54 @@ pub fn draw_edit_modal(f: &mut Frame, app: &App) {
     if cursor_x < modal_chunks[0].x + modal_chunks[0].width - 1 {
         f.set_cursor(cursor_x, cursor_y);
     }
-    // Render suggestions below input if active
+    // Render suggestions in the reserved chunk
     if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
-        let suggestion_lines: Vec<Line> = app.suggestions.iter().enumerate().map(|(i, s)| {
-            let (color, prefix) = match app.suggestion_mode {
-                Some(crate::tui::app::SuggestionMode::Label) => (get_label_color(s, app), "*"),
-                Some(crate::tui::app::SuggestionMode::Project) => (get_project_color(s, app), "+"),
-                _ => (Color::Gray, "")
-            };
-            let styled = Span::styled(format!("{}{}", prefix, s), Style::default().fg(color));
-            if i == app.selected_suggestion {
-                // Highlight with color background and black text
-                Line::from(vec![Span::styled(
-                    format!("{}{}", prefix, s),
-                    Style::default().fg(Color::Black).bg(color).add_modifier(Modifier::BOLD)
-                )])
-            } else {
-                Line::from(vec![styled])
-            }
-        }).collect();
+        let max_visible = 4;
+        let total = app.suggestions.len();
+        let mut start = 0;
+        let mut end = total.min(max_visible);
+        if app.selected_suggestion >= end {
+            start = app.selected_suggestion + 1 - max_visible;
+            end = app.selected_suggestion + 1;
+        }
+        let suggestion_lines: Vec<Line> = app.suggestions.iter().enumerate()
+            .skip(start)
+            .take(max_visible)
+            .map(|(i, s)| {
+                let (color, prefix) = match app.suggestion_mode {
+                    Some(crate::tui::app::SuggestionMode::Label) => (get_label_color(s, app), "*"),
+                    Some(crate::tui::app::SuggestionMode::Project) => (get_project_color(s, app), "+"),
+                    _ => (Color::Gray, "")
+                };
+                let styled = Span::styled(format!("{}{}", prefix, s), Style::default().fg(color));
+                if i == app.selected_suggestion {
+                    Line::from(vec![Span::styled(
+                        format!("{}{}", prefix, s),
+                        Style::default().fg(Color::Black).bg(color).add_modifier(Modifier::BOLD)
+                    )])
+                } else {
+                    Line::from(vec![styled])
+                }
+            }).collect();
         let suggestion_block = Block::default()
             .borders(Borders::ALL)
             .title("Suggestions")
             .style(Style::default().fg(Color::Gray));
-        let suggestion_area = Rect {
-            x: modal_chunks[0].x,
-            y: modal_chunks[0].y + 3,
-            width: modal_chunks[0].width,
-            height: app.suggestions.len().min(5) as u16 + 2,
-        };
         let suggestion_paragraph = Paragraph::new(suggestion_lines)
             .block(suggestion_block)
             .wrap(Wrap { trim: true });
-        f.render_widget(suggestion_paragraph, suggestion_area);
+        f.render_widget(suggestion_paragraph, modal_chunks[1]);
+    } else {
+        let suggestion_block = Block::default()
+            .borders(Borders::ALL)
+            .title("Suggestions")
+            .style(Style::default().fg(Color::Gray));
+        let suggestion_paragraph = Paragraph::new("")
+            .block(suggestion_block)
+            .wrap(Wrap { trim: true });
+        f.render_widget(suggestion_paragraph, modal_chunks[1]);
     }
+    // Help text at the bottom
     let help_text = vec![
         Line::from(vec![
             Span::styled("Edit with Quick Add Magic:", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))
@@ -265,7 +281,7 @@ pub fn draw_edit_modal(f: &mut Frame, app: &App) {
     let help_paragraph = Paragraph::new(help_text)
         .block(help_block)
         .wrap(Wrap { trim: true });
-    f.render_widget(help_paragraph, modal_chunks[1]);
+    f.render_widget(help_paragraph, modal_chunks[2]);
 }
 
 pub fn draw_confirmation_dialog(f: &mut Frame, app: &App) {
