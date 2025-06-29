@@ -164,6 +164,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         KeyCode::Char('k') => {
                             app_guard.previous_task();
                         },
+                        KeyCode::Char('g') => {
+                            app_guard.jump_to_top();
+                        },
+                        KeyCode::Char('G') => {
+                            app_guard.jump_to_bottom();
+                        },
                         KeyCode::Char('f') => {
                             app_guard.show_filter_picker();
                         },

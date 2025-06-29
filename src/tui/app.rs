@@ -866,4 +866,17 @@ impl App {
         self.selected_suggestion = 0;
         self.suggestion_prefix.clear();
     }
+
+    /// Jump to the first task
+    pub fn jump_to_top(&mut self) {
+        if !self.tasks.is_empty() {
+            self.selected_task_index = 0;
+        }
+    }
+    /// Jump to the last task
+    pub fn jump_to_bottom(&mut self) {
+        if !self.tasks.is_empty() {
+            self.selected_task_index = self.tasks.len() - 1;
+        }
+    }
 }
