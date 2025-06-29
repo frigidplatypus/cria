@@ -217,18 +217,17 @@ impl super::VikunjaClient {
         debug_log(&format!("Updating task with project_id: {}, title: '{}'", project_id, updated_task.title));
         let updated_task = self.update_task(&updated_task).await?;
         debug_log(&format!("Task updated with ID: {:?}", updated_task.id));
-        if !parsed.labels.is_empty() {
-            if let Some(existing_labels) = &current_task.labels {
-                for label in existing_labels {
-                    if let Some(label_id) = label.id {
-                        let _ = self.remove_label_from_task(task_id as u64, label_id).await;
-                    }
+        // Remove all existing labels, then add only those present in the edit line
+        if let Some(existing_labels) = &current_task.labels {
+            for label in existing_labels {
+                if let Some(label_id) = label.id {
+                    let _ = self.remove_label_from_task(task_id as u64, label_id).await;
                 }
             }
-            for label_name in &parsed.labels {
-                if let Ok(label) = self.ensure_label_exists(label_name).await {
-                    let _ = self.add_label_to_task(task_id as u64, label.id.unwrap()).await;
-                }
+        }
+        for label_name in &parsed.labels {
+            if let Ok(label) = self.ensure_label_exists(label_name).await {
+                let _ = self.add_label_to_task(task_id as u64, label.id.unwrap()).await;
             }
         }
         if !parsed.assignees.is_empty() {
