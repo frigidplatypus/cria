@@ -49,16 +49,13 @@ pub async fn handle_quick_add_modal(
             if !input.trim().is_empty() {
                 debug_log(&format!("Creating task with input: '{}'", input));
                 app.hide_quick_add_modal();
-                // Get default project ID
-                let default_project_id = std::env::var("VIKUNJA_DEFAULT_PROJECT")
-                    .unwrap_or_else(|_| "1".to_string())
-                    .parse::<u64>()
-                    .unwrap_or(1);
-                debug_log(&format!("Using project ID: {}", default_project_id));
+                // Look up the 'Inbox' project by name for default
+                let api_client_guard = api_client.lock().await;
+                let inbox_id = api_client_guard.find_or_get_project_id("Inbox").await.ok().flatten().unwrap_or(1);
+                debug_log(&format!("Using Inbox project ID: {}", inbox_id));
                 debug_log("Calling create_task_with_magic...");
                 // Create task using API client
-                let api_client_guard = api_client.lock().await;
-                match api_client_guard.create_task_with_magic(&input, default_project_id).await {
+                match api_client_guard.create_task_with_magic(&input, inbox_id as u64).await {
                     Ok(task) => {
                         debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
                         app.flash_task_id = task.id.map(|id| id as i64);
