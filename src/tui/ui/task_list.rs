@@ -13,23 +13,38 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
         .map(|h| Cell::from(*h).style(Style::default().fg(Color::Red)));
     let header = Row::new(header_cells).height(1).bottom_margin(1);
 
-    // Calculate how many rows fit (minus header)
+    // Calculate how many rows fit (minus header and margin)
     let total_height = area.height as usize;
-    let visible_rows = if total_height > 2 { total_height - 2 } else { 1 }; // 1 for header, 1 for border
+    // 1 for header, 1 for header bottom margin, 1 for border, 1 for extra padding
+    let visible_rows = if total_height > 4 { total_height - 4 } else { 1 };
     let num_tasks = app.tasks.len();
     let selected = app.selected_task_index;
 
-    // Determine the window of tasks to show
-    let (start, end) = if num_tasks <= visible_rows {
-        (0, num_tasks)
-    } else if selected < visible_rows / 2 {
-        (0, visible_rows)
-    } else if selected + visible_rows / 2 >= num_tasks {
-        (num_tasks - visible_rows, num_tasks)
-    } else {
-        let start = selected.saturating_sub(visible_rows / 2);
-        (start, start + visible_rows)
-    };
+    // Add a buffer at the bottom to always show the last N tasks when near the end
+    let bottom_buffer = 3; // Number of tasks at the bottom to always keep visible
+    let mut start = 0;
+    let mut end = num_tasks;
+    if num_tasks > visible_rows {
+        if selected >= num_tasks.saturating_sub(bottom_buffer) {
+            start = num_tasks.saturating_sub(visible_rows);
+            end = num_tasks;
+        } else if selected < visible_rows / 2 {
+            start = 0;
+            end = visible_rows;
+        } else {
+            start = selected + 1 - visible_rows / 2;
+            if start + visible_rows > num_tasks {
+                start = num_tasks - visible_rows;
+            }
+            end = start + visible_rows;
+        }
+    }
+
+    // DEBUG: Print viewport and window info to debug log (comment out after confirming fix)
+    // crate::debug::debug_log(&format!(
+    //     "[TASKS] area.height={} visible_rows={} num_tasks={} selected={} start={} end={}",
+    //     area.height, visible_rows, num_tasks, selected, start, end
+    // ));
 
     let rows = app.tasks.iter().enumerate()
         .skip(start)
