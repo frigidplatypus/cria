@@ -25,6 +25,7 @@ pub enum KeyAction {
     ToggleInfoPane,
     Refresh,
     ToggleStar,
+    AssignProjectToTask, // Add this to KeyAction
     // ...add more as needed
 }
 
@@ -58,6 +59,7 @@ pub const KEYBINDS: &[Keybind] = &[
     Keybind { key: "i", description: "Toggle info pane", action: KeyAction::ToggleInfoPane, keycodes: &[KeyCode::Char('i')] },
     Keybind { key: "r", description: "Refresh", action: KeyAction::Refresh, keycodes: &[KeyCode::Char('r')] },
     Keybind { key: "s", description: "Toggle star", action: KeyAction::ToggleStar, keycodes: &[KeyCode::Char('s')] },
+    Keybind { key: "P", description: "Change selected task's project", action: KeyAction::AssignProjectToTask, keycodes: &[KeyCode::Char('P')] },
     // ...add more as needed
 ];
 

@@ -131,6 +131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Event::Key(key) => {
                 if key.kind == KeyEventKind::Press {
                     let mut app_guard = app.lock().await;
+                    debug_log(&mut app_guard, &format!("[event_loop] Key event received: {:?}", key));
 
                     if app_guard.show_quick_add_modal {
                         if let Some(result) = tui::modals::handle_quick_add_modal(&mut app_guard, &key, &api_client, &client_clone).await {
@@ -159,17 +160,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         app_guard.show_confirmation_dialog = false;
                         continue;
                     }
+                    // Always handle project picker first if open
                     if app_guard.show_project_picker {
-                        app_guard.update_filtered_projects(); // Ensure projects are updated when picker is shown
-                        if let crate::tui::pickers::project::PickerResult::Cancel = tui::pickers::handle_project_picker(&mut app_guard, &key) {
+                        debug_log(&mut app_guard, &format!("[event_loop] show_project_picker=true, key: {:?}", key));
+                        app_guard.update_filtered_projects();
+                        let picker_result = tui::pickers::handle_project_picker(&mut app_guard, &key);
+                        if let crate::tui::pickers::project::PickerResult::Cancel = picker_result {
                             app_guard.show_project_picker = false;
                         }
                         continue;
                     }
+                    // Always handle filter picker next if open
                     if app_guard.show_filter_picker {
                         drop(app_guard); // Release lock before await
                         let mut app_guard = app.lock().await;
-                        if let crate::tui::pickers::filter::PickerResult::Cancel = tui::pickers::handle_filter_picker(&mut app_guard, &key, &api_client).await {
+                        let picker_result = tui::pickers::handle_filter_picker(&mut app_guard, &key, &api_client).await;
+                        if let crate::tui::pickers::filter::PickerResult::Cancel = picker_result {
                             app_guard.show_filter_picker = false;
                         }
                         // Force redraw after filter selection
@@ -234,6 +240,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             },
                             KeyAction::ShowProjectPicker => {
                                 app_guard.show_project_picker = true;
+                                app_guard.update_filtered_projects();
+                            },
+                            KeyAction::AssignProjectToTask => {
+                                app_guard.show_project_picker = true;
+                                app_guard.project_picker_assign_to_task = true;
                                 app_guard.update_filtered_projects();
                             },
                             KeyAction::ToggleInfoPane => {

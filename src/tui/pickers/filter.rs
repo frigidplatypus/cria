@@ -13,6 +13,7 @@ use crate::tui::keybinds::{action_for_keycode, KeyAction};
 
 pub enum PickerResult {
     Cancel,
+    Continue,
     // ...other variants as needed...
 }
 
@@ -43,21 +44,25 @@ pub async fn handle_filter_picker(app: &mut App, key: &KeyEvent, api_client: &Ar
                 }
             }
             app.hide_filter_picker();
+            PickerResult::Cancel
         }
         code if code == KeyCode::Backspace => {
             app.delete_char_from_filter_picker();
+            PickerResult::Continue
         }
         code if action_for_keycode(&code) == Some(KeyAction::MoveUp) => {
             app.move_filter_picker_up();
+            PickerResult::Continue
         }
         code if action_for_keycode(&code) == Some(KeyAction::MoveDown) => {
             app.move_filter_picker_down();
+            PickerResult::Continue
         }
         KeyCode::Char(c) => {
             app.add_char_to_filter_picker(c);
+            PickerResult::Continue
         }
-        _ => {}
+        _ => PickerResult::Continue,
     }
-    PickerResult::Cancel // or another default
 }
 

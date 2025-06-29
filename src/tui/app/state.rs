@@ -74,6 +74,7 @@ pub struct App {
     pub suggestion_mode: Option<SuggestionMode>,
     pub suggestion_prefix: String,
     pub show_keybinds_modal: bool,
+    pub project_picker_assign_to_task: bool, // true if assigning project to a task
 }
 
 impl App {
@@ -125,6 +126,7 @@ impl App {
             suggestion_mode: None,
             suggestion_prefix: String::new(),
             show_keybinds_modal: false,
+            project_picker_assign_to_task: false, // Initialize to false
         }
     }
 

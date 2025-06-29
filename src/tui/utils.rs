@@ -138,10 +138,16 @@ pub fn log(app: &mut App, level: LogLevel, msg: &str) {
         LogLevel::Warn => format!("[WARN] {}", msg),
         LogLevel::Error => format!("[ERROR] {}", msg),
     };
-    app.debug_messages.push((now, formatted));
+    app.debug_messages.push((now, formatted.clone()));
     // Optionally, truncate buffer to max N messages
     if app.debug_messages.len() > 500 {
         app.debug_messages.drain(0..(app.debug_messages.len() - 500));
+    }
+    // Always append to debug log file
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open("cria_debug.log") {
+        let _ = writeln!(file, "{} {}", now.format("%Y-%m-%d %H:%M:%S"), formatted);
     }
 }
 

@@ -169,4 +169,11 @@ impl App {
     pub fn add_task_edit_to_undo_stack(&mut self, task_id: i64, previous_task: Task) {
         self.add_to_undo_stack(UndoableAction::TaskEdit { task_id, previous_task });
     }
+
+    pub fn assign_project_to_selected_task(&mut self, project_id: i64) {
+        if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
+            task.project_id = project_id;
+            // Optionally: trigger API update, mark dirty, etc.
+        }
+    }
 }
