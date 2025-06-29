@@ -13,73 +13,96 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
         .map(|h| Cell::from(*h).style(Style::default().fg(Color::Red)));
     let header = Row::new(header_cells).height(1).bottom_margin(1);
 
-    let rows = app.tasks.iter().enumerate().map(|(i, task)| {
-        let project_name = app.project_map.get(&task.project_id)
-            .cloned()
-            .unwrap_or_else(|| "Unknown Project".to_string());
-        let project_color = app.project_colors.get(&task.project_id)
-            .map(|hex| hex_to_color(hex))
-            .unwrap_or(Color::White);
-        let labels_line = task.labels.as_ref()
-            .map(|labels| {
-                let spans: Vec<Span> = labels.iter()
-                    .enumerate()
-                    .flat_map(|(j, label)| {
-                        let color = hex_to_color(&label.hex_color);
-                        let mut spans = vec![Span::styled(&label.title, Style::default().fg(color))];
-                        if j < labels.len() - 1 {
-                            spans.push(Span::raw(", "));
-                        }
-                        spans
-                    })
-                    .collect();
-                Line::from(spans)
-            })
-            .unwrap_or_else(|| Line::raw(""));
-        let mut title_spans = get_task_icons(task);
-        if task.done {
-            title_spans.push(Span::styled(&task.title, Style::default().add_modifier(Modifier::CROSSED_OUT).fg(Color::DarkGray)));
-        } else {
-            title_spans.push(Span::raw(&task.title));
-        }
-        let title_cell = Cell::from(Line::from(title_spans));
-        let project_cell = Cell::from(project_name).style(Style::default().fg(project_color));
-        let labels_cell = Cell::from(labels_line);
-        let mut row = Row::new(vec![title_cell, project_cell, labels_cell]);
-        let mut flash_bg = None;
-        if let (Some(flash_id), Some(start)) = (app.flash_task_id, app.flash_start) {
-            if task.id == flash_id {
-                let elapsed = start.elapsed().as_millis() as u64;
-                let cycle = (elapsed / 50) as u8;
-                if cycle < app.flash_cycle_max {
-                    let base = match project_color {
-                        Color::Rgb(r, g, b) => (r, g, b),
-                        _ => (255, 255, 0),
-                    };
-                    let fade = if cycle % 2 == 0 {
-                        (
-                            (((base.0 as u16 + 255) / 2) as u8),
-                            (((base.1 as u16 + 255) / 2) as u8),
-                            (((base.2 as u16 + 255) / 2) as u8),
-                        )
-                    } else {
-                        (base.0, base.1, base.2)
-                    };
-                    flash_bg = Some(Color::Rgb(fade.0, fade.1, fade.2));
+    // Calculate how many rows fit (minus header)
+    let total_height = area.height as usize;
+    let visible_rows = if total_height > 2 { total_height - 2 } else { 1 }; // 1 for header, 1 for border
+    let num_tasks = app.tasks.len();
+    let selected = app.selected_task_index;
+
+    // Determine the window of tasks to show
+    let (start, end) = if num_tasks <= visible_rows {
+        (0, num_tasks)
+    } else if selected < visible_rows / 2 {
+        (0, visible_rows)
+    } else if selected + visible_rows / 2 >= num_tasks {
+        (num_tasks - visible_rows, num_tasks)
+    } else {
+        let start = selected.saturating_sub(visible_rows / 2);
+        (start, start + visible_rows)
+    };
+
+    let rows = app.tasks.iter().enumerate()
+        .skip(start)
+        .take(end - start)
+        .map(|(i, task)| {
+            let project_name = app.project_map.get(&task.project_id)
+                .cloned()
+                .unwrap_or_else(|| "Unknown Project".to_string());
+            let project_color = app.project_colors.get(&task.project_id)
+                .map(|hex| hex_to_color(hex))
+                .unwrap_or(Color::White);
+            let labels_line = task.labels.as_ref()
+                .map(|labels| {
+                    let spans: Vec<Span> = labels.iter()
+                        .enumerate()
+                        .flat_map(|(j, label)| {
+                            let color = hex_to_color(&label.hex_color);
+                            let mut spans = vec![Span::styled(&label.title, Style::default().fg(color))];
+                            if j < labels.len() - 1 {
+                                spans.push(Span::raw(", "));
+                            }
+                            spans
+                        })
+                        .collect();
+                    Line::from(spans)
+                })
+                .unwrap_or_else(|| Line::raw(""));
+            let mut title_spans = get_task_icons(task);
+            if task.done {
+                title_spans.push(Span::styled(&task.title, Style::default().add_modifier(Modifier::CROSSED_OUT).fg(Color::DarkGray)));
+            } else {
+                title_spans.push(Span::raw(&task.title));
+            }
+            let title_cell = Cell::from(Line::from(title_spans));
+            let project_cell = Cell::from(project_name).style(Style::default().fg(project_color));
+            let labels_cell = Cell::from(labels_line);
+            let mut row = Row::new(vec![title_cell, project_cell, labels_cell]);
+            let mut flash_bg = None;
+            if let (Some(flash_id), Some(start_time)) = (app.flash_task_id, app.flash_start) {
+                if task.id == flash_id {
+                    let elapsed = start_time.elapsed().as_millis() as u64;
+                    let cycle = (elapsed / 50) as u8;
+                    if cycle < app.flash_cycle_max {
+                        let base = match project_color {
+                            Color::Rgb(r, g, b) => (r, g, b),
+                            _ => (255, 255, 0),
+                        };
+                        let fade = if cycle % 2 == 0 {
+                            (
+                                (((base.0 as u16 + 255) / 2) as u8),
+                                (((base.1 as u16 + 255) / 2) as u8),
+                                (((base.2 as u16 + 255) / 2) as u8),
+                            )
+                        } else {
+                            (base.0, base.1, base.2)
+                        };
+                        flash_bg = Some(Color::Rgb(fade.0, fade.1, fade.2));
+                    }
                 }
             }
-        }
-        if i == app.selected_task_index {
-            if let Some(bg) = flash_bg {
+            // Adjust for visible window
+            let visible_index = i - start;
+            if i == app.selected_task_index {
+                if let Some(bg) = flash_bg {
+                    row = row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD));
+                } else {
+                    row = row.style(Style::default().bg(Color::DarkGray));
+                }
+            } else if let Some(bg) = flash_bg {
                 row = row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD));
-            } else {
-                row = row.style(Style::default().bg(Color::DarkGray));
             }
-        } else if let Some(bg) = flash_bg {
-            row = row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD));
-        }
-        row
-    });
+            row
+        });
     let table = Table::new(rows, &[Constraint::Percentage(50), Constraint::Percentage(25), Constraint::Percentage(25)])
         .header(header)
         .block(Block::default().borders(Borders::ALL).title(format!("Tasks ({})", app.get_filter_display_name())));
