@@ -164,6 +164,16 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                 if key.kind == KeyEventKind::Press {
                     let mut app_guard = app.lock().await;
 
+                    if app_guard.show_help_modal {
+                        match key.code {
+                            KeyCode::Esc | KeyCode::Char('q') => {
+                                app_guard.hide_help_modal();
+                            }
+                            _ => {}
+                        }
+                        continue;
+                    }
+
                     if app_guard.show_quick_add_modal {
                         tui::modals::handle_quick_add_modal(&mut app_guard, &key, &api_client, &client_clone).await;
                         continue;
@@ -294,6 +304,9 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                         },
                         KeyCode::Char('i') => {
                             app_guard.show_info_pane = !app_guard.show_info_pane;
+                        },
+                        KeyCode::Char('?') => {
+                            app_guard.show_help_modal = true;
                         },
                         KeyCode::Esc => {
                             // Handle Escape globally to close any modal

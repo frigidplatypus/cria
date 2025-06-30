@@ -63,7 +63,9 @@ pub fn draw(f: &mut Frame, app: &App) {
     };
 
     // Draw modal on top if active
-    if app.show_project_picker {
+    if app.show_help_modal {
+        crate::tui::ui::modals::draw_help_modal(f, app);
+    } else if app.show_project_picker {
         draw_project_picker_modal(f, app);
     } else if app.show_quick_add_modal {
         draw_quick_add_modal(f, app);

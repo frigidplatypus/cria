@@ -310,3 +310,41 @@ pub fn draw_confirmation_dialog(f: &mut Frame, _app: &App) {
         .alignment(Alignment::Center);
     f.render_widget(buttons_paragraph, modal_area);
 }
+
+pub fn draw_help_modal(f: &mut Frame, _app: &App) {
+    let area = f.size();
+    let modal_width = (area.width as f32 * 0.7) as u16;
+    let modal_height = 22;
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    let modal_area = Rect { x, y, width: modal_width, height: modal_height };
+    f.render_widget(Clear, modal_area);
+    let block = Block::default()
+        .title(" Help / Keybinds ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    let help_lines = vec![
+        Line::from(vec![Span::styled("?", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Show this help")]),
+        Line::from(vec![Span::styled("q", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quit (in main view) / Close modal (in modal)")]),
+        Line::from(vec![Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Close modal/help")]),
+        Line::from(vec![Span::styled("j / k", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Move selection down/up")]),
+        Line::from(vec![Span::styled("g / G", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Jump to top/bottom")]),
+        Line::from(vec![Span::styled("d", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle task completion")]),
+        Line::from(vec![Span::styled("D", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Delete task")]),
+        Line::from(vec![Span::styled("a", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Add task (quick add modal)")]),
+        Line::from(vec![Span::styled("e", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Edit task")]),
+        Line::from(vec![Span::styled("f", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Show filter picker")]),
+        Line::from(vec![Span::styled("p", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Project picker")]),
+        Line::from(vec![Span::styled("r", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Refresh tasks/projects/filters")]),
+        Line::from(vec![Span::styled("s", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Star/unstar task")]),
+        Line::from(vec![Span::styled("i", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle info pane")]),
+        Line::from(vec![Span::styled("h / l", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Cycle filters backward/forward")]),
+        Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Shortcuts modal")]),
+        Line::raw("")
+    ];
+    let help_paragraph = Paragraph::new(help_lines)
+        .block(block)
+        .wrap(Wrap { trim: true })
+        .alignment(Alignment::Left);
+    f.render_widget(help_paragraph, modal_area);
+}

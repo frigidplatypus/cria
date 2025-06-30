@@ -95,6 +95,7 @@ pub struct App {
     pub suggestion_mode: Option<SuggestionMode>,
     pub suggestion_prefix: String,
     pub default_project_name: String, // NEW: store config default project name
+    pub show_help_modal: bool, // Help modal state
 }
 
 #[allow(dead_code)]
@@ -146,6 +147,7 @@ impl App {
             suggestion_mode: None,
             suggestion_prefix: String::new(),
             default_project_name,
+            show_help_modal: false,
         };
         app
     }
@@ -876,5 +878,13 @@ impl App {
         if !self.tasks.is_empty() {
             self.selected_task_index = self.tasks.len() - 1;
         }
+    }
+
+    // Help modal methods
+    pub fn show_help_modal(&mut self) {
+        self.show_help_modal = true;
+    }
+    pub fn hide_help_modal(&mut self) {
+        self.show_help_modal = false;
     }
 }
