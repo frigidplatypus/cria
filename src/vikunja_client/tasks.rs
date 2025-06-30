@@ -1,15 +1,13 @@
 // Task-related API functions for Vikunja
 // ...will be filled in from vikunja_client.rs...
 
-use reqwest::{Client, Result as ReqwestResult};
+use reqwest::Result as ReqwestResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use chrono::{DateTime, Utc};
-use crate::vikunja_parser::QuickAddParser;
 use crate::debug::debug_log;
 use crate::vikunja_client::VikunjaUser;
-use crate::vikunja_client::projects::VikunjaProject;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VikunjaTask {

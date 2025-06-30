@@ -1,8 +1,4 @@
 use reqwest::{Client, Result as ReqwestResult};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::error::Error;
-use chrono::{DateTime, Utc};
 use crate::vikunja_parser::{QuickAddParser};
 use crate::debug::debug_log;
 
@@ -12,11 +8,9 @@ pub use tasks::*;
 
 // --- Project-related types and functions ---
 pub mod projects;
-pub use projects::*;
 
 // --- Filter-related types and functions ---
 pub mod filters;
-pub use filters::*;
 
 // --- User-related types and functions ---
 pub mod users;
@@ -24,7 +18,6 @@ pub use users::*;
 
 // --- Label-related types and functions ---
 pub mod labels;
-pub use labels::*;
 
 pub struct VikunjaClient {
     client: Client,

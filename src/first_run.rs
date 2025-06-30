@@ -1,6 +1,5 @@
 use std::io::{self, Write};
 use regex::Regex;
-use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;

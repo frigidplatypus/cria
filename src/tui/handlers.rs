@@ -1,6 +1,5 @@
 use crate::tui::app::App;
 use crate::tui::events::Event;
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::vikunja_client::VikunjaClient;

@@ -3,8 +3,6 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScree
 use crossterm::ExecutableCommand;
 use ratatui::prelude::{CrosstermBackend, Terminal};
 use std::io::stdout;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 mod tui;
 mod vikunja;
@@ -14,10 +12,6 @@ mod debug;
 mod config;
 mod first_run;
 
-use crate::tui::app::App;
-use crate::tui::events::{Event, EventHandler};
-use crate::tui::ui::main::draw;
-use crate::vikunja_client::VikunjaClient as ApiClient;
 use crate::debug::debug_log;
 
 fn main() {

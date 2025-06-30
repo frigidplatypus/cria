@@ -100,7 +100,7 @@ pub struct App {
 
 impl App {
     pub fn new_with_default_project(default_project_name: String) -> Self {
-        let mut app = Self {
+        let app = Self {
             running: true, 
             tasks: Vec::new(),
             all_tasks: Vec::new(),
