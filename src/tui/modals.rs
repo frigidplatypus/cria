@@ -49,13 +49,20 @@ pub async fn handle_quick_add_modal(
             if !input.trim().is_empty() {
                 debug_log(&format!("Creating task with input: '{}'", input));
                 app.hide_quick_add_modal();
-                // Look up the 'Inbox' project by name for default
+                // Look up the default project by name from config
+                let default_project_name = app.default_project_name.trim();
                 let api_client_guard = api_client.lock().await;
-                let inbox_id = api_client_guard.find_or_get_project_id("Inbox").await.ok().flatten().unwrap_or(1);
-                debug_log(&format!("Using Inbox project ID: {}", inbox_id));
+                let default_project_id = if let Some(id) = app.project_map.iter().find_map(|(id, name)| {
+                    if name.trim().eq_ignore_ascii_case(default_project_name) { Some(*id) } else { None }
+                }) {
+                    id as u64
+                } else {
+                    api_client_guard.find_or_get_project_id(default_project_name).await.ok().flatten().unwrap_or(1) as u64
+                };
+                debug_log(&format!("Using default project ID: {} (name: '{}')", default_project_id, default_project_name));
                 debug_log("Calling create_task_with_magic...");
                 // Create task using API client
-                match api_client_guard.create_task_with_magic(&input, inbox_id as u64).await {
+                match api_client_guard.create_task_with_magic(&input, default_project_id).await {
                     Ok(task) => {
                         debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
                         app.flash_task_id = task.id.map(|id| id as i64);

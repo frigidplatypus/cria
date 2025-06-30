@@ -95,11 +95,12 @@ pub struct App {
     pub selected_suggestion: usize,
     pub suggestion_mode: Option<SuggestionMode>,
     pub suggestion_prefix: String,
+    pub default_project_name: String, // NEW: store config default project name
 }
 
 impl App {
-    pub fn new() -> Self {
-        Self { 
+    pub fn new_with_default_project(default_project_name: String) -> Self {
+        let mut app = Self {
             running: true, 
             tasks: Vec::new(),
             all_tasks: Vec::new(),
@@ -145,7 +146,9 @@ impl App {
             selected_suggestion: 0,
             suggestion_mode: None,
             suggestion_prefix: String::new(),
-        }
+            default_project_name,
+        };
+        app
     }
 
     pub fn quit(&mut self) {

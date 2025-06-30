@@ -11,6 +11,8 @@ mod vikunja;
 mod vikunja_client;
 mod vikunja_parser;
 mod debug;
+mod config;
+mod first_run;
 
 use crate::tui::app::App;
 use crate::tui::events::{Event, EventHandler};
@@ -18,8 +20,7 @@ use crate::tui::ui::main::draw;
 use crate::vikunja_client::VikunjaClient as ApiClient;
 use crate::debug::debug_log;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     // Load environment variables
     dotenv::dotenv().ok();
 
@@ -30,14 +31,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     debug_log(&format!("  VIKUNJA_TOKEN: {:?}", std::env::var("VIKUNJA_TOKEN").map(|t| format!("{}...", &t[..t.len().min(8)]))));
     debug_log(&format!("  VIKUNJA_DEFAULT_PROJECT: {:?}", std::env::var("VIKUNJA_DEFAULT_PROJECT")));
 
-    let api_client = Arc::new(Mutex::new(
-        ApiClient::new(
+    // Parse --dev-env and --wizard flags
+    let use_env = std::env::args().any(|arg| arg == "--dev-env");
+    let run_wizard = std::env::args().any(|arg| arg == "--wizard");
+
+    let (api_url, api_key, default_project) = if use_env {
+        debug_log("Using environment variables for API config");
+        (
             std::env::var("VIKUNJA_API_URL").unwrap_or_else(|_| "http://localhost:3456/api/v1".to_string()),
-            std::env::var("VIKUNJA_API_TOKEN").unwrap_or_else(|_| "demo-token".to_string())
+            std::env::var("VIKUNJA_API_TOKEN").unwrap_or_else(|_| "demo-token".to_string()),
+            std::env::var("VIKUNJA_DEFAULT_PROJECT").unwrap_or_else(|_| "Inbox".to_string()),
         )
-    ));
+    } else if run_wizard {
+        debug_log("Running config wizard by user request");
+        match crate::first_run::first_run_wizard() {
+            Some(cfg) => (cfg.api_url, cfg.api_key, cfg.default_project),
+            None => {
+                eprintln!("Wizard failed. Exiting.");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        match crate::config::CriaConfig::load() {
+            Some(cfg) => {
+                debug_log(&format!("Loaded config from YAML: api_url={}, api_key=***", cfg.api_url));
+                (cfg.api_url, cfg.api_key, cfg.default_project.unwrap_or_else(|| "Inbox".to_string()))
+            },
+            None => {
+                debug_log("No config found, running first run wizard");
+                match crate::first_run::first_run_wizard() {
+                    Some(cfg) => (cfg.api_url, cfg.api_key, cfg.default_project),
+                    None => {
+                        eprintln!("First run wizard failed. Exiting.");
+                        std::process::exit(1);
+                    }
+                }
+            }
+        }
+    };
+
+    // Call async main
+    if let Err(e) = tokio_main(api_url, api_key, default_project) {
+        eprintln!("Application error: {e}");
+        std::process::exit(1);
+    }
+}
+
+#[tokio::main]
+async fn tokio_main(api_url: String, api_key: String, default_project: String) -> Result<(), Box<dyn std::error::Error>> {
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+    use crate::tui::app::App;
+    use crate::tui::events::{Event, EventHandler};
+    use crate::tui::ui::main::draw;
+    use crate::vikunja_client::VikunjaClient as ApiClient;
+    use crate::debug::debug_log;
+
+    let api_client = Arc::new(Mutex::new(ApiClient::new(api_url, api_key)));
     
-    let app = Arc::new(Mutex::new(App::new()));
+    let app = Arc::new(Mutex::new(App::new_with_default_project(default_project.clone())));
     
     // Test API connection
     {

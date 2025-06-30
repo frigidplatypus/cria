@@ -1,0 +1,4 @@
+# Example cria config.yaml
+# Copy this file to ~/.config/cria/config.yaml and edit as needed
+api_url: "https://vikunja.example.com/api/v1"
+api_key: "your-api-key-here"
