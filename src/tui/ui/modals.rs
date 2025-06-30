@@ -328,6 +328,7 @@ pub fn draw_help_modal(f: &mut Frame, _app: &App) {
         Line::from(vec![Span::styled("q", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quit (in main view) / Close modal (in modal)")]),
         Line::from(vec![Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Close modal/help")]),
         Line::from(vec![Span::styled("j / k", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Move selection down/up")]),
+        Line::from(vec![Span::styled("Up / Down", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Move selection up/down")]),
         Line::from(vec![Span::styled("g / G", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Jump to top/bottom")]),
         Line::from(vec![Span::styled("d", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle task completion")]),
         Line::from(vec![Span::styled("D", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Delete task")]),

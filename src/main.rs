@@ -342,6 +342,12 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                             // Cycle filter forward
                             app_guard.cycle_task_filter();
                         },
+                        KeyCode::Up => {
+                            app_guard.previous_task();
+                        },
+                        KeyCode::Down => {
+                            app_guard.next_task();
+                        },
                         _ => {}
                     }
                 }
