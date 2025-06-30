@@ -16,7 +16,9 @@ pub struct ParsedTask {
 
 #[derive(Debug, Clone)]
 pub struct RepeatInterval {
+    #[allow(dead_code)]
     pub amount: u32,
+    #[allow(dead_code)]
     pub interval_type: String, // "day", "week", "month", etc.
 }
 

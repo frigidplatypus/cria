@@ -25,7 +25,7 @@ pub async fn handle_quick_add_modal(
                 // Find the last * or + before the cursor
                 if let Some(pos) = input[..cursor].rfind(|c| c == '*' || c == '+') {
                     let prefix_start = pos + 1;
-                    let prefix_end = cursor;
+                    let _prefix_end = cursor;
                     let mut new_input = String::new();
                     new_input.push_str(&input[..prefix_start]);
                     new_input.push_str(&suggestion);
@@ -103,7 +103,7 @@ pub async fn handle_quick_add_modal(
                 let input = app.get_quick_add_input();
                 if let Some(pos) = input[..cursor].rfind(|c| c == '*' || c == '+') {
                     let prefix_start = pos + 1;
-                    let prefix_end = cursor;
+                    let _prefix_end = cursor;
                     let mut new_input = String::new();
                     new_input.push_str(&input[..prefix_start]);
                     new_input.push_str(&suggestion);

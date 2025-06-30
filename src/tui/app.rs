@@ -62,7 +62,6 @@ pub struct App {
     // Debug pane state
     pub show_debug_pane: bool,
     pub debug_messages: Vec<(DateTime<Local>, String)>,
-    pub show_nerdfont_debug: bool,
     // Undo system
     pub undo_stack: Vec<UndoableAction>,
     pub max_undo_history: usize,
@@ -98,6 +97,7 @@ pub struct App {
     pub default_project_name: String, // NEW: store config default project name
 }
 
+#[allow(dead_code)]
 impl App {
     pub fn new_with_default_project(default_project_name: String) -> Self {
         let app = Self {
@@ -119,7 +119,6 @@ impl App {
             editing_task_id: None,
             show_debug_pane: false,
             debug_messages: Vec::new(),
-            show_nerdfont_debug: false,
             undo_stack: Vec::new(),
             max_undo_history: 50,
             show_confirmation_dialog: false,
@@ -301,10 +300,6 @@ impl App {
     pub fn clear_edit_input(&mut self) {
         self.edit_input.clear();
         self.edit_cursor_position = 0;
-    }
-
-    pub fn toggle_nerdfont_debug(&mut self) {
-        self.show_nerdfont_debug = !self.show_nerdfont_debug;
     }
 
     // Convert task back to Quick Add Magic syntax for editing

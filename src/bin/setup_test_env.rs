@@ -31,7 +31,7 @@ async fn main() {
     let mut label_ids = std::collections::HashMap::new();
     let existing_labels = client.get_all_labels().await.expect("Failed to get labels");
     let mut new_labels = 0;
-    for (name, color) in &label_defs {
+    for (name, _color) in &label_defs {
         let found = existing_labels.iter().find(|l| l.title == *name);
         let id = if let Some(label) = found {
             label.id.unwrap()

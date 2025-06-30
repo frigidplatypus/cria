@@ -391,19 +391,6 @@ impl super::VikunjaClient {
         Ok(())
     }
 
-    pub async fn update_task_completion(&self, task_id: i64, done: bool) -> Result<(), reqwest::Error> {
-        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
-        let mut map = HashMap::new();
-        map.insert("done", done);
-        self.client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", self.auth_token))
-            .json(&map)
-            .send()
-            .await?;
-        Ok(())
-    }
-
     pub async fn get_tasks_with_projects(&self) -> Result<(
         Vec<crate::vikunja::models::Task>,
         std::collections::HashMap<i64, String>,
@@ -437,6 +424,7 @@ impl super::VikunjaClient {
 }
 
 // Make VikunjaClient fields public for setup_test_env.rs
+#[allow(dead_code)]
 impl crate::vikunja_client::VikunjaClient {
     pub fn base_url(&self) -> &str { &self.base_url }
     pub fn client(&self) -> &reqwest::Client { &self.client }

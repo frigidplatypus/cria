@@ -1,7 +1,5 @@
 use crate::vikunja::models::{Task, Project};
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use reqwest::Client;
-use std::env;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -11,25 +9,6 @@ pub struct VikunjaClient {
 }
 
 impl VikunjaClient {
-    pub fn new() -> Self {
-        let api_url = env::var("VIKUNJA_API_URL").expect("VIKUNJA_API_URL must be set");
-        let api_token = env::var("VIKUNJA_API_TOKEN").expect("VIKUNJA_API_TOKEN must be set");
-
-        let mut headers = HeaderMap::new();
-        let auth_header = format!("Bearer {}", api_token);
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&auth_header).expect("Failed to create auth header"),
-        );
-
-        let client = Client::builder()
-            .default_headers(headers)
-            .build()
-            .expect("Failed to build client");
-
-        Self { client, api_url }
-    }
-
     pub async fn get_projects(&self) -> Result<Vec<Project>, reqwest::Error> {
         let url = format!("{}/projects", self.api_url);
         let projects = self.client.get(&url).send().await?.json::<Vec<Project>>().await?;

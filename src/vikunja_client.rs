@@ -26,6 +26,33 @@ pub struct VikunjaClient {
     parser: QuickAddParser,
 }
 
+#[allow(dead_code)]
+/// Create a quick task via the Vikunja API
+pub async fn create_quick_task(
+    base_url: String,
+    auth_token: String,
+    task_text: String,
+    project_id: i64,
+) -> Result<(), anyhow::Error> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/v1/tasks", base_url);
+    let payload = serde_json::json!({
+        "title": task_text,
+        "project_id": project_id,
+    });
+    let resp = client
+        .post(&url)
+        .bearer_auth(auth_token)
+        .json(&payload)
+        .send()
+        .await?;
+    if resp.status().is_success() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("Failed to create task: {}", resp.status()))
+    }
+}
+
 impl VikunjaClient {
     pub fn new(base_url: String, auth_token: String) -> Self {
         debug_log(&format!("Creating VikunjaClient with URL: {}", base_url));
@@ -66,17 +93,6 @@ impl VikunjaClient {
             }
         }
     }
-}
-
-// Helper function for easy usage
-pub async fn create_quick_task(
-    vikunja_url: &str,
-    auth_token: &str,
-    magic_text: &str,
-    default_project_id: u64,
-) -> ReqwestResult<crate::vikunja_client::tasks::VikunjaTask> {
-    let client = VikunjaClient::new(vikunja_url.to_string(), auth_token.to_string());
-    client.create_task_with_magic(magic_text, default_project_id).await
 }
 
 #[cfg(test)]

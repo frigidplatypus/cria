@@ -41,6 +41,7 @@ pub struct Label {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct User {
+    #[allow(dead_code)]
     pub id: i64,
     pub username: String,
 }

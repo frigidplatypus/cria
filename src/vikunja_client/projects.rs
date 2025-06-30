@@ -40,33 +40,27 @@ impl super::VikunjaClient {
             .map(|p| p.id))
     }
 
+    #[allow(dead_code)]
     pub async fn get_all_projects(&self) -> reqwest::Result<Vec<VikunjaProject>> {
         let url = format!("{}/api/v1/projects", self.base_url);
-        let response = self.client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.auth_token))
+        let resp = self.client.get(&url)
+            .bearer_auth(&self.auth_token)
             .send()
             .await?;
-        let projects: Vec<VikunjaProject> = response.json().await?;
-        Ok(projects)
+        resp.json::<Vec<VikunjaProject>>().await
     }
 
+    #[allow(dead_code)]
     pub async fn create_project(&self, title: &str, color: &str) -> reqwest::Result<VikunjaProject> {
         let url = format!("{}/api/v1/projects", self.base_url);
-        let payload = serde_json::json!({
-            "title": title,
-            "hex_color": color
-        });
-        let response = self.client
-            .put(&url)
-            .header("Authorization", format!("Bearer {}", self.auth_token))
+        let payload = serde_json::json!({"title": title, "color": color});
+        let resp = self.client.post(&url)
+            .bearer_auth(&self.auth_token)
             .json(&payload)
             .send()
             .await?;
-        let project: VikunjaProject = response.json().await?;
-        Ok(project)
+        resp.json::<VikunjaProject>().await
     }
-    // Add other project-related methods here as needed
 }
 
 // --- Project-related API impls ---

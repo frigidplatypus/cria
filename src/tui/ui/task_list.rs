@@ -106,7 +106,7 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
                 }
             }
             // Adjust for visible window
-            let visible_index = i - start;
+            let _visible_index = i - start;
             if i == app.selected_task_index {
                 if let Some(bg) = flash_bg {
                     row = row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD));

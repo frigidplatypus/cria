@@ -1,6 +1,6 @@
 use clap::{Arg, Command};
-use tokio;
 use cria::vikunja_client::create_quick_task;
+use tokio;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -46,22 +46,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Creating task with Quick Add Magic: {}", task_text);
 
-    match create_quick_task(vikunja_url, auth_token, task_text, project_id).await {
-        Ok(task) => {
-            println!("✅ Task created successfully!");
-            println!("   ID: {}", task.id.unwrap_or(0));
-            println!("   Title: {}", task.title);
-            if let Some(priority) = task.priority {
-                println!("   Priority: {}", priority);
-            }
-            if let Some(due_date) = task.due_date {
-                println!("   Due: {}", due_date.format("%Y-%m-%d %H:%M UTC"));
-            }
-        }
-        Err(e) => {
-            eprintln!("❌ Failed to create task: {}", e);
-            std::process::exit(1);
-        }
+    match create_quick_task(vikunja_url.to_string(), auth_token.to_string(), task_text.to_string(), project_id as i64).await {
+        Ok(_) => println!("Task created successfully!"),
+        Err(e) => eprintln!("Failed to create task: {}", e),
     }
 
     Ok(())

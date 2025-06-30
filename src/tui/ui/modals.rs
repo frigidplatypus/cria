@@ -16,16 +16,15 @@ fn colorize_quickadd_input<'a>(input: &'a str, app: &'a crate::tui::app::App) ->
                 spans.push(ratatui::text::Span::raw(&input[last..i]));
             }
             let start = i;
-            let mut end = i + 1;
             // Find end of token (space or end)
             while let Some(&(j, nc)) = chars.peek() {
                 if nc == ' ' || nc == '\n' {
                     break;
                 }
-                end = j + nc.len_utf8();
                 chars.next();
+                let mut _j = j + nc.len_utf8();
             }
-            let token = &input[start..end];
+            let token = &input[start..];
             if c == '*' {
                 // Label
                 let label_name = token.trim_start_matches('*');
@@ -37,7 +36,7 @@ fn colorize_quickadd_input<'a>(input: &'a str, app: &'a crate::tui::app::App) ->
                 let color = get_project_color(project_name, app);
                 spans.push(ratatui::text::Span::styled(token, Style::default().fg(color)));
             }
-            last = end;
+            last = token.len();
         }
     }
     if last < input.len() {
@@ -284,7 +283,7 @@ pub fn draw_edit_modal(f: &mut Frame, app: &App) {
     f.render_widget(help_paragraph, modal_chunks[2]);
 }
 
-pub fn draw_confirmation_dialog(f: &mut Frame, app: &App) {
+pub fn draw_confirmation_dialog(f: &mut Frame, _app: &App) {
     let area = f.size();
     let modal_width = (area.width as f32 * 0.6) as u16;
     let modal_height = 8;
