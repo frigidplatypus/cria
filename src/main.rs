@@ -202,6 +202,37 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                         drop(app_guard);
                         continue;
                     }
+                    if app_guard.show_sort_modal {
+                        match key.code {
+                            KeyCode::Esc | KeyCode::Char('q') => {
+                                app_guard.hide_sort_modal();
+                            }
+                            KeyCode::Up => {
+                                if app_guard.selected_sort_index > 0 {
+                                    app_guard.selected_sort_index -= 1;
+                                }
+                            }
+                            KeyCode::Down => {
+                                if app_guard.selected_sort_index + 1 < app_guard.sort_options.len() {
+                                    app_guard.selected_sort_index += 1;
+                                }
+                            }
+                            KeyCode::Enter => {
+                                let sort = match app_guard.selected_sort_index {
+                                    0 => crate::tui::app::SortOrder::Default,
+                                    1 => crate::tui::app::SortOrder::TitleAZ,
+                                    2 => crate::tui::app::SortOrder::TitleZA,
+                                    3 => crate::tui::app::SortOrder::PriorityHighToLow,
+                                    4 => crate::tui::app::SortOrder::PriorityLowToHigh,
+                                    _ => crate::tui::app::SortOrder::Default,
+                                };
+                                app_guard.apply_sort(sort);
+                                app_guard.hide_sort_modal();
+                            }
+                            _ => {}
+                        }
+                        continue;
+                    }
                     // Main app key handling (outside modals)
                     match key.code {
                         KeyCode::Char('q') => {
@@ -237,6 +268,9 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                         },
                         KeyCode::Char('p') => {
                             app_guard.show_project_picker();
+                        },
+                        KeyCode::Char('s') => {
+                            app_guard.show_sort_modal = true;
                         },
                         KeyCode::Char('r') => {
                             debug_log("Refresh key pressed");
@@ -320,6 +354,8 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                                 app_guard.hide_project_picker();
                             } else if app_guard.show_filter_picker {
                                 app_guard.hide_filter_picker();
+                            } else if app_guard.show_sort_modal {
+                                app_guard.hide_sort_modal();
                             }
                         },
                         KeyCode::Char('h') => {
@@ -357,19 +393,6 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                 let app_guard = app.lock().await;
                 terminal.draw(|frame| draw(frame, &app_guard))?;
                 drop(app_guard);
-            }
-        }
-
-        // After drawing, clear flash if expired (multi-cycle)
-        {
-            let mut app_guard = app.lock().await;
-            if let (Some(_), Some(start)) = (app_guard.flash_task_id, app_guard.flash_start) {
-                let elapsed = start.elapsed().as_millis() as u64;
-                let cycle = (elapsed / 50) as u8;
-                if cycle >= app_guard.flash_cycle_max {
-                    app_guard.flash_task_id = None;
-                    app_guard.flash_start = None;
-                }
             }
         }
     }

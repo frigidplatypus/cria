@@ -61,7 +61,7 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
                     let spans: Vec<Span> = labels.iter()
                         .enumerate()
                         .flat_map(|(j, label)| {
-                            let color = hex_to_color(&label.hex_color);
+                            let color = hex_to_color(label.hex_color.as_deref().unwrap_or(""));
                             let mut spans = vec![Span::styled(&label.title, Style::default().fg(color))];
                             if j < labels.len() - 1 {
                                 spans.push(Span::raw(", "));

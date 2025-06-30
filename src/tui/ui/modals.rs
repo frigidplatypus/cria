@@ -349,3 +349,31 @@ pub fn draw_help_modal(f: &mut Frame, _app: &App) {
         .alignment(Alignment::Left);
     f.render_widget(help_paragraph, modal_area);
 }
+
+pub fn draw_sort_modal(f: &mut Frame, app: &App) {
+    let area = f.size();
+    let modal_width = (area.width as f32 * 0.5) as u16;
+    let modal_height = (app.sort_options.len() as u16 + 4).min(area.height - 4);
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    let modal_area = Rect { x, y, width: modal_width, height: modal_height };
+    f.render_widget(Clear, modal_area);
+    let block = Block::default()
+        .title(" Sort Tasks ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Magenta));
+    let mut lines = vec![Line::raw("Select a sorting method (Enter to apply, Esc/q to cancel):")];
+    for (i, opt) in app.sort_options.iter().enumerate() {
+        let style = if i == app.selected_sort_index {
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD | Modifier::REVERSED)
+        } else {
+            Style::default()
+        };
+        lines.push(Line::from(Span::styled(*opt, style)));
+    }
+    let para = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: true })
+        .alignment(Alignment::Left);
+    f.render_widget(para, modal_area);
+}

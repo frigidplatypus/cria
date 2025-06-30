@@ -1,3 +1,4 @@
+use crate::debug::debug_log;
 use regex::Regex;
 use chrono::{DateTime, Utc, NaiveDate, Local, Duration, Datelike};
 use chrono_english::{parse_date_string, Dialect};
@@ -117,7 +118,9 @@ impl QuickAddParser {
         task.due_date = self.parse_date(text);
 
         // Clean the title by removing all magic syntax
-        task.title = self.clean_title(text);
+        let cleaned_title = self.clean_title(text);
+        debug_log(&format!("[MAGIC PARSER] Cleaned title: '{}', from input: '{}'", cleaned_title, text));
+        task.title = cleaned_title;
 
         task
     }

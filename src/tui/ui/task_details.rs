@@ -17,7 +17,7 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
         let mut labels_line_spans = vec![Span::styled("Labels: ", Style::default().add_modifier(Modifier::BOLD))];
         if let Some(labels) = &task.labels {
             for (i, label) in labels.iter().enumerate() {
-                let color = hex_to_color(&label.hex_color);
+                let color = hex_to_color(label.hex_color.as_deref().unwrap_or(""));
                 labels_line_spans.push(Span::styled(&label.title, Style::default().fg(color)));
                 if i < labels.len() - 1 {
                     labels_line_spans.push(Span::raw(", "));

@@ -40,6 +40,20 @@ pub enum SuggestionMode {
     Project,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SortOrder {
+    Default,
+    TitleAZ,
+    TitleZA,
+    PriorityHighToLow,
+    PriorityLowToHigh,
+    FavoriteStarredFirst, // NEW: Sort by favorite status (starred first)
+    DueDateEarliestFirst, // Sort by due date (earliest first)
+    DueDateLatestFirst,   // Sort by due date (latest first)
+    StartDateEarliestFirst, // Sort by start date (earliest first)
+    StartDateLatestFirst,   // Sort by start date (latest first)
+}
+
 pub struct App {
     pub running: bool,
     pub tasks: Vec<Task>,
@@ -96,6 +110,11 @@ pub struct App {
     pub suggestion_prefix: String,
     pub default_project_name: String, // NEW: store config default project name
     pub show_help_modal: bool, // Help modal state
+    // Sorting modal state
+    pub show_sort_modal: bool,
+    pub sort_options: Vec<&'static str>,
+    pub selected_sort_index: usize,
+    pub current_sort: Option<SortOrder>,
 }
 
 #[allow(dead_code)]
@@ -148,6 +167,21 @@ impl App {
             suggestion_prefix: String::new(),
             default_project_name,
             show_help_modal: false,
+            show_sort_modal: false,
+            sort_options: vec![
+                "Default (API order)",
+                "Title A-Z",
+                "Title Z-A",
+                "Priority (high to low)",
+                "Priority (low to high)",
+                "Favorite (starred first)",
+                "Due date (earliest first)",
+                "Due date (latest first)",
+                "Start date (earliest first)",
+                "Start date (latest first)",
+            ],
+            selected_sort_index: 0,
+            current_sort: None,
         };
         app
     }
@@ -595,7 +629,7 @@ impl App {
             if let Some(labels) = &task.labels {
                 for label in labels {
                     self.label_map.insert(label.id, label.title.clone());
-                    self.label_colors.insert(label.id, label.hex_color.clone());
+                    self.label_colors.insert(label.id, label.hex_color.clone().unwrap_or_default());
                 }
             }
         }
@@ -886,5 +920,56 @@ impl App {
     }
     pub fn hide_help_modal(&mut self) {
         self.show_help_modal = false;
+    }
+
+    // Sorting modal methods
+    pub fn show_sort_modal(&mut self) {
+        self.show_sort_modal = true;
+    }
+    pub fn hide_sort_modal(&mut self) {
+        self.show_sort_modal = false;
+    }
+    pub fn apply_sort(&mut self, sort: SortOrder) {
+        self.current_sort = Some(sort.clone());
+        match sort {
+            SortOrder::Default => {
+                // Restore tasks to the order in all_tasks, filtered as currently displayed
+                let ids: Vec<i64> = self.tasks.iter().map(|t| t.id).collect();
+                let mut new_tasks = Vec::new();
+                for t in &self.all_tasks {
+                    if ids.contains(&t.id) {
+                        new_tasks.push(t.clone());
+                    }
+                }
+                self.tasks = new_tasks;
+            }
+            SortOrder::TitleAZ => self.tasks.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase())),
+            SortOrder::TitleZA => self.tasks.sort_by(|a, b| b.title.to_lowercase().cmp(&a.title.to_lowercase())),
+            SortOrder::PriorityHighToLow => self.tasks.sort_by(|a, b| b.priority.unwrap_or(i32::MIN).cmp(&a.priority.unwrap_or(i32::MIN))),
+            SortOrder::PriorityLowToHigh => self.tasks.sort_by(|a, b| a.priority.unwrap_or(i32::MAX).cmp(&b.priority.unwrap_or(i32::MAX))),
+            SortOrder::FavoriteStarredFirst => {
+                // Sort by favorite status (starred first), then by title
+                self.tasks.sort_by(|a, b| {
+                    let cmp = b.is_favorite.cmp(&a.is_favorite);
+                    if cmp == std::cmp::Ordering::Equal {
+                        a.title.to_lowercase().cmp(&b.title.to_lowercase())
+                    } else {
+                        cmp
+                    }
+                });
+            }
+            SortOrder::DueDateEarliestFirst => {
+                self.tasks.sort_by(|a, b| a.due_date.cmp(&b.due_date));
+            }
+            SortOrder::DueDateLatestFirst => {
+                self.tasks.sort_by(|a, b| b.due_date.cmp(&a.due_date));
+            }
+            SortOrder::StartDateEarliestFirst => {
+                self.tasks.sort_by(|a, b| a.start_date.cmp(&b.start_date));
+            }
+            SortOrder::StartDateLatestFirst => {
+                self.tasks.sort_by(|a, b| b.start_date.cmp(&a.start_date));
+            }
+        }
     }
 }
