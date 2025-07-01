@@ -25,13 +25,13 @@
   - `vikunja_client/users.rs` **(DONE)**
 - **Benefit:** Each API area is easier to test and extend.
 
-## 4. Event Handling
-- If event handler files grow, split by modal/picker type:
-  - `tui/modals/quick_add.rs`
-  - `tui/modals/edit.rs`
-  - `tui/pickers/project.rs`
-  - `tui/pickers/filter.rs`
-- **Benefit:** Each handler is focused and easier to maintain.
+## 4. Event Handling **(DONE)**
+- If event handler files grow, split by modal/picker type: **(DONE)**
+  - `tui/modals/quick_add.rs` **(DONE)**
+  - `tui/modals/edit.rs` **(DONE)**
+  - `tui/pickers/project.rs` **(DONE)**
+  - `tui/pickers/filter.rs` **(DONE)**
+- **Benefit:** Each handler is focused and easier to maintain. **(COMPLETE)**
 
 ## 5. Helpers and Utilities
 - Create a `tui/utils.rs` or `tui/helpers.rs` for:
