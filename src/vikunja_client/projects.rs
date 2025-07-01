@@ -2,6 +2,7 @@
 // ...will be filled in from vikunja_client.rs...
 
 use crate::debug::debug_log;
+use crate::tui::utils::{normalize_string, equals_ignore_case};
 use serde::{Deserialize, Serialize};
 
 // --- Project-related types and functions ---
@@ -17,7 +18,7 @@ pub struct VikunjaProject {
 impl super::VikunjaClient {
     pub async fn find_or_get_project_id(&self, project_name: &str) -> reqwest::Result<Option<i64>> {
         let url = format!("{}/api/v1/projects", self.base_url);
-        let normalized_input = project_name.trim().to_ascii_lowercase();
+        let normalized_input = normalize_string(project_name);
         debug_log(&format!("Looking for project: '{}' (normalized: '{}')", project_name, normalized_input));
         let response = self.client
             .get(&url)
@@ -36,7 +37,7 @@ impl super::VikunjaClient {
         debug_log(&format!("Available projects: {:?}", projects.iter().map(|p| format!("{} (id={})", p.title, p.id)).collect::<Vec<_>>()));
         Ok(projects.iter()
             .filter(|p| p.id > 0)
-            .find(|p| p.title.trim().to_ascii_lowercase() == normalized_input)
+            .find(|p| equals_ignore_case(&p.title, project_name))
             .map(|p| p.id))
     }
 

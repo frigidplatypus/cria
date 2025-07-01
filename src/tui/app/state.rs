@@ -1,4 +1,5 @@
 use crate::vikunja::models::Task;
+use crate::tui::utils::{normalize_string, contains_ignore_case, fuzzy_match_score};
 use std::collections::HashMap;
 use chrono::{DateTime, Local, Datelike};
 
@@ -236,35 +237,27 @@ impl App {
             if suggestion_text.chars().all(is_suggestion_char) {
                 self.suggestion_mode = Some(SuggestionMode::Label);
                 self.suggestion_prefix = suggestion_text.to_string();
-                let prefix_lower = suggestion_text.to_lowercase();
-                let prefix = prefix_lower.trim();
+                let prefix = suggestion_text.trim();
                 let mut labels: Vec<_> = self.label_map.values().cloned().collect();
-                labels.sort();
                 
-                // Support both prefix matching and substring matching for better multi-word support
-                let filtered: Vec<_> = labels.into_iter().filter(|l| {
-                    let label_lower = l.to_lowercase();
-                    // First try exact prefix match
-                    if label_lower.starts_with(prefix) {
-                        return true;
-                    }
-                    // Then try word-boundary matching (each word in prefix matches start of words in label)
-                    if prefix.contains(' ') {
-                        let prefix_words: Vec<&str> = prefix.split_whitespace().collect();
-                        let label_words: Vec<&str> = label_lower.split_whitespace().collect();
-                        
-                        if prefix_words.len() <= label_words.len() {
-                            return prefix_words.iter().zip(label_words.iter())
-                                .all(|(p_word, l_word)| l_word.starts_with(p_word));
-                        }
-                    }
-                    // Finally, try substring matching for single words
-                    else if !prefix.is_empty() {
-                        return label_lower.split_whitespace()
-                            .any(|word| word.starts_with(prefix));
-                    }
-                    false
-                }).collect();
+                // Use fuzzy matching with scoring for better results
+                let mut scored_labels: Vec<(String, f32)> = labels.into_iter()
+                    .map(|label| {
+                        let score = fuzzy_match_score(&label, prefix);
+                        (label, score)
+                    })
+                    .filter(|(_, score)| *score > 0.0)
+                    .collect();
+                
+                // Sort by score (highest first), then alphabetically
+                scored_labels.sort_by(|a, b| {
+                    b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.0.cmp(&b.0))
+                });
+                
+                let filtered: Vec<String> = scored_labels.into_iter()
+                    .map(|(label, _)| label)
+                    .collect();
                 
                 if filtered != self.suggestions {
                     self.selected_suggestion = 0;
@@ -295,32 +288,25 @@ impl App {
                     .filter(|(id, _)| **id > 0)
                     .map(|(_, name)| name.clone())
                     .collect();
-                projects.sort();
                 
-                // Support both prefix matching and substring matching for better multi-word support
-                let filtered: Vec<_> = projects.into_iter().filter(|p| {
-                    let project_lower = p.to_lowercase();
-                    // First try exact prefix match
-                    if project_lower.starts_with(prefix) {
-                        return true;
-                    }
-                    // Then try word-boundary matching (each word in prefix matches start of words in project)
-                    if prefix.contains(' ') {
-                        let prefix_words: Vec<&str> = prefix.split_whitespace().collect();
-                        let project_words: Vec<&str> = project_lower.split_whitespace().collect();
-                        
-                        if prefix_words.len() <= project_words.len() {
-                            return prefix_words.iter().zip(project_words.iter())
-                                .all(|(p_word, pr_word)| pr_word.starts_with(p_word));
-                        }
-                    }
-                    // Finally, try substring matching for single words
-                    else if !prefix.is_empty() {
-                        return project_lower.split_whitespace()
-                            .any(|word| word.starts_with(prefix));
-                    }
-                    false
-                }).collect();
+                // Use fuzzy matching with scoring for better results
+                let mut scored_projects: Vec<(String, f32)> = projects.into_iter()
+                    .map(|project| {
+                        let score = fuzzy_match_score(&project, prefix);
+                        (project, score)
+                    })
+                    .filter(|(_, score)| *score > 0.0)
+                    .collect();
+                
+                // Sort by score (highest first), then alphabetically
+                scored_projects.sort_by(|a, b| {
+                    b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.0.cmp(&b.0))
+                });
+                
+                let filtered: Vec<String> = scored_projects.into_iter()
+                    .map(|(project, _)| project)
+                    .collect();
                 
                 if filtered != self.suggestions {
                     self.selected_suggestion = 0;
@@ -358,15 +344,15 @@ impl App {
                 }
                 self.tasks = new_tasks;
             }
-            SortOrder::TitleAZ => self.tasks.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase())),
-            SortOrder::TitleZA => self.tasks.sort_by(|a, b| b.title.to_lowercase().cmp(&a.title.to_lowercase())),
+            SortOrder::TitleAZ => self.tasks.sort_by(|a, b| normalize_string(&a.title).cmp(&normalize_string(&b.title))),
+            SortOrder::TitleZA => self.tasks.sort_by(|a, b| normalize_string(&b.title).cmp(&normalize_string(&a.title))),
             SortOrder::PriorityHighToLow => self.tasks.sort_by(|a, b| b.priority.unwrap_or(i32::MIN).cmp(&a.priority.unwrap_or(i32::MIN))),
             SortOrder::PriorityLowToHigh => self.tasks.sort_by(|a, b| a.priority.unwrap_or(i32::MAX).cmp(&b.priority.unwrap_or(i32::MAX))),
             SortOrder::FavoriteStarredFirst => {
                 self.tasks.sort_by(|a, b| {
                     let cmp = b.is_favorite.cmp(&a.is_favorite);
                     if cmp == std::cmp::Ordering::Equal {
-                        a.title.to_lowercase().cmp(&b.title.to_lowercase())
+                        normalize_string(&a.title).cmp(&normalize_string(&b.title))
                     } else {
                         cmp
                     }

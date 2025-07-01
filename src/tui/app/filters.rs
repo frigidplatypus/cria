@@ -1,4 +1,5 @@
 use crate::tui::app::App;
+use crate::tui::utils::contains_ignore_case;
 
 impl App {
     pub fn show_filter_picker(&mut self) {
@@ -41,9 +42,9 @@ impl App {
         }
     }
     pub fn update_filtered_filters(&mut self) {
-        let query = self.filter_picker_input.to_lowercase();
+        let query = &self.filter_picker_input;
         self.filtered_filters = self.filters.iter()
-            .filter(|(_, title)| title.to_lowercase().contains(&query))
+            .filter(|(_, title)| contains_ignore_case(title, query))
             .map(|(id, title)| (*id, title.clone()))
             .collect::<Vec<_>>();
     }
