@@ -1,5 +1,5 @@
 use crate::vikunja::models::Task;
-use crate::tui::utils::{normalize_string, contains_ignore_case, fuzzy_match_score};
+use crate::tui::utils::{normalize_string, fuzzy_match_score};
 use std::collections::HashMap;
 use chrono::{DateTime, Local, Datelike};
 
@@ -238,7 +238,7 @@ impl App {
                 self.suggestion_mode = Some(SuggestionMode::Label);
                 self.suggestion_prefix = suggestion_text.to_string();
                 let prefix = suggestion_text.trim();
-                let mut labels: Vec<_> = self.label_map.values().cloned().collect();
+                let labels: Vec<_> = self.label_map.values().cloned().collect();
                 
                 // Use fuzzy matching with scoring for better results
                 let mut scored_labels: Vec<(String, f32)> = labels.into_iter()
@@ -284,7 +284,7 @@ impl App {
                 self.suggestion_prefix = suggestion_text.to_string();
                 let prefix_lower = suggestion_text.to_lowercase();
                 let prefix = prefix_lower.trim();
-                let mut projects: Vec<_> = self.project_map.iter()
+                let projects: Vec<_> = self.project_map.iter()
                     .filter(|(id, _)| **id > 0)
                     .map(|(_, name)| name.clone())
                     .collect();
