@@ -240,7 +240,32 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                             break;
                         },
                         KeyCode::Char('d') => {
-                            app_guard.toggle_task_completion();
+                            // Toggle task completion
+                            if let Some(task_id) = app_guard.toggle_task_completion() {
+                                // Get the new done state before borrowing mutably
+                                let new_done_state = app_guard.tasks.iter().find(|t| t.id == task_id).unwrap().done;
+                                // Find the task in all_tasks and update it too
+                                if let Some(task) = app_guard.all_tasks.iter_mut().find(|t| t.id == task_id) {
+                                    task.done = new_done_state;
+                                }
+                                // Update on server
+                                let selected_task = app_guard.tasks.iter().find(|t| t.id == task_id).cloned();
+                                drop(app_guard);
+                                if let Some(task) = selected_task {
+                                    let api_task = crate::vikunja_client::VikunjaTask {
+                                        id: Some(task.id as u64),
+                                        title: task.title.clone(),
+                                        description: None, // Not editing description here
+                                        done: Some(task.done),
+                                        priority: task.priority.map(|p| p as u8),
+                                        due_date: task.due_date,
+                                        project_id: task.project_id as u64,
+                                        labels: None, // Not editing labels here
+                                        assignees: None, // Not editing assignees here
+                                    };
+                                    let _ = client_clone.lock().await.update_task(&api_task).await;
+                                }
+                            }
                         },
                         KeyCode::Char('D') => {
                             app_guard.request_delete_task();
@@ -309,7 +334,7 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                             }
                             debug_log("Refreshed tasks, projects, and filters from API");
                         },
-                        KeyCode::Char('s') => {
+                        KeyCode::Char('*') => {
                             // Toggle star (favorite) for selected task
                             if let Some(task_id) = app_guard.toggle_star_selected_task() {
                                 // Find the task in all_tasks and update it too
