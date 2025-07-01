@@ -56,14 +56,14 @@ impl QuickAddParser {
         ];
 
         Self {
-            // Match labels: *label or *"label with spaces"
-            label_regex: Regex::new(r#"\*(?:"([^"]+)"|'([^']+)'|(\S+))"#).unwrap(),
+            // Match labels: *label, *"label with spaces", *'label with spaces', or *[label with spaces]
+            label_regex: Regex::new(r#"\*(?:"([^"]+)"|'([^']+)'|\[([^\]]+)\]|(\S+))"#).unwrap(),
             // Match priority: !1 through !5
             priority_regex: Regex::new(r"!([1-5])").unwrap(),
-            // Match assignees: @username or @"user name"
-            assignee_regex: Regex::new(r#"@(?:"([^"]+)"|'([^']+)'|(\S+))"#).unwrap(),
-            // Match projects: +project or +"project with spaces"
-            project_regex: Regex::new(r#"\+(?:"([^"]+)"|'([^']+)'|(\S+))"#).unwrap(),
+            // Match assignees: @username, @"user name", @'user name', or @[user name]
+            assignee_regex: Regex::new(r#"@(?:"([^"]+)"|'([^']+)'|\[([^\]]+)\]|(\S+))"#).unwrap(),
+            // Match projects: +project, +"project with spaces", +'project with spaces', or +[project with spaces]
+            project_regex: Regex::new(r#"\+(?:"([^"]+)"|'([^']+)'|\[([^\]]+)\]|(\S+))"#).unwrap(),
             // Match repeating: every X days/weeks/months
             repeat_regex: Regex::new(r"every\s+(?:(\d+)\s+)?(\w+)").unwrap(),
             // Match time: "at 17:00" or "at 5pm"
@@ -87,7 +87,7 @@ impl QuickAddParser {
 
         // Extract labels
         for cap in self.label_regex.captures_iter(text) {
-            let label = cap.get(1).or(cap.get(2)).or(cap.get(3)).unwrap().as_str();
+            let label = cap.get(1).or(cap.get(2)).or(cap.get(3)).or(cap.get(4)).unwrap().as_str();
             task.labels.push(label.to_string());
         }
 
@@ -98,13 +98,13 @@ impl QuickAddParser {
 
         // Extract assignees
         for cap in self.assignee_regex.captures_iter(text) {
-            let assignee = cap.get(1).or(cap.get(2)).or(cap.get(3)).unwrap().as_str();
+            let assignee = cap.get(1).or(cap.get(2)).or(cap.get(3)).or(cap.get(4)).unwrap().as_str();
             task.assignees.push(assignee.to_string());
         }
 
         // Extract project
         if let Some(cap) = self.project_regex.captures(text) {
-            task.project = Some(cap.get(1).or(cap.get(2)).or(cap.get(3)).unwrap().as_str().to_string());
+            task.project = Some(cap.get(1).or(cap.get(2)).or(cap.get(3)).or(cap.get(4)).unwrap().as_str().to_string());
         }
 
         // Extract repeat interval

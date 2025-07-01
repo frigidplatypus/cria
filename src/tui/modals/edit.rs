@@ -21,14 +21,29 @@ pub async fn handle_edit_modal(
                 let suggestion = app.suggestions[app.selected_suggestion].clone();
                 let cursor = app.edit_cursor_position;
                 let input = app.get_edit_input();
-                let mut new_input = input[..cursor].to_string();
-                if let Some(pos) = new_input.rfind(|c| c == '*' || c == '+') {
-                    new_input.truncate(pos + 1);
-                    new_input.push_str(&suggestion);
-                    new_input.push(' ');
-                    new_input.push_str(&input[cursor..]);
+                if let Some(pos) = input[..cursor].rfind(|c| c == '*' || c == '+') {
+                    let mut new_input = String::new();
+                    new_input.push_str(&input[..pos]); // Include everything up to but not including the * or +
+                    new_input.push(input.chars().nth(pos).unwrap()); // Add the * or + character
+                    
+                    // Wrap multi-word suggestions in square brackets for proper parsing
+                    if suggestion.contains(' ') {
+                        new_input.push_str(&format!("[{}]", suggestion));
+                    } else {
+                        new_input.push_str(&suggestion);
+                    }
+                    
+                    if input.get(cursor..cursor+1).map_or(true, |c| c == " " || c == "") {
+                        new_input.push(' ');
+                        new_input.push_str(&input[cursor..]);
+                        app.edit_cursor_position = pos + 1 + 
+                            (if suggestion.contains(' ') { suggestion.len() + 2 } else { suggestion.len() }) + 1;
+                    } else {
+                        new_input.push_str(&input[cursor..]);
+                        app.edit_cursor_position = pos + 1 + 
+                            (if suggestion.contains(' ') { suggestion.len() + 2 } else { suggestion.len() });
+                    }
                     app.edit_input = new_input;
-                    app.edit_cursor_position = pos + 1 + suggestion.len() + 1;
                 }
                 let input = app.edit_input.clone();
                 let cursor = app.edit_cursor_position;
@@ -67,14 +82,29 @@ pub async fn handle_edit_modal(
                 let suggestion = app.suggestions[app.selected_suggestion].clone();
                 let cursor = app.edit_cursor_position;
                 let input = app.get_edit_input();
-                let mut new_input = input[..cursor].to_string();
-                if let Some(pos) = new_input.rfind(|c| c == '*' || c == '+') {
-                    new_input.truncate(pos + 1);
-                    new_input.push_str(&suggestion);
-                    new_input.push(' ');
-                    new_input.push_str(&input[cursor..]);
+                if let Some(pos) = input[..cursor].rfind(|c| c == '*' || c == '+') {
+                    let mut new_input = String::new();
+                    new_input.push_str(&input[..pos]); // Include everything up to but not including the * or +
+                    new_input.push(input.chars().nth(pos).unwrap()); // Add the * or + character
+                    
+                    // Wrap multi-word suggestions in square brackets for proper parsing
+                    if suggestion.contains(' ') {
+                        new_input.push_str(&format!("[{}]", suggestion));
+                    } else {
+                        new_input.push_str(&suggestion);
+                    }
+                    
+                    if input.get(cursor..cursor+1).map_or(true, |c| c == " " || c == "") {
+                        new_input.push(' ');
+                        new_input.push_str(&input[cursor..]);
+                        app.edit_cursor_position = pos + 1 + 
+                            (if suggestion.contains(' ') { suggestion.len() + 2 } else { suggestion.len() }) + 1;
+                    } else {
+                        new_input.push_str(&input[cursor..]);
+                        app.edit_cursor_position = pos + 1 + 
+                            (if suggestion.contains(' ') { suggestion.len() + 2 } else { suggestion.len() });
+                    }
                     app.edit_input = new_input;
-                    app.edit_cursor_position = pos + 1 + suggestion.len() + 1;
                 }
                 let input = app.edit_input.clone();
                 let cursor = app.edit_cursor_position;

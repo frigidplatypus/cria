@@ -23,18 +23,26 @@ pub async fn handle_quick_add_modal(
                 let cursor = app.quick_add_cursor_position;
                 let input = app.get_quick_add_input();
                 if let Some(pos) = input[..cursor].rfind(|c| c == '*' || c == '+') {
-                    let prefix_start = pos + 1;
-                    let _prefix_end = cursor;
                     let mut new_input = String::new();
-                    new_input.push_str(&input[..prefix_start]);
-                    new_input.push_str(&suggestion);
+                    new_input.push_str(&input[..pos]); // Include everything up to but not including the * or +
+                    new_input.push(input.chars().nth(pos).unwrap()); // Add the * or + character
+                    
+                    // Wrap multi-word suggestions in square brackets for proper parsing
+                    if suggestion.contains(' ') {
+                        new_input.push_str(&format!("[{}]", suggestion));
+                    } else {
+                        new_input.push_str(&suggestion);
+                    }
+                    
                     if input.get(cursor..cursor+1).map_or(true, |c| c == " " || c == "") {
                         new_input.push(' ');
                         new_input.push_str(&input[cursor..]);
-                        app.quick_add_cursor_position = prefix_start + suggestion.len() + 1;
+                        app.quick_add_cursor_position = pos + 1 + 
+                            (if suggestion.contains(' ') { suggestion.len() + 2 } else { suggestion.len() }) + 1;
                     } else {
                         new_input.push_str(&input[cursor..]);
-                        app.quick_add_cursor_position = prefix_start + suggestion.len();
+                        app.quick_add_cursor_position = pos + 1 + 
+                            (if suggestion.contains(' ') { suggestion.len() + 2 } else { suggestion.len() });
                     }
                     app.quick_add_input = new_input;
                 }
@@ -96,18 +104,26 @@ pub async fn handle_quick_add_modal(
                 let cursor = app.quick_add_cursor_position;
                 let input = app.get_quick_add_input();
                 if let Some(pos) = input[..cursor].rfind(|c| c == '*' || c == '+') {
-                    let prefix_start = pos + 1;
-                    let _prefix_end = cursor;
                     let mut new_input = String::new();
-                    new_input.push_str(&input[..prefix_start]);
-                    new_input.push_str(&suggestion);
+                    new_input.push_str(&input[..pos]); // Include everything up to but not including the * or +
+                    new_input.push(input.chars().nth(pos).unwrap()); // Add the * or + character
+                    
+                    // Wrap multi-word suggestions in square brackets for proper parsing
+                    if suggestion.contains(' ') {
+                        new_input.push_str(&format!("[{}]", suggestion));
+                    } else {
+                        new_input.push_str(&suggestion);
+                    }
+                    
                     if input.get(cursor..cursor+1).map_or(true, |c| c == " " || c == "") {
                         new_input.push(' ');
                         new_input.push_str(&input[cursor..]);
-                        app.quick_add_cursor_position = prefix_start + suggestion.len() + 1;
+                        app.quick_add_cursor_position = pos + 1 + 
+                            (if suggestion.contains(' ') { suggestion.len() + 2 } else { suggestion.len() }) + 1;
                     } else {
                         new_input.push_str(&input[cursor..]);
-                        app.quick_add_cursor_position = prefix_start + suggestion.len();
+                        app.quick_add_cursor_position = pos + 1 + 
+                            (if suggestion.contains(' ') { suggestion.len() + 2 } else { suggestion.len() });
                     }
                     app.quick_add_input = new_input;
                 }

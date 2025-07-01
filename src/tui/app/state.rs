@@ -216,15 +216,56 @@ impl App {
     pub fn update_suggestions(&mut self, input: &str, cursor: usize) {
         // Find the last * or + before the cursor
         let before_cursor = &input[..cursor];
+        
+        // Helper function to check if we're still in a suggestion context
+        // We stop suggestions when we encounter certain delimiters or control characters
+        fn is_suggestion_char(c: char) -> bool {
+            !matches!(c, '\n' | '\r' | '\t' | '#' | '@' | '!' | '&' | '|' | '(' | ')' | '{' | '}' | '"' | '\'')
+        }
+        
         if let Some(pos) = before_cursor.rfind('*') {
             let after = &before_cursor[pos+1..];
-            if after.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+            // Special handling for square brackets - if we're inside [], continue until ]
+            let suggestion_text = if after.starts_with('[') {
+                &after[1..] // Skip the opening bracket
+            } else {
+                after
+            };
+            
+            // Allow spaces and more characters in label suggestions, but stop at certain delimiters
+            if suggestion_text.chars().all(is_suggestion_char) {
                 self.suggestion_mode = Some(SuggestionMode::Label);
-                self.suggestion_prefix = after.to_string();
-                let prefix = after.to_lowercase();
+                self.suggestion_prefix = suggestion_text.to_string();
+                let prefix_lower = suggestion_text.to_lowercase();
+                let prefix = prefix_lower.trim();
                 let mut labels: Vec<_> = self.label_map.values().cloned().collect();
                 labels.sort();
-                let filtered: Vec<_> = labels.into_iter().filter(|l| l.to_lowercase().starts_with(&prefix)).collect();
+                
+                // Support both prefix matching and substring matching for better multi-word support
+                let filtered: Vec<_> = labels.into_iter().filter(|l| {
+                    let label_lower = l.to_lowercase();
+                    // First try exact prefix match
+                    if label_lower.starts_with(prefix) {
+                        return true;
+                    }
+                    // Then try word-boundary matching (each word in prefix matches start of words in label)
+                    if prefix.contains(' ') {
+                        let prefix_words: Vec<&str> = prefix.split_whitespace().collect();
+                        let label_words: Vec<&str> = label_lower.split_whitespace().collect();
+                        
+                        if prefix_words.len() <= label_words.len() {
+                            return prefix_words.iter().zip(label_words.iter())
+                                .all(|(p_word, l_word)| l_word.starts_with(p_word));
+                        }
+                    }
+                    // Finally, try substring matching for single words
+                    else if !prefix.is_empty() {
+                        return label_lower.split_whitespace()
+                            .any(|word| word.starts_with(prefix));
+                    }
+                    false
+                }).collect();
+                
                 if filtered != self.suggestions {
                     self.selected_suggestion = 0;
                 } else if self.selected_suggestion >= filtered.len() {
@@ -234,18 +275,53 @@ impl App {
                 return;
             }
         }
+        
         if let Some(pos) = before_cursor.rfind('+') {
             let after = &before_cursor[pos+1..];
-            if after.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+            // Special handling for square brackets - if we're inside [], continue until ]
+            let suggestion_text = if after.starts_with('[') {
+                &after[1..] // Skip the opening bracket
+            } else {
+                after
+            };
+            
+            // Allow spaces and more characters in project suggestions, but stop at certain delimiters
+            if suggestion_text.chars().all(is_suggestion_char) {
                 self.suggestion_mode = Some(SuggestionMode::Project);
-                self.suggestion_prefix = after.to_string();
-                let prefix = after.to_lowercase();
+                self.suggestion_prefix = suggestion_text.to_string();
+                let prefix_lower = suggestion_text.to_lowercase();
+                let prefix = prefix_lower.trim();
                 let mut projects: Vec<_> = self.project_map.iter()
                     .filter(|(id, _)| **id > 0)
                     .map(|(_, name)| name.clone())
                     .collect();
                 projects.sort();
-                let filtered: Vec<_> = projects.into_iter().filter(|p| p.to_lowercase().starts_with(&prefix)).collect();
+                
+                // Support both prefix matching and substring matching for better multi-word support
+                let filtered: Vec<_> = projects.into_iter().filter(|p| {
+                    let project_lower = p.to_lowercase();
+                    // First try exact prefix match
+                    if project_lower.starts_with(prefix) {
+                        return true;
+                    }
+                    // Then try word-boundary matching (each word in prefix matches start of words in project)
+                    if prefix.contains(' ') {
+                        let prefix_words: Vec<&str> = prefix.split_whitespace().collect();
+                        let project_words: Vec<&str> = project_lower.split_whitespace().collect();
+                        
+                        if prefix_words.len() <= project_words.len() {
+                            return prefix_words.iter().zip(project_words.iter())
+                                .all(|(p_word, pr_word)| pr_word.starts_with(p_word));
+                        }
+                    }
+                    // Finally, try substring matching for single words
+                    else if !prefix.is_empty() {
+                        return project_lower.split_whitespace()
+                            .any(|word| word.starts_with(prefix));
+                    }
+                    false
+                }).collect();
+                
                 if filtered != self.suggestions {
                     self.selected_suggestion = 0;
                 } else if self.selected_suggestion >= filtered.len() {
@@ -255,6 +331,7 @@ impl App {
                 return;
             }
         }
+        
         self.suggestion_mode = None;
         self.suggestions.clear();
         self.selected_suggestion = 0;

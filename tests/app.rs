@@ -164,6 +164,95 @@ fn test_suggestions() {
 }
 
 #[test]
+fn test_multi_word_suggestions() {
+    let mut app = App::new_with_default_project("Inbox".to_string());
+    
+    // Add multi-word labels and projects
+    app.label_map.insert(1, "High Priority".to_string());
+    app.label_map.insert(2, "Low Priority".to_string());
+    app.label_map.insert(3, "Work Related".to_string());
+    app.label_map.insert(4, "Personal Task".to_string());
+    
+    app.project_map.insert(10, "Home Improvement".to_string());
+    app.project_map.insert(11, "Work Projects".to_string());
+    app.project_map.insert(12, "Personal Development".to_string());
+    app.project_map.insert(13, "Side Business".to_string());
+    
+    // Test partial word matching for labels
+    app.update_suggestions("*High", 5);
+    assert!(app.suggestions.contains(&"High Priority".to_string()));
+    assert_eq!(app.suggestions.len(), 1);
+    
+    // Test partial word matching for projects
+    app.update_suggestions("+Home", 5);
+    assert!(app.suggestions.contains(&"Home Improvement".to_string()));
+    assert_eq!(app.suggestions.len(), 1);
+    
+    // Test multi-word prefix matching
+    app.update_suggestions("*High Pri", 9);
+    assert!(app.suggestions.contains(&"High Priority".to_string()));
+    assert_eq!(app.suggestions.len(), 1);
+    
+    app.update_suggestions("+Work Pro", 9);
+    assert!(app.suggestions.contains(&"Work Projects".to_string()));
+    assert_eq!(app.suggestions.len(), 1);
+    
+    // Test matching second word
+    app.update_suggestions("*Pri", 4);
+    assert!(app.suggestions.contains(&"High Priority".to_string()));
+    assert!(app.suggestions.contains(&"Low Priority".to_string()));
+    assert_eq!(app.suggestions.len(), 2);
+    
+    // Test matching with spaces in input
+    app.update_suggestions("*Personal T", 11);
+    assert!(app.suggestions.contains(&"Personal Task".to_string()));
+    assert_eq!(app.suggestions.len(), 1);
+    
+    // Test case insensitive matching
+    app.update_suggestions("*high pri", 9);
+    assert!(app.suggestions.contains(&"High Priority".to_string()));
+    assert_eq!(app.suggestions.len(), 1);
+    
+    // Test that delimiter characters stop suggestions
+    app.update_suggestions("*High#", 6);
+    assert!(app.suggestions.is_empty());
+    
+    app.update_suggestions("+Work(", 6);
+    assert!(app.suggestions.is_empty());
+}
+
+#[test]
+fn test_suggestion_word_boundary_matching() {
+    let mut app = App::new_with_default_project("Inbox".to_string());
+    
+    // Add labels that test word boundary matching
+    app.label_map.insert(1, "Frontend Development".to_string());
+    app.label_map.insert(2, "Backend Development".to_string());
+    app.label_map.insert(3, "Full Stack Development".to_string());
+    
+    // Test that "Front Back" matches nothing (not a valid word boundary sequence)
+    app.update_suggestions("*Front Back", 11);
+    assert!(app.suggestions.is_empty());
+    
+    // Test that "Full Stack" matches "Full Stack Development"
+    app.update_suggestions("*Full Stack", 11);
+    assert!(app.suggestions.contains(&"Full Stack Development".to_string()));
+    assert_eq!(app.suggestions.len(), 1);
+    
+    // Test that "Front" matches "Frontend Development"
+    app.update_suggestions("*Front", 6);
+    assert!(app.suggestions.contains(&"Frontend Development".to_string()));
+    assert_eq!(app.suggestions.len(), 1);
+    
+    // Test that "Dev" matches all three (as word start)
+    app.update_suggestions("*Dev", 4);
+    assert!(app.suggestions.contains(&"Frontend Development".to_string()));
+    assert!(app.suggestions.contains(&"Backend Development".to_string()));
+    assert!(app.suggestions.contains(&"Full Stack Development".to_string()));
+    assert_eq!(app.suggestions.len(), 3);
+}
+
+#[test]
 fn test_add_task() {
     let mut app = App::new_with_default_project("Inbox".to_string());
     let task = sample_task(42, false);

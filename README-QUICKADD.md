@@ -22,7 +22,19 @@ cargo run
 
 ## Quick Add Magic Modal
 
-Press **`n`** in the main application to open the Quick Add Magic modal.
+Press **`a`** in the main application to open the Quick Add Magic modal.
+
+### 🆕 Auto-Suggestion Features
+
+The Quick Add modal now includes **intelligent multi-word auto-suggestions**:
+
+- **For Labels (`*`)**: Type `*web dev` to see suggestions like "web development"
+- **For Projects (`+`)**: Type `+work proj` to see suggestions like "work projects" 
+- **Navigation**: Use ↑/↓ arrows to browse, Tab/Enter to select, Esc to cancel
+- **Smart Matching**: Supports exact prefix, word-boundary, and substring matching
+- **Case Insensitive**: All suggestions work regardless of capitalization
+
+See `AUTO_SUGGESTION_DEMO.md` for detailed examples and usage patterns.
 
 ### Quick Add Magic Syntax
 
