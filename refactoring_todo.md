@@ -76,16 +76,20 @@
 
 ## 🎯 FUTURE IMPROVEMENTS (Optional)
 
+*See [`ROADMAP.md`](ROADMAP.md) for detailed feature planning and release timeline*
+
 ### 7. Performance Optimizations
 - Implement lazy loading for large task lists
 - Add caching layer for API responses
 - Optimize rendering for better responsiveness
 
 ### 8. Additional Features
-- Keyboard shortcuts customization
-- Theme/color scheme configuration
-- Export/import functionality
-- Advanced search and filtering
+- Undo/Redo system (infrastructure already exists)
+- Global task search and filtering
+- Bulk operations (multi-select tasks)
+- Configuration system (themes, keybindings)
+- Enhanced visual feedback and notifications
+- Data export/import functionality
 
 ---
 
