@@ -1,7 +1,8 @@
 # Rust
 /target/
 **/*.rs.bk
-Cargo.lock
+# Cargo.lock - Keep this commented out for applications (uncomment for libraries)
+# Cargo.lock
 *.pdb
 
 # IDE and Editors
