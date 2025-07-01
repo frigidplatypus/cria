@@ -54,6 +54,7 @@ impl App {
     }
     pub fn cancel_confirmation(&mut self) { self.show_confirmation_dialog = false; self.pending_action = None; }
     pub fn execute_delete_task(&mut self, task_id: i64) { if let Some(pos) = self.tasks.iter().position(|t| t.id == task_id) { let task = self.tasks.remove(pos); self.add_debug_message(format!("Task deleted: {}", task.title)); self.add_to_undo_stack(UndoableAction::TaskDeletion { task, position: pos }); } }
+    #[allow(dead_code)] // Future undo/redo feature
     pub fn undo_last_action(&mut self) -> Option<i64> {
         if let Some(action) = self.undo_stack.pop() {
             match action {
@@ -105,6 +106,8 @@ impl App {
         }
     }
     pub fn add_to_undo_stack(&mut self, action: UndoableAction) { if self.undo_stack.len() == self.max_undo_history { self.undo_stack.remove(0); } self.undo_stack.push(action); }
+    #[allow(dead_code)] // Future undo/redo feature
     pub fn add_task_to_undo_stack(&mut self, task_id: i64) { if let Some(_task) = self.tasks.iter().find(|t| t.id == task_id) { let action = UndoableAction::TaskCreation { task_id }; self.add_to_undo_stack(action); } }
+    #[allow(dead_code)] // Future undo/redo feature
     pub fn add_task_edit_to_undo_stack(&mut self, task_id: i64, previous_task: Task) { let action = UndoableAction::TaskEdit { task_id, previous_task }; self.add_to_undo_stack(action); }
 }

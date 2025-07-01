@@ -41,7 +41,8 @@ pub enum SuggestionMode {
     Project,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
+#[allow(dead_code)] // Future sort options
 pub enum SortOrder {
     Default,
     TitleAZ,

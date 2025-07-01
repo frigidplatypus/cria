@@ -34,6 +34,7 @@ impl App {
             self.selected_filter_picker_index = (self.selected_filter_picker_index + 1) % self.filtered_filters.len();
         }
     }
+    #[allow(dead_code)] // Future feature
     pub fn select_filter_picker(&mut self) {
         if let Some(filter) = self.filtered_filters.get(self.selected_filter_picker_index) {
             self.current_filter_id = Some(filter.0);
@@ -55,12 +56,14 @@ impl App {
     pub fn apply_filter_tasks(&mut self, tasks: Vec<crate::vikunja::models::Task>) {
         self.tasks = tasks;
     }
+    #[allow(dead_code)] // Future feature
     pub fn apply_filter(&mut self) {
         if let Some(_filter_id) = self.current_filter_id {
             // No filter_id on Task, so this is a placeholder for actual filter logic
             // self.tasks = self.all_tasks.iter().filter(|task| task.filter_id == filter_id).cloned().collect();
         }
     }
+    #[allow(dead_code)] // Future feature
     pub fn get_current_filter_name(&self) -> String {
         if let Some(filter_id) = self.current_filter_id {
             if let Some(title) = self.filters.iter().find(|f| f.0 == filter_id).map(|f| &f.1) {

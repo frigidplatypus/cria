@@ -26,6 +26,7 @@ where
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct Project {
     pub id: i64,
     pub title: String,
@@ -33,6 +34,7 @@ pub struct Project {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct Label {
     pub id: i64,
     pub title: String,
@@ -44,6 +46,7 @@ pub struct Label {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct User {
     pub id: i64,
     pub username: String,
@@ -54,6 +57,7 @@ pub struct User {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct Task {
     pub id: i64,
     pub title: String,
@@ -91,6 +95,7 @@ pub struct Task {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct Attachment {
     pub id: i64,
     pub task_id: i64,
@@ -100,6 +105,7 @@ pub struct Attachment {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct FileAttachment {
     pub id: i64,
     pub name: Option<String>,
@@ -109,6 +115,7 @@ pub struct FileAttachment {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct Comment {
     pub id: i64,
     pub author: Option<User>,
@@ -119,6 +126,7 @@ pub struct Comment {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct Bucket {
     pub id: i64,
     pub title: Option<String>,
@@ -133,6 +141,7 @@ pub struct Bucket {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct Reminder {
     pub reminder: Option<String>,
     pub relative_to: Option<String>,
@@ -140,6 +149,7 @@ pub struct Reminder {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)] // API response fields may not all be used
 pub struct Subscription {
     pub id: i64,
     pub entity: Option<i64>,

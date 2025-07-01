@@ -48,6 +48,7 @@ impl App {
             .map(|(id, name)| (*id, name.clone()))
             .collect::<Vec<_>>();
     }
+    #[allow(dead_code)] // Future feature
     pub fn apply_project_filter(&mut self) {
         if let Some(project_id) = self.current_project_id {
             self.tasks = self.all_tasks.iter().filter(|task| task.project_id == project_id).cloned().collect();
