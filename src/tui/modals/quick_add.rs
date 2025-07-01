@@ -18,7 +18,34 @@ pub async fn handle_quick_add_modal(
             app.hide_quick_add_modal();
         },
         KeyCode::Enter => {
-            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+            // Check if we should auto-complete or submit the task
+            let should_autocomplete = if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                // Only auto-complete if the current text exactly matches a suggestion prefix
+                // This prevents auto-completing when the user has typed a complete, valid label
+                let cursor = app.quick_add_cursor_position;
+                let input = app.get_quick_add_input();
+                let prefix = &app.suggestion_prefix;
+                
+                // If the suggestion prefix is not an exact match to any existing label/project,
+                // then we should auto-complete. If it is an exact match, the user might want to submit.
+                let is_exact_match = match app.suggestion_mode {
+                    Some(crate::tui::app::SuggestionMode::Label) => {
+                        app.label_map.values().any(|label| label.to_lowercase() == prefix.to_lowercase())
+                    },
+                    Some(crate::tui::app::SuggestionMode::Project) => {
+                        app.project_map.values().any(|project| project.to_lowercase() == prefix.to_lowercase())
+                    },
+                    _ => false
+                };
+                
+                // Auto-complete if it's not an exact match, or if the first suggestion is different from the prefix
+                !is_exact_match && !app.suggestions.is_empty() && app.suggestions[0].to_lowercase() != prefix.to_lowercase()
+            } else {
+                false
+            };
+            
+            if should_autocomplete {
+                debug_log(&format!("Auto-completing suggestion: {}", app.suggestions[app.selected_suggestion]));
                 let suggestion = app.suggestions[app.selected_suggestion].clone();
                 let cursor = app.quick_add_cursor_position;
                 let input = app.get_quick_add_input();
@@ -51,9 +78,12 @@ pub async fn handle_quick_add_modal(
                 app.update_suggestions(&input, cursor);
                 return;
             }
+            // Submit the task
+            debug_log(&format!("Submitting quick add task with input: '{}'", app.get_quick_add_input()));
             let input = app.get_quick_add_input().to_string();
             if !input.trim().is_empty() {
-                debug_log(&format!("Creating task with input: '{}'", input));
+                debug_log(&format!("QUICK_ADD: Creating task with input: '{}'", input));
+                debug_log(&format!("QUICK_ADD: Input length: {}, trimmed length: {}", input.len(), input.trim().len()));
                 app.hide_quick_add_modal();
                 let default_project_name = app.default_project_name.trim();
                 let api_client_guard = api_client.lock().await;
@@ -64,8 +94,8 @@ pub async fn handle_quick_add_modal(
                 } else {
                     api_client_guard.find_or_get_project_id(default_project_name).await.ok().flatten().unwrap_or(1) as u64
                 };
-                debug_log(&format!("Using default project ID: {} (name: '{}')", default_project_id, default_project_name));
-                debug_log("Calling create_task_with_magic...");
+                debug_log(&format!("QUICK_ADD: Using default project ID: {} (name: '{}')", default_project_id, default_project_name));
+                debug_log("QUICK_ADD: Calling create_task_with_magic...");
                 match api_client_guard.create_task_with_magic(&input, default_project_id).await {
                     Ok(task) => {
                         debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));

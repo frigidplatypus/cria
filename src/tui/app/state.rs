@@ -36,6 +36,7 @@ pub enum PendingAction {
     DeleteTask { task_id: i64 },
 }
 
+#[derive(Clone, Debug)]
 pub enum SuggestionMode {
     Label,
     Project,

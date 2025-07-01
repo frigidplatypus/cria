@@ -87,9 +87,18 @@ impl super::VikunjaClient {
         let task_id = created_task.id.unwrap();
 
         // Step 3: Add labels
+        debug_log(&format!("Step 3: Adding {} labels to task {}", parsed.labels.len(), task_id));
         for label_name in &parsed.labels {
-            if let Ok(label) = self.ensure_label_exists(label_name).await {
-                let _ = self.add_label_to_task(task_id, label.id.unwrap()).await;
+            debug_log(&format!("Processing label: '{}'", label_name));
+            match self.ensure_label_exists(label_name).await {
+                Ok(label) => {
+                    debug_log(&format!("Label '{}' exists/created with ID: {:?}", label_name, label.id));
+                    match self.add_label_to_task(task_id, label.id.unwrap()).await {
+                        Ok(_) => debug_log(&format!("Successfully added label '{}' to task {}", label_name, task_id)),
+                        Err(e) => debug_log(&format!("Failed to add label '{}' to task {}: {}", label_name, task_id, e)),
+                    }
+                }
+                Err(e) => debug_log(&format!("Failed to ensure label '{}' exists: {}", label_name, e)),
             }
         }
 
@@ -106,8 +115,13 @@ impl super::VikunjaClient {
             // This would involve setting repeat_after or repeat_mode fields
         }
 
-        // Return the updated task
-        self.get_task(task_id).await
+        // Return the updated task (with proper refresh to ensure it's in the next fetch)
+        debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", created_task.id, created_task.title));
+        
+        // Wait a moment to ensure the server has processed everything
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        
+        Ok(created_task)
     }
 
     pub async fn create_task(&self, task: &VikunjaTask) -> ReqwestResult<VikunjaTask> {
@@ -411,16 +425,317 @@ impl super::VikunjaClient {
             project_map.insert(project.id, project.title.clone());
             project_colors.insert(project.id, project.hex_color.clone());
         }
-        // Fetch all tasks
-        let url = format!("{}/api/v1/tasks/all", self.base_url);
+        // Fetch all tasks using comprehensive method
+        debug_log("Starting comprehensive task fetch after task creation...");
+        
+        // First, debug what the API endpoints are returning
+        let _ = self.debug_api_endpoints().await;
+        
+        let tasks = self.get_all_tasks_comprehensive().await?;
+        
+        // Check for task 147 specifically
+        if let Some(task_147) = tasks.iter().find(|t| t.id == 147) {
+            debug_log(&format!("✓ Found task 147: '{}'", task_147.title));
+        } else {
+            debug_log("✗ Task 147 not found in fetched tasks");
+            // Show last few task IDs
+            let mut recent_ids: Vec<i64> = tasks.iter().map(|t| t.id).collect();
+            recent_ids.sort();
+            recent_ids.reverse();
+            debug_log(&format!("Most recent task IDs: {:?}", recent_ids.iter().take(10).collect::<Vec<_>>()));
+        }
+        
+        Ok((tasks, project_map, project_colors))
+    }
+
+    pub async fn get_all_tasks_comprehensive(&self) -> Result<Vec<crate::vikunja::models::Task>, reqwest::Error> {
+        debug_log("Starting comprehensive task fetch...");
+        
+        // Method 1: Try paginated /api/v1/tasks/all
+        match self.get_tasks_paginated().await {
+            Ok(tasks) => {
+                debug_log(&format!("Method 1 (paginated): Success, got {} tasks", tasks.len()));
+                return Ok(tasks);
+            }
+            Err(e) => {
+                debug_log(&format!("Method 1 (paginated) failed: {}", e));
+            }
+        }
+        
+        // Method 2: Try simple /api/v1/tasks/all with high limit
+        match self.get_tasks_simple_with_limit().await {
+            Ok(tasks) => {
+                debug_log(&format!("Method 2 (simple with limit): Success, got {} tasks", tasks.len()));
+                return Ok(tasks);
+            }
+            Err(e) => {
+                debug_log(&format!("Method 2 (simple with limit) failed: {}", e));
+            }
+        }
+        
+        // Method 3: Aggregate tasks from all projects
+        match self.get_tasks_from_all_projects().await {
+            Ok(tasks) => {
+                debug_log(&format!("Method 3 (from all projects): Success, got {} tasks", tasks.len()));
+                return Ok(tasks);
+            }
+            Err(e) => {
+                debug_log(&format!("Method 3 (from all projects) failed: {}", e));
+                return Err(e);
+            }
+        }
+    }
+    
+    async fn get_tasks_paginated(&self) -> Result<Vec<crate::vikunja::models::Task>, reqwest::Error> {
+        let mut all_tasks = Vec::new();
+        let mut page = 1;
+        let per_page = 250; // Use a reasonable page size
+        
+        debug_log("Starting paginated task fetch...");
+        
+        loop {
+            // Use comprehensive parameters to get all tasks (done and not done)
+            let url = format!("{}/api/v1/tasks/all?page={}&per_page={}&sort_by=id&order_by=desc&filter_include_nulls=true", 
+                             self.base_url, page, per_page);
+            
+            debug_log(&format!("Fetching page {} with URL: {}", page, url));
+            
+            let tasks_resp = self.client
+                .get(&url)
+                .header("Authorization", format!("Bearer {}", self.auth_token))
+                .send()
+                .await?;
+                
+            let status = tasks_resp.status();
+            debug_log(&format!("Page {} response status: {}", page, status));
+            
+            if !status.is_success() {
+                let error_text = tasks_resp.text().await.unwrap_or_default();
+                debug_log(&format!("Page {} failed with error: {}", page, error_text));
+                break;
+            }
+                
+            let page_tasks: Vec<crate::vikunja::models::Task> = tasks_resp.json().await?;
+            let page_count = page_tasks.len();
+            
+            debug_log(&format!("Page {} returned {} tasks", page, page_count));
+            
+            // Check if this page contains task 147
+            if page_tasks.iter().any(|t| t.id == 147) {
+                debug_log(&format!("✓ Found task 147 on page {}", page));
+            }
+            
+            all_tasks.extend(page_tasks);
+            
+            // If we got fewer tasks than requested, we've reached the end
+            if page_count < per_page {
+                debug_log(&format!("Reached end of pagination on page {} (got {} < {})", page, page_count, per_page));
+                break;
+            }
+            
+            page += 1;
+            if page > 100 { // Safety check to prevent infinite loops
+                debug_log("Hit pagination safety limit of 100 pages");
+                break;
+            }
+        }
+        
+        debug_log(&format!("Pagination complete: {} total tasks across {} pages", all_tasks.len(), page - 1));
+        Ok(all_tasks)
+    }
+    
+    async fn get_tasks_simple_with_limit(&self) -> Result<Vec<crate::vikunja::models::Task>, reqwest::Error> {
+        // Try with a very high limit and include nulls to get everything
+        let url = format!("{}/api/v1/tasks/all?per_page=10000&filter_include_nulls=true&sort_by=id&order_by=desc", self.base_url);
+        
+        debug_log(&format!("Trying simple fetch with high limit: {}", url));
+        
         let tasks_resp = self.client
             .get(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
             .send()
             .await?;
+            
+        let status = tasks_resp.status();
+        debug_log(&format!("Simple fetch response status: {}", status));
+        
+        if !status.is_success() {
+            let error_text = tasks_resp.text().await.unwrap_or_default();
+            debug_log(&format!("Simple fetch failed: {}", error_text));
+            // Force a proper reqwest error by making a bad request
+            let _bad_response = self.client.get("http://localhost:1/invalid").send().await;
+            return Err(_bad_response.unwrap_err());
+        }
+        
         let tasks: Vec<crate::vikunja::models::Task> = tasks_resp.json().await?;
-        Ok((tasks, project_map, project_colors))
+        debug_log(&format!("Simple fetch returned {} tasks", tasks.len()));
+        
+        if tasks.iter().any(|t| t.id == 147) {
+            debug_log("✓ Found task 147 in simple fetch");
+        } else {
+            debug_log("✗ Task 147 not found in simple fetch");
+        }
+        
+        Ok(tasks)
     }
+    
+    async fn get_tasks_from_all_projects(&self) -> Result<Vec<crate::vikunja::models::Task>, reqwest::Error> {
+        debug_log("Fetching tasks from all projects individually...");
+        
+        // Get all projects first
+        let projects_url = format!("{}/api/v1/projects", self.base_url);
+        let projects_resp = self.client
+            .get(&projects_url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .send()
+            .await?;
+        let projects: Vec<crate::vikunja::models::Project> = projects_resp.json().await?;
+        
+        debug_log(&format!("Found {} projects to fetch tasks from", projects.len()));
+        
+        let mut all_tasks = Vec::new();
+        
+        // Get tasks from each project with comprehensive parameters
+        for project in projects {
+            let tasks_url = format!("{}/api/v1/projects/{}/tasks?per_page=10000&filter_include_nulls=true&sort_by=id&order_by=desc", 
+                                   self.base_url, project.id);
+            debug_log(&format!("Fetching tasks from project {} ({}): {}", project.id, project.title, tasks_url));
+            
+            match self.client
+                .get(&tasks_url)
+                .header("Authorization", format!("Bearer {}", self.auth_token))
+                .send()
+                .await
+            {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if status.is_success() {
+                        match resp.json::<Vec<crate::vikunja::models::Task>>().await {
+                            Ok(mut project_tasks) => {
+                                debug_log(&format!("Project {} returned {} tasks", project.id, project_tasks.len()));
+                                
+                                // Check if this project contains task 147
+                                if project_tasks.iter().any(|t| t.id == 147) {
+                                    debug_log(&format!("✓ Found task 147 in project {} ({})", project.id, project.title));
+                                }
+                                
+                                all_tasks.append(&mut project_tasks);
+                            }
+                            Err(e) => {
+                                debug_log(&format!("Failed to parse tasks from project {}: {}", project.id, e));
+                                continue;
+                            }
+                        }
+                    } else {
+                        debug_log(&format!("Project {} returned status: {}", project.id, status));
+                        continue;
+                    }
+                }
+                Err(e) => {
+                    debug_log(&format!("Failed to fetch from project {}: {}", project.id, e));
+                    continue;
+                }
+            }
+        }
+        
+        debug_log(&format!("Project aggregation complete: {} total tasks", all_tasks.len()));
+        Ok(all_tasks)
+    }
+
+    pub async fn debug_api_endpoints(&self) -> Result<(), reqwest::Error> {
+        debug_log("=== API ENDPOINT DEBUGGING ===");
+        
+        // Test basic /api/v1/tasks/all
+        let url1 = format!("{}/api/v1/tasks/all", self.base_url);
+        debug_log(&format!("Testing: {}", url1));
+        match self.client.get(&url1).header("Authorization", format!("Bearer {}", self.auth_token)).send().await {
+            Ok(resp) => {
+                let headers = resp.headers().clone();
+                match resp.json::<Vec<crate::vikunja::models::Task>>().await {
+                    Ok(tasks) => {
+                        debug_log(&format!("✓ Basic /tasks/all returned {} tasks", tasks.len()));
+                        debug_log(&format!("  Headers: {:?}", headers.get("x-pagination-total-pages")));
+                        debug_log(&format!("  Pagination: total={:?}, current={:?}", 
+                                  headers.get("x-pagination-total"), headers.get("x-pagination-current-page")));
+                    }
+                    Err(e) => debug_log(&format!("✗ Basic /tasks/all JSON parse error: {}", e))
+                }
+            }
+            Err(e) => debug_log(&format!("✗ Basic /tasks/all request failed: {}", e))
+        }
+        
+        // Test with proper per_page parameter and include nulls
+        let url2 = format!("{}/api/v1/tasks/all?per_page=1000&filter_include_nulls=true", self.base_url);
+        debug_log(&format!("Testing: {}", url2));
+        match self.client.get(&url2).header("Authorization", format!("Bearer {}", self.auth_token)).send().await {
+            Ok(resp) => {
+                let headers = resp.headers().clone();
+                match resp.json::<Vec<crate::vikunja::models::Task>>().await {
+                    Ok(tasks) => {
+                        debug_log(&format!("✓ With per_page=1000&filter_include_nulls=true returned {} tasks", tasks.len()));
+                        debug_log(&format!("  Pagination: total={:?}, current={:?}, total_pages={:?}", 
+                                  headers.get("x-pagination-total"), 
+                                  headers.get("x-pagination-current-page"),
+                                  headers.get("x-pagination-total-pages")));
+                        
+                        // Check if task 147 is in this result
+                        if tasks.iter().any(|t| t.id == 147) {
+                            debug_log("✓ Task 147 found in per_page=1000 result!");
+                        } else {
+                            debug_log("✗ Task 147 not found in per_page=1000 result");
+                        }
+                    }
+                    Err(e) => debug_log(&format!("✗ With per_page=1000 JSON parse error: {}", e))
+                }
+            }
+            Err(e) => debug_log(&format!("✗ With per_page=1000 request failed: {}", e))
+        }
+        
+        // Test pagination explicitly
+        let url3 = format!("{}/api/v1/tasks/all?page=1&per_page=100&filter_include_nulls=true", self.base_url);
+        debug_log(&format!("Testing: {}", url3));
+        match self.client.get(&url3).header("Authorization", format!("Bearer {}", self.auth_token)).send().await {
+            Ok(resp) => {
+                let headers = resp.headers().clone();
+                match resp.json::<Vec<crate::vikunja::models::Task>>().await {
+                    Ok(tasks) => {
+                        debug_log(&format!("✓ Paginated (page=1, per_page=100) returned {} tasks", tasks.len()));
+                        debug_log(&format!("  Pagination headers: {:?}", 
+                                  vec![("total", headers.get("x-pagination-total")),
+                                       ("current_page", headers.get("x-pagination-current-page")),
+                                       ("total_pages", headers.get("x-pagination-total-pages")),
+                                       ("per_page", headers.get("x-pagination-per-page"))]));
+                    }
+                    Err(e) => debug_log(&format!("✗ Paginated JSON parse error: {}", e))
+                }
+            }
+            Err(e) => debug_log(&format!("✗ Paginated request failed: {}", e))
+        }
+        
+        // Test direct task fetch for task 147
+        let url4 = format!("{}/api/v1/tasks/147", self.base_url);
+        debug_log(&format!("Testing direct fetch: {}", url4));
+        match self.client.get(&url4).header("Authorization", format!("Bearer {}", self.auth_token)).send().await {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    match resp.json::<crate::vikunja::models::Task>().await {
+                        Ok(task) => debug_log(&format!("✓ Direct fetch task 147: '{}' (project_id: {}, done: {})", 
+                                                      task.title, task.project_id, task.done)),
+                        Err(e) => debug_log(&format!("✗ Direct fetch task 147 JSON parse error: {}", e))
+                    }
+                } else {
+                    debug_log(&format!("✗ Direct fetch task 147 failed with status: {}", status));
+                }
+            }
+            Err(e) => debug_log(&format!("✗ Direct fetch task 147 request failed: {}", e))
+        }
+        
+        debug_log("=== END API DEBUGGING ===");
+        Ok(())
+    }
+
+    // ...existing code...
 }
 
 // Make VikunjaClient fields public for setup_test_env.rs

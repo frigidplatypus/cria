@@ -16,15 +16,16 @@ fn colorize_quickadd_input<'a>(input: &'a str, app: &'a crate::tui::app::App) ->
                 spans.push(ratatui::text::Span::raw(&input[last..i]));
             }
             let start = i;
-            // Find end of token (space or end)
+            let mut end = start + 1; // Start after the '*' or '+'
+            // Find end of token (space or end of string)
             while let Some(&(j, nc)) = chars.peek() {
                 if nc == ' ' || nc == '\n' {
                     break;
                 }
                 chars.next();
-                let mut _j = j + nc.len_utf8();
+                end = j + nc.len_utf8();
             }
-            let token = &input[start..];
+            let token = &input[start..end];
             if c == '*' {
                 // Label
                 let label_name = token.trim_start_matches('*');
@@ -36,7 +37,7 @@ fn colorize_quickadd_input<'a>(input: &'a str, app: &'a crate::tui::app::App) ->
                 let color = get_project_color(project_name, app);
                 spans.push(ratatui::text::Span::styled(token, Style::default().fg(color)));
             }
-            last = token.len();
+            last = end;
         }
     }
     if last < input.len() {
@@ -97,7 +98,8 @@ pub fn draw_quick_add_modal(f: &mut Frame, app: &App) {
                     _ => (Color::Gray, "")
                 };
                 let styled = Span::styled(format!("{}{}", prefix, s), Style::default().fg(color));
-                if i == app.selected_suggestion {
+                let absolute_index = start + i;
+                if absolute_index == app.selected_suggestion {
                     // Highlight with color background and black text
                     Line::from(vec![Span::styled(
                         format!("{}{}", prefix, s),
@@ -216,7 +218,8 @@ pub fn draw_edit_modal(f: &mut Frame, app: &App) {
                     _ => (Color::Gray, "")
                 };
                 let styled = Span::styled(format!("{}{}", prefix, s), Style::default().fg(color));
-                if i == app.selected_suggestion {
+                let absolute_index = start + i;
+                if absolute_index == app.selected_suggestion {
                     Line::from(vec![Span::styled(
                         format!("{}{}", prefix, s),
                         Style::default().fg(Color::Black).bg(color).add_modifier(Modifier::BOLD)

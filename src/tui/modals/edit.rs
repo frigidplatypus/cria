@@ -17,7 +17,34 @@ pub async fn handle_edit_modal(
             app.hide_edit_modal();
         },
         KeyCode::Enter => {
-            if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+            // Check if we should auto-complete or submit the task
+            let should_autocomplete = if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
+                // Only auto-complete if the current text exactly matches a suggestion prefix
+                // This prevents auto-completing when the user has typed a complete, valid label
+                let cursor = app.edit_cursor_position;
+                let input = app.get_edit_input();
+                let prefix = &app.suggestion_prefix;
+                
+                // If the suggestion prefix is not an exact match to any existing label/project,
+                // then we should auto-complete. If it is an exact match, the user might want to submit.
+                let is_exact_match = match app.suggestion_mode {
+                    Some(crate::tui::app::SuggestionMode::Label) => {
+                        app.label_map.values().any(|label| label.to_lowercase() == prefix.to_lowercase())
+                    },
+                    Some(crate::tui::app::SuggestionMode::Project) => {
+                        app.project_map.values().any(|project| project.to_lowercase() == prefix.to_lowercase())
+                    },
+                    _ => false
+                };
+                
+                // Auto-complete if it's not an exact match, or if the first suggestion is different from the prefix
+                !is_exact_match && !app.suggestions.is_empty() && app.suggestions[0].to_lowercase() != prefix.to_lowercase()
+            } else {
+                false
+            };
+            
+            if should_autocomplete {
+                debug_log(&format!("Auto-completing suggestion in edit modal: {}", app.suggestions[app.selected_suggestion]));
                 let suggestion = app.suggestions[app.selected_suggestion].clone();
                 let cursor = app.edit_cursor_position;
                 let input = app.get_edit_input();
@@ -50,6 +77,8 @@ pub async fn handle_edit_modal(
                 app.update_suggestions(&input, cursor);
                 return;
             }
+            // Submit the edit
+            debug_log(&format!("Submitting edit task with input: '{}'", app.get_edit_input()));
             let input = app.get_edit_input().to_string();
             let task_id = app.editing_task_id;
             if !input.trim().is_empty() && task_id.is_some() {
