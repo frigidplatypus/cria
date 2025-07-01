@@ -1,21 +1,21 @@
 # Refactoring TODO for CRIA TUI
 
 ## 1. UI Drawing Components
-- Break up `tui/ui.rs` into smaller files:
-  - `tui/ui/main.rs` (main layout)
-  - `tui/ui/task_list.rs` (task list rendering)
-  - `tui/ui/task_details.rs` (task details pane)
-  - `tui/ui/modals.rs` (quick add/edit modal rendering)
-  - `tui/ui/pickers.rs` (project/filter picker rendering)
-- **Benefit:** Each UI component is easier to reason about and update independently.
+- Break up `tui/ui.rs` into smaller files: **(DONE)**
+  - `tui/ui/main.rs` (main layout) **(DONE)**
+  - `tui/ui/task_list.rs` (task list rendering) **(DONE)**
+  - `tui/ui/task_details.rs` (task details pane) **(DONE)**
+  - `tui/ui/modals.rs` (quick add/edit modal rendering) **(DONE)**
+  - `tui/ui/pickers.rs` (project/filter picker rendering) **(DONE)**
+- **Benefit:** Each UI component is easier to reason about and update independently. **(COMPLETE)**
 
 ## 2. App State and Domain Logic
-- Split `tui/app.rs` into:
-  - `tui/app/state.rs` (core App struct and state)
-  - `tui/app/filters.rs` (filtering logic)
-  - `tui/app/projects.rs` (project logic)
-  - `tui/app/tasks.rs` (task manipulation logic)
-- **Benefit:** Domain logic is separated from UI and event handling.
+- Split `tui/app.rs` into: **(DONE)**
+  - `tui/app/state.rs` (core App struct and state) **(DONE)**
+  - `tui/app/filters.rs` (filtering logic) **(DONE)**
+  - `tui/app/projects.rs` (project logic) **(DONE)**
+  - `tui/app/tasks.rs` (task manipulation logic) **(DONE)**
+- **Benefit:** Domain logic is separated from UI and event handling. **(COMPLETE)**
 
 ## 3. API Client
 - Split `vikunja_client.rs` by resource: **(DONE)**
