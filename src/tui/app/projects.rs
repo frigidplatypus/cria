@@ -13,15 +13,15 @@ impl App {
         self.project_picker_input.clear();
     }
     pub fn add_char_to_project_picker(&mut self, c: char) {
-        self.project_picker_input.insert(self.selected_project_picker_index, c);
-        self.selected_project_picker_index += 1;
+        self.project_picker_input.push(c);
         self.update_filtered_projects();
+        self.selected_project_picker_index = 0; // Reset selection to first item
     }
     pub fn delete_char_from_project_picker(&mut self) {
-        if self.selected_project_picker_index > 0 {
-            self.selected_project_picker_index -= 1;
-            self.project_picker_input.remove(self.selected_project_picker_index);
+        if !self.project_picker_input.is_empty() {
+            self.project_picker_input.pop();
             self.update_filtered_projects();
+            self.selected_project_picker_index = 0; // Reset selection to first item
         }
     }
     pub fn move_project_picker_up(&mut self) {

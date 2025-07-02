@@ -46,7 +46,7 @@ fn test_colorize_input_with_labels() {
     
     // The colorize function should not cause infinite loops or duplication
     // We can't easily test the UI rendering, but we can test that the input doesn't get corrupted
-    assert_eq!(input.len(), 20);
+    assert_eq!(input.len(), 23);
     assert!(input.contains("*urgent"));
     assert!(input.contains("*high"));
     

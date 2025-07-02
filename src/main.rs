@@ -39,7 +39,15 @@ fn main() {
     } else if run_wizard {
         debug_log("Running config wizard by user request");
         match crate::first_run::first_run_wizard() {
-            Some(cfg) => (cfg.api_url, cfg.api_key, cfg.default_project),
+            Some(cfg) => {
+                match cfg.api_key {
+                    Some(api_key) => (cfg.api_url, api_key, cfg.default_project),
+                    None => {
+                        eprintln!("Error: No API key provided by wizard");
+                        std::process::exit(1);
+                    }
+                }
+            },
             None => {
                 eprintln!("Wizard failed. Exiting.");
                 std::process::exit(1);
@@ -49,12 +57,26 @@ fn main() {
         match crate::config::CriaConfig::load() {
             Some(cfg) => {
                 debug_log(&format!("Loaded config from YAML: api_url={}, api_key=***", cfg.api_url));
-                (cfg.api_url, cfg.api_key, cfg.default_project.unwrap_or_else(|| "Inbox".to_string()))
+                match cfg.get_api_key() {
+                    Ok(api_key) => (cfg.api_url, api_key, cfg.default_project.unwrap_or_else(|| "Inbox".to_string())),
+                    Err(e) => {
+                        eprintln!("Error loading API key: {}", e);
+                        std::process::exit(1);
+                    }
+                }
             },
             None => {
                 debug_log("No config found, running first run wizard");
                 match crate::first_run::first_run_wizard() {
-                    Some(cfg) => (cfg.api_url, cfg.api_key, cfg.default_project),
+                    Some(cfg) => {
+                        match cfg.api_key {
+                            Some(api_key) => (cfg.api_url, api_key, cfg.default_project),
+                            None => {
+                                eprintln!("Error: No API key provided by wizard");
+                                std::process::exit(1);
+                            }
+                        }
+                    },
                     None => {
                         eprintln!("First run wizard failed. Exiting.");
                         std::process::exit(1);

@@ -95,6 +95,7 @@ impl App {
             crate::tui::app::state::TaskFilter::All => crate::tui::app::state::TaskFilter::CompletedOnly,
             crate::tui::app::state::TaskFilter::CompletedOnly => crate::tui::app::state::TaskFilter::ActiveOnly,
         };
+        self.apply_task_filter();
     }
     pub fn update_all_tasks(&mut self, tasks: Vec<crate::vikunja::models::Task>) {
         self.all_tasks = tasks.clone();

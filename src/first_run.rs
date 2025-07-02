@@ -7,7 +7,8 @@ use std::path::PathBuf;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CriaConfig {
     pub api_url: String,
-    pub api_key: String,
+    pub api_key: Option<String>,
+    pub api_key_file: Option<String>,
     pub default_project: String,
 }
 
@@ -59,7 +60,8 @@ pub fn first_run_wizard() -> Option<CriaConfig> {
 
     let config = CriaConfig {
         api_url: base_url.clone(),
-        api_key,
+        api_key: Some(api_key),
+        api_key_file: None,
         default_project,
     };
 

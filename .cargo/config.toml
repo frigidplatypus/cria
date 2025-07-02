@@ -1,0 +1,3 @@
+[env]
+# Skip integration tests by default to support sandboxed builds (NixOS, CI)
+SKIP_INTEGRATION_TESTS = "1"

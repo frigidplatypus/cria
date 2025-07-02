@@ -1,4 +1,15 @@
 # Example cria config.yaml
 # Copy this file to ~/.config/cria/config.yaml and edit as needed
 api_url: "https://vikunja.example.com/api/v1"
+
+# Option 1: API key directly in config (less secure)
 api_key: "your-api-key-here"
+
+# Option 2: API key from file (more secure)
+# api_key_file: "~/.config/cria/api_key"
+# api_key_file: "/path/to/api/key/file"
+# api_key_file: "api_key"  # relative to ~/.config/cria/
+
+# If both api_key and api_key_file are set, api_key takes precedence
+
+default_project: "Inbox"

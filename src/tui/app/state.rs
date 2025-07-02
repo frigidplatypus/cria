@@ -195,7 +195,7 @@ impl App {
     pub fn previous_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = if self.selected_task_index == 0 { self.tasks.len() - 1 } else { self.selected_task_index - 1 }; } }
     pub fn get_selected_task(&self) -> Option<&Task> { self.tasks.get(self.selected_task_index) }
     pub fn toggle_info_pane(&mut self) { self.show_info_pane = !self.show_info_pane; }
-    pub fn show_quick_add_modal(&mut self) { self.show_quick_add_modal = true; self.quick_add_input.clear(); self.quick_add_cursor_position = 0; }
+    pub fn show_quick_add_modal(&mut self) { self.show_quick_add_modal = true; self.quick_add_input.clear(); self.quick_add_cursor_position = 0; self.hide_edit_modal(); }
     pub fn hide_quick_add_modal(&mut self) { self.show_quick_add_modal = false; self.quick_add_input.clear(); self.quick_add_cursor_position = 0; }
     pub fn add_char_to_quick_add(&mut self, c: char) { self.quick_add_input.insert(self.quick_add_cursor_position, c); self.quick_add_cursor_position += 1; }
     pub fn delete_char_from_quick_add(&mut self) { if self.quick_add_cursor_position > 0 { self.quick_add_cursor_position -= 1; self.quick_add_input.remove(self.quick_add_cursor_position); } }
@@ -206,7 +206,7 @@ impl App {
     pub fn toggle_debug_pane(&mut self) { self.show_debug_pane = !self.show_debug_pane; }
     pub fn add_debug_message(&mut self, message: String) { use std::fs::OpenOptions; use std::io::Write; let now = Local::now(); self.debug_messages.push((now, message.clone())); if self.debug_messages.len() > 100 { self.debug_messages.remove(0); } let log_line = format!("{}: {}\n", now.format("%Y-%m-%d %H:%M:%S"), message); if let Ok(mut file) = OpenOptions::new().create(true).append(true).open("cria_debug.log") { let _ = file.write_all(log_line.as_bytes()); } }
     pub fn clear_debug_messages(&mut self) { self.debug_messages.clear(); }
-    pub fn show_edit_modal(&mut self) { if let Some(task) = self.get_selected_task() { let task_id = task.id; let magic_syntax = self.task_to_magic_syntax(task); self.show_edit_modal = true; self.editing_task_id = Some(task_id); self.edit_input = magic_syntax; self.edit_cursor_position = self.edit_input.len(); } }
+    pub fn show_edit_modal(&mut self) { if let Some(task) = self.get_selected_task() { let task_id = task.id; let magic_syntax = self.task_to_magic_syntax(task); self.show_edit_modal = true; self.editing_task_id = Some(task_id); self.edit_input = magic_syntax; self.edit_cursor_position = self.edit_input.len(); self.hide_quick_add_modal(); } }
     pub fn hide_edit_modal(&mut self) { self.show_edit_modal = false; self.edit_input.clear(); self.edit_cursor_position = 0; self.editing_task_id = None; }
     pub fn add_char_to_edit(&mut self, c: char) { self.edit_input.insert(self.edit_cursor_position, c); self.edit_cursor_position += 1; }
     pub fn delete_char_from_edit(&mut self) { if self.edit_cursor_position > 0 { self.edit_cursor_position -= 1; self.edit_input.remove(self.edit_cursor_position); } }

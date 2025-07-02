@@ -5,6 +5,14 @@ All notable changes to CRIA TUI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2025-07-01
+
+### 🔧 Technical Improvements
+- **Added Cargo.lock**: Included `Cargo.lock` file for reproducible builds and Nix package support
+- **Fixed .gitignore**: Removed `Cargo.lock` from gitignore to ensure it's tracked for applications
+
+This patch release ensures that Nix builds and other package managers can create reproducible builds by having access to the exact dependency versions used during development.
+
 ## [0.8.0] - 2025-07-01
 
 ### 🎉 Major Release - Production Ready Beta
@@ -79,6 +87,10 @@ This is the first major release of CRIA TUI, featuring a complete refactor and c
 ---
 
 ## Version History
+
+### [0.8.1] - 2025-07-01
+- Patch release to include Cargo.lock for reproducible builds
+- Fixed .gitignore to track Cargo.lock for applications
 
 ### [0.8.0] - 2025-07-01
 - Initial major release

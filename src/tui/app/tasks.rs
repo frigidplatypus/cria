@@ -3,14 +3,25 @@ use crate::vikunja::models::Task;
 
 impl App {
     pub fn toggle_task_completion(&mut self) -> Option<i64> {
-        let (task_id, task_title, new_state) = if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
+        let (task_id, task_title, new_state, previous_state) = if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
+            let previous_state = task.done;
             let new_state = !task.done;
             let task_id = task.id;
             task.done = new_state;
-            (task_id, task.title.clone(), new_state)
+            (task_id, task.title.clone(), new_state, previous_state)
         } else {
             return None;
         };
+        
+        // Add to undo stack
+        self.undo_stack.push(UndoableAction::TaskCompletion { 
+            task_id, 
+            previous_state 
+        });
+        if self.undo_stack.len() > self.max_undo_history {
+            self.undo_stack.remove(0);
+        }
+        
         if new_state {
             self.add_debug_message(format!("Task completed: {}", task_title));
         } else {
