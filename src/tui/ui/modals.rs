@@ -1,4 +1,3 @@
-use crate::config::CriaConfig;
 use crate::tui::app::App;
 use crate::tui::utils::{get_label_color, get_project_color};
 use ratatui::prelude::*;

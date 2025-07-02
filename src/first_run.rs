@@ -1,7 +1,6 @@
 use crate::config::CriaConfig;
 use std::io::{self, Write};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
