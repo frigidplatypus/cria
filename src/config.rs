@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::PathBuf; 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CriaConfig {
@@ -8,6 +8,17 @@ pub struct CriaConfig {
     pub api_key: Option<String>,
     pub api_key_file: Option<String>,
     pub default_project: Option<String>,
+}
+
+impl Default for CriaConfig {
+    fn default() -> Self {
+        CriaConfig {
+            api_url: "https://vikunja.example.com/api/v1".to_string(),
+            api_key: None,
+            api_key_file: None,
+            default_project: None,
+        }
+    }
 }
 
 impl CriaConfig {
