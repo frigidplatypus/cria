@@ -29,19 +29,20 @@ fn main() {
     let use_env = std::env::args().any(|arg| arg == "--dev-env");
     let run_wizard = std::env::args().any(|arg| arg == "--wizard");
 
-    let (api_url, api_key, default_project) = if use_env {
+    let (api_url, api_key, default_project, config) = if use_env {
         debug_log("Using environment variables for API config");
         (
             std::env::var("VIKUNJA_API_URL").unwrap_or_else(|_| "http://localhost:3456/api/v1".to_string()),
             std::env::var("VIKUNJA_API_TOKEN").unwrap_or_else(|_| "demo-token".to_string()),
             std::env::var("VIKUNJA_DEFAULT_PROJECT").unwrap_or_else(|_| "Inbox".to_string()),
+            None
         )
     } else if run_wizard {
         debug_log("Running config wizard by user request");
         match crate::first_run::first_run_wizard() {
             Some(cfg) => {
                 match cfg.api_key {
-                    Some(api_key) => (cfg.api_url, api_key, cfg.default_project),
+                    Some(ref api_key) => (cfg.api_url.clone(), api_key.clone(), cfg.default_project.clone().unwrap_or_else(|| "Inbox".to_string()), Some(cfg)),
                     None => {
                         eprintln!("Error: No API key provided by wizard");
                         std::process::exit(1);
@@ -57,11 +58,30 @@ fn main() {
         match crate::config::CriaConfig::load() {
             Some(cfg) => {
                 debug_log(&format!("Loaded config from YAML: api_url={}, api_key=***", cfg.api_url));
-                match cfg.get_api_key() {
-                    Ok(api_key) => (cfg.api_url, api_key, cfg.default_project.unwrap_or_else(|| "Inbox".to_string())),
-                    Err(e) => {
-                        eprintln!("Error loading API key: {}", e);
-                        std::process::exit(1);
+                if cfg.has_api_key_config() {
+                    match cfg.get_api_key() {
+                        Ok(api_key) => (cfg.api_url.clone(), api_key, cfg.default_project.clone().unwrap_or_else(|| "Inbox".to_string()), Some(cfg)),
+                        Err(e) => {
+                            eprintln!("Error loading API key: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    debug_log("Config exists but no API key configured, running first run wizard");
+                    match crate::first_run::first_run_wizard() {
+                        Some(wizard_cfg) => {
+                            match wizard_cfg.api_key {
+                                Some(ref api_key) => (wizard_cfg.api_url.clone(), api_key.clone(), wizard_cfg.default_project.clone().unwrap_or_else(|| "Inbox".to_string()), Some(wizard_cfg)),
+                                None => {
+                                    eprintln!("Error: No API key provided by wizard");
+                                    std::process::exit(1);
+                                }
+                            }
+                        },
+                        None => {
+                            eprintln!("Setup cancelled");
+                            std::process::exit(1);
+                        }
                     }
                 }
             },
@@ -70,7 +90,7 @@ fn main() {
                 match crate::first_run::first_run_wizard() {
                     Some(cfg) => {
                         match cfg.api_key {
-                            Some(api_key) => (cfg.api_url, api_key, cfg.default_project),
+                            Some(ref api_key) => (cfg.api_url.clone(), api_key.clone(), cfg.default_project.clone().unwrap_or_else(|| "Inbox".to_string()), Some(cfg)),
                             None => {
                                 eprintln!("Error: No API key provided by wizard");
                                 std::process::exit(1);
@@ -87,14 +107,14 @@ fn main() {
     };
 
     // Call async main
-    if let Err(e) = tokio_main(api_url, api_key, default_project) {
+    if let Err(e) = tokio_main(api_url, api_key, default_project, config) {
         eprintln!("Application error: {e}");
         std::process::exit(1);
     }
 }
 
 #[tokio::main]
-async fn tokio_main(api_url: String, api_key: String, default_project: String) -> Result<(), Box<dyn std::error::Error>> {
+async fn tokio_main(api_url: String, api_key: String, default_project: String, config: Option<crate::config::CriaConfig>) -> Result<(), Box<dyn std::error::Error>> {
     use std::sync::Arc;
     use tokio::sync::Mutex;
     use crate::tui::app::App;
@@ -104,8 +124,7 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
     use crate::debug::debug_log;
 
     let api_client = Arc::new(Mutex::new(ApiClient::new(api_url, api_key)));
-    
-    let app = Arc::new(Mutex::new(App::new_with_default_project(default_project.clone())));
+    let app = Arc::new(Mutex::new(App::new_with_config(config.expect("Config required"), default_project.clone())));
     
     // Test API connection
     {
@@ -318,7 +337,7 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String) -
                         },
                         KeyCode::Char('s') => {
                             app_guard.show_sort_modal = true;
-                        },
+                        }
                         KeyCode::Char('r') => {
                             debug_log("Refresh key pressed");
                             app_guard.refreshing = true;

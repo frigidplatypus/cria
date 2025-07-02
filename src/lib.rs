@@ -5,6 +5,7 @@ pub mod vikunja_parser;
 pub mod vikunja;
 pub mod tui;
 pub mod debug;
+pub mod config;
 
 // Re-export commonly used items
 pub use vikunja_client::*;

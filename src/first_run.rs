@@ -1,16 +1,9 @@
+use crate::config::CriaConfig;
 use std::io::{self, Write};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CriaConfig {
-    pub api_url: String,
-    pub api_key: Option<String>,
-    pub api_key_file: Option<String>,
-    pub default_project: String,
-}
 
 pub fn first_run_wizard() -> Option<CriaConfig> {
     println!("Welcome to Cria first run setup!");
@@ -58,11 +51,12 @@ pub fn first_run_wizard() -> Option<CriaConfig> {
         default_project = default_project.trim().to_string();
     }
 
+    // When constructing config, use crate::config::CriaConfig
     let config = CriaConfig {
         api_url: base_url.clone(),
         api_key: Some(api_key),
         api_key_file: None,
-        default_project,
+        default_project: Some(default_project),
     };
 
     // Save config

@@ -2,6 +2,7 @@ use crate::vikunja::models::Task;
 use crate::tui::utils::{normalize_string, fuzzy_match_score};
 use std::collections::HashMap;
 use chrono::{DateTime, Local, Datelike};
+use crate::config::CriaConfig;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -58,6 +59,7 @@ pub enum SortOrder {
 }
 
 pub struct App {
+    pub config: CriaConfig,
     pub running: bool,
     pub tasks: Vec<Task>,
     pub all_tasks: Vec<Task>, // Store all tasks for local filtering
@@ -122,8 +124,9 @@ pub struct App {
 
 #[allow(dead_code)]
 impl App {
-    pub fn new_with_default_project(default_project_name: String) -> Self {
+    pub fn new_with_config(config: CriaConfig, default_project_name: String) -> Self {
         let app = Self {
+            config,
             running: true, 
             tasks: Vec::new(),
             all_tasks: Vec::new(),
@@ -287,6 +290,7 @@ impl App {
                 let prefix_lower = suggestion_text.to_lowercase();
                 let prefix = prefix_lower.trim();
                 let projects: Vec<_> = self.project_map.iter()
+                    // Filter out system projects (ID <= 0)
                     .filter(|(id, _)| **id > 0)
                     .map(|(_, name)| name.clone())
                     .collect();

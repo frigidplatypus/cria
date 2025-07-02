@@ -1,3 +1,4 @@
+use crate::config::CriaConfig;
 use crate::tui::app::App;
 use crate::tui::utils::{get_label_color, get_project_color};
 use ratatui::prelude::*;
@@ -312,10 +313,10 @@ pub fn draw_confirmation_dialog(f: &mut Frame, _app: &App) {
     f.render_widget(buttons_paragraph, modal_area);
 }
 
-pub fn draw_help_modal(f: &mut Frame, _app: &App) {
+pub fn draw_help_modal(f: &mut Frame, app: &App) {
     let area = f.size();
     let modal_width = (area.width as f32 * 0.7) as u16;
-    let modal_height = 22;
+    let modal_height = 26;
     let x = (area.width.saturating_sub(modal_width)) / 2;
     let y = (area.height.saturating_sub(modal_height)) / 2;
     let modal_area = Rect { x, y, width: modal_width, height: modal_height };
@@ -324,7 +325,7 @@ pub fn draw_help_modal(f: &mut Frame, _app: &App) {
         .title(" Help / Keybinds ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
-    let help_lines = vec![
+    let mut help_lines = vec![
         Line::from(vec![Span::styled("?", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Show this help")]),
         Line::from(vec![Span::styled("q", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quit (in main view) / Close modal (in modal)")]),
         Line::from(vec![Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Close modal/help")]),
@@ -344,6 +345,29 @@ pub fn draw_help_modal(f: &mut Frame, _app: &App) {
         Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Shortcuts modal")]),
         Line::raw("")
     ];
+    // Config details section
+    help_lines.push(Line::raw("─ Config Details ─"));
+    // Show config file path (XDG or default)
+    let config_path = std::env::var("XDG_CONFIG_HOME")
+        .map(|val| format!("{}/cria/config.yaml", val))
+        .unwrap_or_else(|_| format!("{}/.config/cria/config.yaml", std::env::var("HOME").unwrap_or("~".to_string())));
+    help_lines.push(Line::raw(format!("Config file: {}", config_path)));
+    help_lines.push(Line::raw(format!("API URL: {}", app.config.api_url)));
+    if let Some(ref key) = app.config.api_key {
+        let obfuscated = if key.len() > 8 {
+            format!("{}...{}", &key[..4], &key[key.len()-4..])
+        } else {
+            "(set, hidden)".to_string()
+        };
+        help_lines.push(Line::raw(format!("API Key: {}", obfuscated)));
+    } else if let Some(ref file) = app.config.api_key_file {
+        help_lines.push(Line::raw(format!("API Key File: {}", file)));
+    } else {
+        help_lines.push(Line::raw("API Key: (not set)"));
+    }
+    if let Some(ref proj) = app.config.default_project {
+        help_lines.push(Line::raw(format!("Default Project: {}", proj)));
+    }
     let help_paragraph = Paragraph::new(help_lines)
         .block(block)
         .wrap(Wrap { trim: true })

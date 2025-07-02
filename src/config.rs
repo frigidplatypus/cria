@@ -1,8 +1,8 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CriaConfig {
     pub api_url: String,
     pub api_key: Option<String>,
@@ -23,6 +23,12 @@ impl CriaConfig {
         };
         let contents = fs::read_to_string(config_path).ok()?;
         serde_yaml::from_str(&contents).ok()
+    }
+
+    /// Check if any API key configuration is present
+    pub fn has_api_key_config(&self) -> bool {
+        (self.api_key.is_some() && !self.api_key.as_ref().unwrap().trim().is_empty()) ||
+        (self.api_key_file.is_some() && !self.api_key_file.as_ref().unwrap().trim().is_empty())
     }
 
     /// Get the API key, preferring api_key over api_key_file
