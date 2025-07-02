@@ -1,10 +1,11 @@
 // Tests for picker event handling: project and filter pickers
 
+use cria::config::CriaConfig;
 use cria::tui::app::App;
 
 #[test]
 fn test_project_picker_events() {
-    let mut app = App::new_with_default_project("Inbox".to_string());
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     app.project_map.insert(1, "Inbox".to_string());
     app.project_map.insert(2, "Work".to_string());
     // Open picker
@@ -23,7 +24,7 @@ fn test_project_picker_events() {
 
 #[test]
 fn test_filter_picker_events() {
-    let mut app = App::new_with_default_project("Inbox".to_string());
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     app.filters = vec![(1, "My Filter".to_string())];
     // Open picker
     app.show_filter_picker = true;
@@ -40,7 +41,7 @@ fn test_filter_picker_events() {
 
 #[test]
 fn test_picker_input_resets_on_cancel() {
-    let mut app = App::new_with_default_project("Inbox".to_string());
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     app.filters = vec![(1, "My Filter".to_string())];
     // Open filter picker and type input
     app.show_filter_picker = true;

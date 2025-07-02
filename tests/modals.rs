@@ -1,5 +1,6 @@
 // Tests for modal event handling: quick add and edit modals
 
+use cria::config::CriaConfig;
 use cria::tui::app::App;
 
 // Helper to create a sample task for modal tests
@@ -43,7 +44,7 @@ fn sample_task(id: i64, done: bool) -> cria::vikunja::models::Task {
 
 #[test]
 fn test_quick_add_modal_events() {
-    let mut app = App::new_with_default_project("Inbox".to_string());
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     // Open modal
     app.show_quick_add_modal();
     assert!(app.show_quick_add_modal);
@@ -66,7 +67,7 @@ fn test_quick_add_modal_events() {
 
 #[test]
 fn test_edit_modal_events() {
-    let mut app = App::new_with_default_project("Inbox".to_string());
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     app.tasks.push(sample_task(1, false));
     // Open modal
     app.show_edit_modal();
@@ -86,7 +87,7 @@ fn test_edit_modal_events() {
 
 #[test]
 fn test_switching_between_modals_resets_state() {
-    let mut app = App::new_with_default_project("Inbox".to_string());
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     // Open quick add modal and type
     app.show_quick_add_modal();
     app.add_char_to_quick_add('x');
@@ -102,7 +103,7 @@ fn test_switching_between_modals_resets_state() {
 
 #[test]
 fn test_undo_redo_from_within_modal() {
-    let mut app = App::new_with_default_project("Inbox".to_string());
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     app.tasks.push(sample_task(1, false));
     // Open edit modal
     app.show_edit_modal();

@@ -1,6 +1,7 @@
 // Test for label submission bug
 
 use cria::QuickAddParser;
+use cria::config::CriaConfig;
 
 #[test]
 fn test_parse_task_with_labels() {
@@ -34,7 +35,7 @@ fn test_colorize_input_with_labels() {
     // We'll create a mock app and test the colorization
     use cria::tui::app::App;
     
-    let mut app = App::new_with_default_project("Test".to_string());
+    let mut app = App::new_with_config(CriaConfig::default(), "Test".to_string());
     
     // Add some mock labels
     app.label_map.insert(1, "urgent".to_string());

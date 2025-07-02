@@ -1,11 +1,12 @@
 #[cfg(test)]
 mod tests {
+    use cria::config::CriaConfig;
     use cria::tui::app::App;
     use cria::vikunja_parser::QuickAddParser;
 
     #[test]
     fn test_input_flow_debug() {
-        let mut app = App::new_with_default_project("Inbox".to_string());
+        let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
         
         // Simulate typing "Test task *urgent"
         let input_text = "Test task *urgent";
