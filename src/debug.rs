@@ -2,6 +2,10 @@ use std::fs::OpenOptions;
 use std::io::Write;
 
 pub fn debug_log(message: &str) {
+    // Only log to file if CRIA_DEBUG is set
+    if std::env::var("CRIA_DEBUG").is_err() {
+        return;
+    }
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     let log_message = format!("[{}] {}\n", timestamp, message);
     

@@ -207,7 +207,22 @@ impl App {
     pub fn get_quick_add_input(&self) -> &str { &self.quick_add_input }
     pub fn clear_quick_add_input(&mut self) { self.quick_add_input.clear(); self.quick_add_cursor_position = 0; }
     pub fn toggle_debug_pane(&mut self) { self.show_debug_pane = !self.show_debug_pane; }
-    pub fn add_debug_message(&mut self, message: String) { use std::fs::OpenOptions; use std::io::Write; let now = Local::now(); self.debug_messages.push((now, message.clone())); if self.debug_messages.len() > 100 { self.debug_messages.remove(0); } let log_line = format!("{}: {}\n", now.format("%Y-%m-%d %H:%M:%S"), message); if let Ok(mut file) = OpenOptions::new().create(true).append(true).open("cria_debug.log") { let _ = file.write_all(log_line.as_bytes()); } }
+    pub fn add_debug_message(&mut self, message: String) {
+        use std::fs::OpenOptions;
+        use std::io::Write;
+        let now = Local::now();
+        self.debug_messages.push((now, message.clone()));
+        if self.debug_messages.len() > 100 {
+            self.debug_messages.remove(0);
+        }
+        let log_line = format!("{}: {}\n", now.format("%Y-%m-%d %H:%M:%S"), message);
+        // Only log to file if CRIA_DEBUG is set
+        if std::env::var("CRIA_DEBUG").is_ok() {
+            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open("cria_debug.log") {
+                let _ = file.write_all(log_line.as_bytes());
+            }
+        }
+    }
     pub fn clear_debug_messages(&mut self) { self.debug_messages.clear(); }
     pub fn show_edit_modal(&mut self) { if let Some(task) = self.get_selected_task() { let task_id = task.id; let magic_syntax = self.task_to_magic_syntax(task); self.show_edit_modal = true; self.editing_task_id = Some(task_id); self.edit_input = magic_syntax; self.edit_cursor_position = self.edit_input.len(); self.hide_quick_add_modal(); } }
     pub fn hide_edit_modal(&mut self) { self.show_edit_modal = false; self.edit_input.clear(); self.edit_cursor_position = 0; self.editing_task_id = None; }
