@@ -5,6 +5,17 @@ All notable changes to CRIA TUI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2025-07-01
+
+### 🐛 Bug Fixes
+- **Test Fixes**: Fixed failing test `test_colorize_input_with_labels` with correct string length assertion
+- **Modal Behavior**: Improved modal interaction - opening one modal now automatically closes others
+- **Code Quality**: Fixed test assertions and ensured all unit and integration tests pass
+
+### 🔧 Technical Improvements
+- **Modal State Management**: Enhanced modal state handling for better user experience
+- **Test Reliability**: All tests now pass consistently across different environments
+
 ## [0.8.1] - 2025-07-01
 
 ### 🔧 Technical Improvements
