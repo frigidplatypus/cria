@@ -354,6 +354,7 @@ pub fn draw_help_modal(f: &mut Frame, app: &App) {
     help_lines.push(Line::raw(format!("Config file: {}", config_path)));
     help_lines.push(Line::raw(format!("API URL: {}", app.config.api_url)));
     if let Some(ref key) = app.config.api_key {
+        let key: &str = key;
         let obfuscated = if key.len() > 8 {
             format!("{}...{}", &key[..4], &key[key.len()-4..])
         } else {
