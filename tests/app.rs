@@ -5,7 +5,6 @@ use cria::config::CriaConfig;
 use cria::tui::app::{App, SortOrder};
 use cria::vikunja::models::{Task, Label};
 use chrono::{NaiveDate, TimeZone, Utc};
-use std::collections::HashMap;
 
 fn sample_task(id: i64, done: bool) -> Task {
     Task {
@@ -292,4 +291,129 @@ fn test_edit_task_priority_and_labels() {
         created_by: None,
     }]);
     assert_eq!(app.tasks[0].labels.as_ref().unwrap()[0].title, "Important");
+}
+
+#[test]
+fn test_quick_actions() {
+    let mut config = CriaConfig::default();
+    config.quick_actions = Some(vec![
+        cria::config::QuickAction {
+            key: "w".to_string(),
+            action: "project".to_string(),
+            target: "Work".to_string(),
+        },
+        cria::config::QuickAction {
+            key: "u".to_string(),
+            action: "priority".to_string(),
+            target: "5".to_string(),
+        },
+    ]);
+    
+    let mut app = App::new_with_config(config, "Inbox".to_string());
+    app.project_map.insert(1, "Inbox".to_string());
+    app.project_map.insert(2, "Work".to_string());
+    app.tasks.push(sample_task(1, false));
+    
+    // Test showing and hiding quick actions modal
+    app.show_quick_actions_modal();
+    assert!(app.show_quick_actions_modal);
+    assert_eq!(app.selected_quick_action_index, 0);
+    
+    app.hide_quick_actions_modal();
+    assert!(!app.show_quick_actions_modal);
+    assert_eq!(app.selected_quick_action_index, 0);
+    
+    // Test quick action lookup
+    assert!(app.config.has_quick_action("w"));
+    assert!(app.config.has_quick_action("u"));
+    assert!(!app.config.has_quick_action("x"));
+    
+    let work_action = app.config.get_quick_action("w").unwrap();
+    assert_eq!(work_action.action, "project");
+    assert_eq!(work_action.target, "Work");
+    assert_eq!(work_action.get_description(), "Move to project: Work");
+    
+    // Test applying quick actions
+    let priority_action = cria::config::QuickAction {
+        key: "u".to_string(),
+        action: "priority".to_string(),
+        target: "5".to_string(),
+    };
+    let result = app.apply_quick_action(&priority_action);
+    assert!(result.is_ok());
+    assert_eq!(app.tasks[0].priority, Some(5));
+}
+
+#[test]
+fn test_quick_action_descriptions() {
+    let project_action = cria::config::QuickAction {
+        key: "w".to_string(),
+        action: "project".to_string(),
+        target: "Work".to_string(),
+    };
+    assert_eq!(project_action.get_description(), "Move to project: Work");
+    
+    let priority_action = cria::config::QuickAction {
+        key: "u".to_string(),
+        action: "priority".to_string(),
+        target: "5".to_string(),
+    };
+    assert_eq!(priority_action.get_description(), "Set priority to: 5");
+    
+    let label_action = cria::config::QuickAction {
+        key: "i".to_string(),
+        action: "label".to_string(),
+        target: "Important".to_string(),
+    };
+    assert_eq!(label_action.get_description(), "Add label: Important");
+}
+
+#[test]
+fn test_config_loading_from_custom_path() {
+    // Test loading config from custom path using config.example.yaml
+    let config = cria::config::CriaConfig::load_from_path(Some("config.example.yaml"));
+    assert!(config.is_some());
+    
+    let config = config.unwrap();
+    assert_eq!(config.api_url, "https://vikunja.example.com/api/v1");
+    assert_eq!(config.api_key, Some("your-api-key-here".to_string()));
+    assert_eq!(config.default_project, Some("Inbox".to_string()));
+    
+    // Test quick actions
+    assert!(config.quick_actions.is_some());
+    let quick_actions = config.quick_actions.unwrap();
+    assert_eq!(quick_actions.len(), 8); // There are 8 quick actions in config.example.yaml
+    
+    // Test first quick action (w -> Work project)
+    assert_eq!(quick_actions[0].key, "w");
+    assert_eq!(quick_actions[0].action, "project");
+    assert_eq!(quick_actions[0].target, "Work");
+    
+    // Test a priority action (u -> priority 5)
+    let urgent_action = quick_actions.iter().find(|qa| qa.key == "u").unwrap();
+    assert_eq!(urgent_action.action, "priority");
+    assert_eq!(urgent_action.target, "5");
+    
+    // Test a label action (i -> Important label)
+    let important_action = quick_actions.iter().find(|qa| qa.key == "i").unwrap();
+    assert_eq!(important_action.action, "label");
+    assert_eq!(important_action.target, "Important");
+}
+
+#[test]
+fn test_config_loading_from_default_path() {
+    // Test that default path loading still works
+    let config = cria::config::CriaConfig::load_from_path(None);
+    // This might be None if no default config exists, which is fine for testing
+    // Just ensure it doesn't crash
+    if let Some(config) = config {
+        assert!(!config.api_url.is_empty());
+    }
+}
+
+#[test]
+fn test_config_loading_nonexistent_file() {
+    // Test loading from a non-existent file
+    let config = cria::config::CriaConfig::load_from_path(Some("nonexistent.yaml"));
+    assert!(config.is_none());
 }
