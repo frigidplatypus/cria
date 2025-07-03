@@ -124,11 +124,17 @@ pub struct App {
     // Quick actions modal state
     pub show_quick_actions_modal: bool, // True when quick actions modal is shown
     pub selected_quick_action_index: usize, // Currently selected quick action in modal
+    // Column layout state
+    pub current_layout_name: String, // Track current active layout
+    // Layout notification state
+    pub layout_notification: Option<String>, // Notification message to show
+    pub layout_notification_start: Option<std::time::Instant>, // When notification started
 }
 
 #[allow(dead_code)]
 impl App {
     pub fn new_with_config(config: CriaConfig, default_project_name: String) -> Self {
+        let current_layout_name = config.get_active_layout_name();
         Self {
             config,
             running: true, 
@@ -195,6 +201,9 @@ impl App {
             current_sort: None,
             show_quick_actions_modal: false,
             selected_quick_action_index: 0,
+            current_layout_name,
+            layout_notification: None,
+            layout_notification_start: None,
         }
     }
 
@@ -498,6 +507,53 @@ impl App {
         self.selected_quick_action_index = 0;
     }
 
+    // Column layout methods
+    pub fn switch_to_next_layout(&mut self) {
+        let layouts = self.config.get_column_layouts();
+        let old_layout = self.current_layout_name.clone();
+        self.current_layout_name = self.config.next_layout(&self.current_layout_name);
+        let (layout_name, description) = self.get_current_layout_info();
+        let message = if let Some(desc) = description {
+            format!("Layout: {} - {} ({})", layout_name, desc, layouts.len())
+        } else {
+            format!("Layout: {} ({})", layout_name, layouts.len())
+        };
+        self.show_layout_notification(message);
+        // Debug message to see what's happening
+        self.add_debug_message(format!("Layout switch: {} -> {} (total: {})", old_layout, layout_name, layouts.len()));
+    }
+
+    pub fn switch_to_previous_layout(&mut self) {
+        let layouts = self.config.get_column_layouts();
+        let old_layout = self.current_layout_name.clone();
+        self.current_layout_name = self.config.previous_layout(&self.current_layout_name);
+        let (layout_name, description) = self.get_current_layout_info();
+        let message = if let Some(desc) = description {
+            format!("Layout: {} - {} ({})", layout_name, desc, layouts.len())
+        } else {
+            format!("Layout: {} ({})", layout_name, layouts.len())
+        };
+        self.show_layout_notification(message);
+        // Debug message to see what's happening
+        self.add_debug_message(format!("Layout switch: {} -> {} (total: {})", old_layout, layout_name, layouts.len()));
+    }
+
+    pub fn get_current_layout_columns(&self) -> Vec<crate::config::TableColumn> {
+        if let Some(layout) = self.config.get_layout(&self.current_layout_name) {
+            layout.columns
+        } else {
+            self.config.get_table_columns()
+        }
+    }
+
+    pub fn get_current_layout_info(&self) -> (String, Option<String>) {
+        if let Some(layout) = self.config.get_layout(&self.current_layout_name) {
+            (layout.name, layout.description)
+        } else {
+            (self.current_layout_name.clone(), None)
+        }
+    }
+
     // Quick action methods
     pub fn apply_quick_action(&mut self, action: &crate::config::QuickAction) -> Result<String, String> {
         if self.tasks.is_empty() {
@@ -543,6 +599,34 @@ impl App {
                 Ok(format!("Would add label: {}", action.target))
             },
             _ => Err(format!("Unknown action: {}", action.action))
+        }
+    }
+
+    // Layout notification methods
+    pub fn show_layout_notification(&mut self, message: String) {
+        self.layout_notification = Some(message);
+        self.layout_notification_start = Some(std::time::Instant::now());
+    }
+    
+    pub fn get_layout_notification(&self) -> Option<&String> {
+        if let (Some(ref notification), Some(start_time)) = (&self.layout_notification, self.layout_notification_start) {
+            // Show notification for 3 seconds
+            if start_time.elapsed().as_secs() < 3 {
+                Some(notification)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+    
+    pub fn clear_expired_layout_notification(&mut self) {
+        if let Some(start_time) = self.layout_notification_start {
+            if start_time.elapsed().as_secs() >= 3 {
+                self.layout_notification = None;
+                self.layout_notification_start = None;
+            }
         }
     }
 }

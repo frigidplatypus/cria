@@ -21,10 +21,15 @@ CRIA TUI is feature-complete for core task management functionality with a clean
   - Bounded stacks (50 items) with automatic cleanup
   - Full test coverage with 13+ unit tests
 
----
-
-## 🚀 **Release Roadmap**
-
+### ✅ **Completed (v0.8.6)**
+- **Flexible Column System with Auto-Width** 📊
+  - Due date and start date columns added to task list
+  - Automatic column width calculation based on content and available space
+  - Text wrapping for long task titles and labels
+  - Named column layouts (switch with `Shift+H`/`Shift+L`)
+  - User-configurable min/max widths and wrap settings
+  - Multiple predefined layouts: default, minimal, project-focused, time-management
+  - Backward compatible with legacy column configuration
 ### **v0.9.0 - User Experience & Quality of Life** 
 *Target: After initial user testing feedback*
 

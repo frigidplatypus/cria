@@ -57,6 +57,9 @@ pub fn first_run_wizard() -> Option<CriaConfig> {
         api_key_file: None,
         default_project: Some(default_project),
         quick_actions: None,
+        table_columns: None,
+        column_layouts: None,
+        active_layout: None,
     };
 
     // Save config

@@ -41,3 +41,129 @@ quick_actions:
   - key: "t"
     action: "label"
     target: "Today"
+
+# Customize table columns display
+# Available columns: Title, Project, Labels, DueDate, StartDate, Priority, Status, Assignees, Created, Updated
+
+# Option 1: Simple column configuration (legacy format, still supported)
+# table_columns:
+#   - name: "Title"
+#     column_type: "Title"
+#     min_width: 20        # Minimum width in characters
+#     max_width: 50        # Maximum width (optional)
+#     wrap_text: true      # Whether to wrap long text
+#     enabled: true
+
+# Option 2: Named column layouts (NEW! Switch between layouts with Shift+H/L)
+# Widths are automatically calculated based on available space and content
+column_layouts:
+  - name: "default"
+    description: "Standard task view with all essential columns"
+    columns:
+      - name: "Task"
+        column_type: "Title"
+        min_width: 25        # Minimum 25 chars for task titles
+        wrap_text: true      # Wrap long task titles
+        enabled: true
+      - name: "Project"
+        column_type: "Project"
+        min_width: 10
+        max_width: 18        # Project names shouldn't be too wide
+        enabled: true
+      - name: "Due Date"
+        column_type: "DueDate"
+        min_width: 10
+        max_width: 12        # Dates have fixed width
+        enabled: true
+      - name: "Start Date"
+        column_type: "StartDate"
+        min_width: 10
+        max_width: 12
+        enabled: true
+      - name: "Labels"
+        column_type: "Labels"
+        min_width: 8
+        max_width: 25
+        wrap_text: true      # Wrap long label lists
+        enabled: true
+
+  - name: "minimal"
+    description: "Clean, minimal view with just task and due date"
+    columns:
+      - name: "Task"
+        column_type: "Title"
+        min_width: 30
+        wrap_text: true
+        enabled: true
+      - name: "Due"
+        column_type: "DueDate"
+        min_width: 10
+        max_width: 12
+        enabled: true
+      - name: "Project"
+        column_type: "Project"
+        min_width: 10
+        max_width: 15
+        enabled: true
+
+  - name: "project-focused"
+    description: "Project-centric view for team collaboration"
+    columns:
+      - name: "Project"
+        column_type: "Project"
+        min_width: 12
+        max_width: 20
+        enabled: true
+      - name: "Task"
+        column_type: "Title"
+        min_width: 25
+        wrap_text: true
+        enabled: true
+      - name: "Priority"
+        column_type: "Priority"
+        min_width: 8
+        max_width: 10
+        enabled: true
+      - name: "Due"
+        column_type: "DueDate"
+        min_width: 10
+        max_width: 12
+        enabled: true
+      - name: "Labels"
+        column_type: "Labels"
+        min_width: 8
+        max_width: 20
+        wrap_text: true
+        enabled: true
+
+  - name: "time-management"
+    description: "Time-focused view for scheduling and deadlines"
+    columns:
+      - name: "Task"
+        column_type: "Title"
+        min_width: 25
+        wrap_text: true
+        enabled: true
+      - name: "Start"
+        column_type: "StartDate"
+        min_width: 10
+        max_width: 12
+        enabled: true
+      - name: "Due"
+        column_type: "DueDate"
+        min_width: 10
+        max_width: 12
+        enabled: true
+      - name: "Created"
+        column_type: "Created"
+        min_width: 10
+        max_width: 12
+        enabled: true
+      - name: "Project"
+        column_type: "Project"
+        min_width: 10
+        max_width: 15
+        enabled: true
+
+# Set which layout is active by default (optional, defaults to "default")
+active_layout: "default"

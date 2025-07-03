@@ -583,6 +583,14 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                             // Cycle filter forward
                             app_guard.cycle_task_filter();
                         },
+                        KeyCode::Char('H') => {
+                            // Switch to previous column layout
+                            app_guard.switch_to_previous_layout();
+                        },
+                        KeyCode::Char('L') => {
+                            // Switch to next column layout  
+                            app_guard.switch_to_next_layout();
+                        },
                         KeyCode::Up => {
                             app_guard.previous_task();
                         },
@@ -594,8 +602,9 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                 }
             }
             Event::Tick => {
-                // On every tick, redraw to allow flash animation
-                let app_guard = app.lock().await;
+                // On every tick, redraw to allow flash animation and clear expired notifications
+                let mut app_guard = app.lock().await;
+                app_guard.clear_expired_layout_notification();
                 terminal.draw(|frame| draw(frame, &app_guard))?;
                 drop(app_guard);
             }

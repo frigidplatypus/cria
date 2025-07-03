@@ -95,4 +95,21 @@ pub fn draw(f: &mut Frame, app: &App) {
         f.render_widget(Clear, refresh_area);
         f.render_widget(refresh_msg, refresh_area);
     }
+    
+    // Draw layout notification if active
+    if let Some(notification) = app.get_layout_notification() {
+        let notification_width = (notification.len() as u16 + 4).min(f.size().width / 2);
+        let notification_area = Rect {
+            x: f.size().width.saturating_sub(notification_width),
+            y: 1, // Top-right, just below the header border
+            width: notification_width,
+            height: 3,
+        };
+        let notification_msg = Paragraph::new(notification.clone())
+            .block(Block::default().borders(Borders::ALL).title("Layout"))
+            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+        f.render_widget(Clear, notification_area);
+        f.render_widget(notification_msg, notification_area);
+    }
 }

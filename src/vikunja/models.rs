@@ -70,7 +70,8 @@ pub struct Task {
     pub priority: Option<i32>,
     #[serde(deserialize_with = "deserialize_optional_datetime")]
     pub due_date: Option<DateTime<Utc>>,
-    pub start_date: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_datetime")]
+    pub start_date: Option<DateTime<Utc>>,
     pub end_date: Option<String>,
     pub created: Option<String>,
     pub updated: Option<String>,
