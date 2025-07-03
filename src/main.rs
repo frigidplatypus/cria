@@ -3,6 +3,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScree
 use crossterm::ExecutableCommand;
 use ratatui::prelude::{CrosstermBackend, Terminal};
 use std::io::stdout;
+use clap::{Arg, Command};
 
 mod tui;
 mod vikunja;
@@ -18,6 +19,31 @@ fn main() {
     // Load environment variables
     dotenv::dotenv().ok();
 
+    // Parse command-line arguments
+    let matches = Command::new("cria")
+        .about("CRIA - Terminal User Interface for Vikunja task management")
+        .version("0.8.4")
+        .arg(
+            Arg::new("config")
+                .long("config")
+                .short('c')
+                .help("Path to config file")
+                .value_name("FILE")
+        )
+        .arg(
+            Arg::new("dev-env")
+                .long("dev-env")
+                .help("Use environment variables instead of config file")
+                .action(clap::ArgAction::SetTrue)
+        )
+        .arg(
+            Arg::new("wizard")
+                .long("wizard")
+                .help("Run the configuration wizard")
+                .action(clap::ArgAction::SetTrue)
+        )
+        .get_matches();
+
     // Debug environment variables
     debug_log("Starting CRIA application");
     debug_log(&format!("Environment variables:"));
@@ -25,9 +51,10 @@ fn main() {
     debug_log(&format!("  VIKUNJA_TOKEN: {:?}", std::env::var("VIKUNJA_TOKEN").map(|t| format!("{}...", &t[..t.len().min(8)]))));
     debug_log(&format!("  VIKUNJA_DEFAULT_PROJECT: {:?}", std::env::var("VIKUNJA_DEFAULT_PROJECT")));
 
-    // Parse --dev-env and --wizard flags
-    let use_env = std::env::args().any(|arg| arg == "--dev-env");
-    let run_wizard = std::env::args().any(|arg| arg == "--wizard");
+    // Parse flags
+    let use_env = matches.get_flag("dev-env");
+    let run_wizard = matches.get_flag("wizard");
+    let config_path = matches.get_one::<String>("config");
 
     let (api_url, api_key, default_project, config) = if use_env {
         debug_log("Using environment variables for API config");
@@ -55,9 +82,14 @@ fn main() {
             }
         }
     } else {
-        match crate::config::CriaConfig::load() {
+        match crate::config::CriaConfig::load_from_path(config_path.map(|s| s.as_str())) {
             Some(cfg) => {
-                debug_log(&format!("Loaded config from YAML: api_url={}, api_key=***", cfg.api_url));
+                let config_source = if let Some(path) = config_path {
+                    format!("custom path: {}", path)
+                } else {
+                    "default location".to_string()
+                };
+                debug_log(&format!("Loaded config from {}: api_url={}, api_key=***", config_source, cfg.api_url));
                 if cfg.has_api_key_config() {
                     match cfg.get_api_key() {
                         Ok(api_key) => (cfg.api_url.clone(), api_key, cfg.default_project.clone().unwrap_or_else(|| "Inbox".to_string()), Some(cfg)),
@@ -86,20 +118,34 @@ fn main() {
                 }
             },
             None => {
-                debug_log("No config found, running first run wizard");
-                match crate::first_run::first_run_wizard() {
-                    Some(cfg) => {
-                        match cfg.api_key {
-                            Some(ref api_key) => (cfg.api_url.clone(), api_key.clone(), cfg.default_project.clone().unwrap_or_else(|| "Inbox".to_string()), Some(cfg)),
-                            None => {
-                                eprintln!("Error: No API key provided by wizard");
-                                std::process::exit(1);
+                let error_msg = if let Some(path) = config_path {
+                    format!("Config file not found at: {}", path)
+                } else {
+                    "No config found at default location".to_string()
+                };
+                debug_log(&error_msg);
+                
+                if config_path.is_some() {
+                    // If custom path was specified but file doesn't exist, exit with error
+                    eprintln!("Error: {}", error_msg);
+                    std::process::exit(1);
+                } else {
+                    // If default location doesn't exist, run wizard
+                    debug_log("Running first run wizard");
+                    match crate::first_run::first_run_wizard() {
+                        Some(cfg) => {
+                            match cfg.api_key {
+                                Some(ref api_key) => (cfg.api_url.clone(), api_key.clone(), cfg.default_project.clone().unwrap_or_else(|| "Inbox".to_string()), Some(cfg)),
+                                None => {
+                                    eprintln!("Error: No API key provided by wizard");
+                                    std::process::exit(1);
+                                }
                             }
+                        },
+                        None => {
+                            eprintln!("First run wizard failed. Exiting.");
+                            std::process::exit(1);
                         }
-                    },
-                    None => {
-                        eprintln!("First run wizard failed. Exiting.");
-                        std::process::exit(1);
                     }
                 }
             }
@@ -274,8 +320,61 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         }
                         continue;
                     }
+                    
+                    if app_guard.show_quick_actions_modal {
+                        match key.code {
+                            KeyCode::Esc | KeyCode::Char('q') => {
+                                app_guard.hide_quick_actions_modal();
+                            }
+                            KeyCode::Up => {
+                                if let Some(ref quick_actions) = app_guard.config.quick_actions {
+                                    if !quick_actions.is_empty() && app_guard.selected_quick_action_index > 0 {
+                                        app_guard.selected_quick_action_index -= 1;
+                                    }
+                                }
+                            }
+                            KeyCode::Down => {
+                                if let Some(ref quick_actions) = app_guard.config.quick_actions {
+                                    if !quick_actions.is_empty() && app_guard.selected_quick_action_index + 1 < quick_actions.len() {
+                                        app_guard.selected_quick_action_index += 1;
+                                    }
+                                }
+                            }
+                            KeyCode::Enter => {
+                                if let Some(ref quick_actions) = app_guard.config.quick_actions {
+                                    if app_guard.selected_quick_action_index < quick_actions.len() {
+                                        let action = quick_actions[app_guard.selected_quick_action_index].clone();
+                                        app_guard.hide_quick_actions_modal();
+                                        
+                                        match app_guard.apply_quick_action(&action) {
+                                            Ok(message) => {
+                                                app_guard.add_debug_message(format!("Quick action: {}", message));
+                                                // Flash the task to show it was modified
+                                                if let Some(task) = app_guard.get_selected_task() {
+                                                    app_guard.flash_task_id = Some(task.id);
+                                                    app_guard.flash_start = Some(std::time::Instant::now());
+                                                    app_guard.flash_cycle_count = 0;
+                                                    app_guard.flash_cycle_max = 4;
+                                                }
+                                            },
+                                            Err(err) => {
+                                                app_guard.add_debug_message(format!("Quick action error: {}", err));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                        continue;
+                    }
+
                     // Main app key handling (outside modals)
                     match key.code {
+                        KeyCode::Char(' ') => {
+                            // Space key shows quick actions modal
+                            app_guard.show_quick_actions_modal();
+                        },
                         KeyCode::Char('q') => {
                             app_guard.quit();
                             break;
