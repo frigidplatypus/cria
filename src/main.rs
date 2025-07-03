@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEventKind};
+use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::ExecutableCommand;
 use ratatui::prelude::{CrosstermBackend, Terminal};
@@ -367,6 +367,46 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                             _ => {}
                         }
                         continue;
+                    }
+
+                    // Handle Ctrl key combinations first
+                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                        match key.code {
+                            KeyCode::Char('z') => {
+                                // Ctrl+Z - Undo
+                                if let Some(task_id) = app_guard.undo_last_action() {
+                                    // Update the corresponding task in all_tasks
+                                    let updated_task = app_guard.tasks.iter().find(|t| t.id == task_id).cloned();
+                                    if let Some(updated_task) = updated_task {
+                                        if let Some(task) = app_guard.all_tasks.iter_mut().find(|t| t.id == task_id) {
+                                            *task = updated_task;
+                                        }
+                                    }
+                                    // Show visual feedback
+                                    app_guard.add_debug_message("Undo operation completed".to_string());
+                                } else {
+                                    app_guard.add_debug_message("Nothing to undo".to_string());
+                                }
+                            },
+                            KeyCode::Char('y') => {
+                                // Ctrl+Y - Redo
+                                if let Some(task_id) = app_guard.redo_last_action() {
+                                    // Update the corresponding task in all_tasks
+                                    let updated_task = app_guard.tasks.iter().find(|t| t.id == task_id).cloned();
+                                    if let Some(updated_task) = updated_task {
+                                        if let Some(task) = app_guard.all_tasks.iter_mut().find(|t| t.id == task_id) {
+                                            *task = updated_task;
+                                        }
+                                    }
+                                    // Show visual feedback
+                                    app_guard.add_debug_message("Redo operation completed".to_string());
+                                } else {
+                                    app_guard.add_debug_message("Nothing to redo".to_string());
+                                }
+                            },
+                            _ => {}
+                        }
+                        continue; // Skip the regular key handling for Ctrl combinations
                     }
 
                     // Main app key handling (outside modals)

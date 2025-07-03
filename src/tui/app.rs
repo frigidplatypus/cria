@@ -3,4 +3,4 @@ mod projects;
 mod filters;
 mod tasks;
 
-pub use state::{App, TaskFilter, SuggestionMode, SortOrder};
+pub use state::{App, TaskFilter, SuggestionMode, SortOrder, UndoableAction};

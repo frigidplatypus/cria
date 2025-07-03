@@ -1,6 +1,6 @@
 // Quick Add Modal event handler split from modals.rs
 use crate::tui::app::App;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyEvent, KeyModifiers};
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -13,6 +13,32 @@ pub async fn handle_quick_add_modal(
     client_clone: &Arc<Mutex<VikunjaClient>>,
 ) {
     use crossterm::event::KeyCode;
+    
+    // Handle Ctrl+Z (undo) and Ctrl+Y (redo) in quick add modal
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        match key.code {
+            KeyCode::Char('z') => {
+                debug_log("Quick Add Modal: Undo requested (Ctrl+Z)");
+                if let Some(_) = app.undo_last_action() {
+                    debug_log("Quick Add Modal: Undo successful");
+                } else {
+                    debug_log("Quick Add Modal: No action to undo");
+                }
+                return;
+            },
+            KeyCode::Char('y') => {
+                debug_log("Quick Add Modal: Redo requested (Ctrl+Y)");
+                if let Some(_) = app.redo_last_action() {
+                    debug_log("Quick Add Modal: Redo successful");
+                } else {
+                    debug_log("Quick Add Modal: No action to redo");
+                }
+                return;
+            },
+            _ => {}
+        }
+    }
+    
     match key.code {
         KeyCode::Esc => {
             app.hide_quick_add_modal();

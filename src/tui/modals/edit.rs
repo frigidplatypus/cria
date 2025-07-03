@@ -1,5 +1,5 @@
 use crate::tui::app::App;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyEvent, KeyModifiers};
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -12,6 +12,32 @@ pub async fn handle_edit_modal(
     client_clone: &Arc<Mutex<VikunjaClient>>,
 ) {
     use crossterm::event::KeyCode;
+    
+    // Handle Ctrl+Z (undo) and Ctrl+Y (redo) in edit modal
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        match key.code {
+            KeyCode::Char('z') => {
+                debug_log("Edit Modal: Undo requested (Ctrl+Z)");
+                if let Some(_) = app.undo_last_action() {
+                    debug_log("Edit Modal: Undo successful");
+                } else {
+                    debug_log("Edit Modal: No action to undo");
+                }
+                return;
+            },
+            KeyCode::Char('y') => {
+                debug_log("Edit Modal: Redo requested (Ctrl+Y)");
+                if let Some(_) = app.redo_last_action() {
+                    debug_log("Edit Modal: Redo successful");
+                } else {
+                    debug_log("Edit Modal: No action to redo");
+                }
+                return;
+            },
+            _ => {}
+        }
+    }
+    
     match key.code {
         KeyCode::Esc => {
             app.hide_edit_modal();

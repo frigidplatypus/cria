@@ -13,6 +13,14 @@ CRIA TUI is feature-complete for core task management functionality with a clean
 - Zero compiler warnings
 - Clean, modular architecture
 
+### ✅ **Completed (v0.8.5)**
+- **Undo/Redo System** - Implemented comprehensive undo/redo functionality
+  - `Ctrl+Z` / `Ctrl+Y` keybindings in main view and modals
+  - Visual feedback for undo/redo operations
+  - Support for task completion, deletion, creation, and editing
+  - Bounded stacks (50 items) with automatic cleanup
+  - Full test coverage with 13+ unit tests
+
 ---
 
 ## 🚀 **Release Roadmap**
@@ -21,22 +29,11 @@ CRIA TUI is feature-complete for core task management functionality with a clean
 *Target: After initial user testing feedback*
 
 #### **High-Priority Features:**
-- **Undo/Redo System** 🔄
-  - Implement `Ctrl+Z` / `Ctrl+Y` keybindings
-  - Visual feedback for undo operations
-  - Leverage existing undo infrastructure in codebase
-
 - **Global Task Search** 🔍
   - Press `/` to open search mode
   - Search across task titles, descriptions, labels
   - Real-time filtering as you type
   - Saved search queries
-
-- **Configuration System** ⚙️
-  - `~/.config/cria/config.yaml` support
-  - Customizable keybindings
-  - Color themes (dark/light/custom)
-  - Default project/label settings
 
 #### **User Experience Improvements:**
 - **Enhanced Visual Feedback** 🎨

@@ -83,6 +83,7 @@ pub struct App {
     pub debug_messages: Vec<(DateTime<Local>, String)>,
     // Undo system
     pub undo_stack: Vec<UndoableAction>,
+    pub redo_stack: Vec<UndoableAction>,
     pub max_undo_history: usize,
     // Confirmation dialog state
     pub show_confirmation_dialog: bool,
@@ -149,6 +150,7 @@ impl App {
             show_debug_pane: false,
             debug_messages: Vec::new(),
             undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
             max_undo_history: 50,
             show_confirmation_dialog: false,
             confirmation_message: String::new(),
