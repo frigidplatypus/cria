@@ -120,6 +120,9 @@ pub struct App {
     pub sort_options: Vec<&'static str>,
     pub selected_sort_index: usize,
     pub current_sort: Option<SortOrder>,
+    // Quick actions modal state
+    pub show_quick_actions_modal: bool, // True when quick actions modal is shown
+    pub selected_quick_action_index: usize, // Currently selected quick action in modal
 }
 
 #[allow(dead_code)]
@@ -188,6 +191,8 @@ impl App {
             ],
             selected_sort_index: 0,
             current_sort: None,
+            show_quick_actions_modal: false,
+            selected_quick_action_index: 0,
         };
         app
     }
@@ -398,5 +403,63 @@ impl App {
     }
     pub fn hide_sort_modal(&mut self) {
         self.show_sort_modal = false;
+    }
+
+    pub fn show_quick_actions_modal(&mut self) {
+        self.show_quick_actions_modal = true;
+        self.selected_quick_action_index = 0;
+    }
+
+    pub fn hide_quick_actions_modal(&mut self) {
+        self.show_quick_actions_modal = false;
+        self.selected_quick_action_index = 0;
+    }
+
+    // Quick action methods
+    pub fn apply_quick_action(&mut self, action: &crate::config::QuickAction) -> Result<String, String> {
+        if self.tasks.is_empty() {
+            return Err("No tasks available".to_string());
+        }
+
+        let task_index = self.selected_task_index;
+        if task_index >= self.tasks.len() {
+            return Err("Invalid task selection".to_string());
+        }
+
+        match action.action.as_str() {
+            "project" => {
+                // Find project ID by name
+                let project_id = self.project_map
+                    .iter()
+                    .find_map(|(id, name)| {
+                        if name.eq_ignore_ascii_case(&action.target) {
+                            Some(*id)
+                        } else {
+                            None
+                        }
+                    })
+                    .ok_or_else(|| format!("Project '{}' not found", action.target))?;
+
+                self.tasks[task_index].project_id = project_id;
+                Ok(format!("Moved task to project: {}", action.target))
+            },
+            "priority" => {
+                let priority: i32 = action.target.parse()
+                    .map_err(|_| format!("Invalid priority: {}", action.target))?;
+                
+                if priority < 1 || priority > 5 {
+                    return Err("Priority must be between 1 and 5".to_string());
+                }
+
+                self.tasks[task_index].priority = Some(priority);
+                Ok(format!("Set task priority to: {}", priority))
+            },
+            "label" => {
+                // This is more complex as we need to add to existing labels
+                // For now, we'll just return a message that this would add the label
+                Ok(format!("Would add label: {}", action.target))
+            },
+            _ => Err(format!("Unknown action: {}", action.action))
+        }
     }
 }

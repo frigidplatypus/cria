@@ -8,7 +8,7 @@ use ratatui::text::{Line, Span};
 
 use super::task_list::draw_tasks_table;
 use super::task_details::draw_task_details;
-use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dialog};
+use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dialog, draw_quick_actions_modal};
 use super::pickers::{draw_project_picker_modal, draw_filter_picker_modal};
 
 pub fn hex_to_color(hex: &str) -> Color {
@@ -77,6 +77,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         draw_confirmation_dialog(f, app);
     } else if app.show_filter_picker {
         draw_filter_picker_modal(f, app);
+    } else if app.show_quick_actions_modal {
+        draw_quick_actions_modal(f, app);
     }
 
     // Draw refreshing indicator if refreshing

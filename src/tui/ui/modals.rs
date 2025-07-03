@@ -341,9 +341,24 @@ pub fn draw_help_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::styled("s", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Star/unstar task")]),
         Line::from(vec![Span::styled("i", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle info pane")]),
         Line::from(vec![Span::styled("h / l", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Cycle filters backward/forward")]),
-        Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Shortcuts modal")]),
+        Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Show quick actions modal")]),
         Line::raw("")
     ];
+
+    // Quick actions section
+    if let Some(ref quick_actions) = app.config.quick_actions {
+        if !quick_actions.is_empty() {
+            help_lines.push(Line::raw("─ Quick Actions (Press Space to open modal) ─"));
+            for action in quick_actions {
+                help_lines.push(Line::from(vec![
+                    Span::styled(format!("{}", action.key), Style::default().add_modifier(Modifier::BOLD)), 
+                    Span::raw(format!(": {}", action.get_description()))
+                ]));
+            }
+            help_lines.push(Line::raw(""));
+        }
+    }
+
     // Config details section
     help_lines.push(Line::raw("─ Config Details ─"));
     // Show config file path (XDG or default)
@@ -401,4 +416,169 @@ pub fn draw_sort_modal(f: &mut Frame, app: &App) {
         .wrap(Wrap { trim: true })
         .alignment(Alignment::Left);
     f.render_widget(para, modal_area);
+}
+
+pub fn draw_quick_actions_modal(f: &mut Frame, app: &App) {
+    let area = f.size();
+    
+    // Calculate modal size based on number of quick actions
+    let quick_actions = app.config.quick_actions.as_ref();
+    let num_actions = quick_actions.map(|qa| qa.len()).unwrap_or(0);
+    
+    // Base height for borders, title, and instructions
+    let base_height = 5;
+    let action_height = num_actions as u16;
+    let modal_height = (base_height + action_height).min(area.height - 4);
+    let modal_width = 60.min(area.width - 4);
+    
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    let modal_area = Rect { x, y, width: modal_width, height: modal_height };
+    
+    // Clear the area behind the modal
+    f.render_widget(Clear, modal_area);
+    
+    let mut lines = vec![];
+    
+    if let Some(ref quick_actions) = quick_actions {
+        if quick_actions.is_empty() {
+            lines.push(Line::from(vec![
+                Span::styled("No quick actions configured.", Style::default().fg(Color::Gray))
+            ]));
+            lines.push(Line::raw(""));
+            lines.push(Line::from(vec![
+                Span::raw("Add quick actions to your "),
+                Span::styled("config.yaml", Style::default().fg(Color::Yellow)),
+                Span::raw(" file.")
+            ]));
+        } else {
+            lines.push(Line::from(vec![
+                Span::styled("Available Quick Actions:", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            ]));
+            lines.push(Line::raw(""));
+            
+            for (i, action) in quick_actions.iter().enumerate() {
+                let key_style = if i == app.selected_quick_action_index {
+                    Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                };
+                
+                let is_selected = i == app.selected_quick_action_index;
+                
+                // Create colorized description spans
+                let mut description_spans = vec![
+                    Span::styled(format!(" {} ", action.key), key_style),
+                    Span::raw(" "),
+                ];
+                
+                // Add colorized description based on action type
+                match action.action.as_str() {
+                    "project" => {
+                        let base_style = if is_selected {
+                            Style::default().add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default()
+                        };
+                        
+                        description_spans.push(Span::styled("Move to project: ", base_style.fg(Color::White)));
+                        
+                        let project_color = get_project_color(&action.target, app);
+                        let project_style = if is_selected {
+                            base_style.fg(project_color).add_modifier(Modifier::BOLD)
+                        } else {
+                            base_style.fg(project_color)
+                        };
+                        description_spans.push(Span::styled(&action.target, project_style));
+                    },
+                    "label" => {
+                        let base_style = if is_selected {
+                            Style::default().add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default()
+                        };
+                        
+                        description_spans.push(Span::styled("Add label: ", base_style.fg(Color::White)));
+                        
+                        let label_color = get_label_color(&action.target, app);
+                        let label_style = if is_selected {
+                            base_style.fg(label_color).add_modifier(Modifier::BOLD)
+                        } else {
+                            base_style.fg(label_color)
+                        };
+                        description_spans.push(Span::styled(&action.target, label_style));
+                    },
+                    "priority" => {
+                        let base_style = if is_selected {
+                            Style::default().add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default()
+                        };
+                        
+                        description_spans.push(Span::styled("Set priority to: ", base_style.fg(Color::White)));
+                        
+                        // Color priority based on level (1=low, 5=high)
+                        let priority_color = match action.target.as_str() {
+                            "1" => Color::Green,   // Low priority
+                            "2" => Color::Yellow,  // Medium-low priority  
+                            "3" => Color::LightBlue, // Medium priority
+                            "4" => Color::Magenta, // High priority
+                            "5" => Color::Red,     // Very high priority
+                            _ => Color::White,     // Unknown priority
+                        };
+                        
+                        let priority_style = if is_selected {
+                            base_style.fg(priority_color).add_modifier(Modifier::BOLD)
+                        } else {
+                            base_style.fg(priority_color)
+                        };
+                        description_spans.push(Span::styled(&action.target, priority_style));
+                    },
+                    _ => {
+                        // Fallback for unknown action types
+                        let desc_style = if is_selected {
+                            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(Color::White)
+                        };
+                        description_spans.push(Span::styled(action.get_description(), desc_style));
+                    }
+                }
+                
+                lines.push(Line::from(description_spans));
+            }
+        }
+    } else {
+        lines.push(Line::from(vec![
+            Span::styled("No quick actions configured.", Style::default().fg(Color::Gray))
+        ]));
+        lines.push(Line::raw(""));
+        lines.push(Line::from(vec![
+            Span::raw("Add quick actions to your "),
+            Span::styled("config.yaml", Style::default().fg(Color::Yellow)),
+            Span::raw(" file.")
+        ]));
+    }
+    
+    lines.push(Line::raw(""));
+    lines.push(Line::from(vec![
+        Span::styled("↑/↓", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Span::raw(" Navigate • "),
+        Span::styled("Enter", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Span::raw(" Select • "),
+        Span::styled("Esc", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::raw(" Cancel")
+    ]));
+    
+    let block = Block::default()
+        .title(" Quick Actions ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    
+    let paragraph = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: true })
+        .alignment(Alignment::Left);
+    
+    f.render_widget(paragraph, modal_area);
 }
