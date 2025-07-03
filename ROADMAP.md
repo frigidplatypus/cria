@@ -30,6 +30,17 @@ CRIA TUI is feature-complete for core task management functionality with a clean
   - User-configurable min/max widths and wrap settings
   - Multiple predefined layouts: default, minimal, project-focused, time-management
   - Backward compatible with legacy column configuration
+
+### ✅ **Completed (v0.8.7)**
+- **Per-Layout Multi-Level Sorting System**
+  - User-configurable, named layouts with per-column sort order and direction
+  - Multi-level sorting (primary, secondary, etc.)
+  - Null/empty values always sort last (asc/desc)
+  - Layout sort is applied on layout switch, task filter, and refresh
+  - Manual sort modal temporarily overrides layout sort
+  - Comprehensive automated tests for layout parsing and sorting
+  - Zero warnings, clean build
+
 ### **v0.9.0 - User Experience & Quality of Life** 
 *Target: After initial user testing feedback*
 
