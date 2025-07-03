@@ -85,9 +85,36 @@ Team meeting this weekend *important +work
 ### Main Application Shortcuts
 
 - **`q`** - Quit application
-- **`n`** - Open Quick Add Magic modal
+- **`a`** - Open Quick Add Magic modal
 - **`j`/`k`** or **Up/Down arrows** - Navigate tasks
 - **`r`** - Refresh tasks
+- **`Space`** - Enter quick action mode (see QUICK_ACTIONS.md)
+
+### 🚀 Quick Actions
+
+Press **Space** followed by a configured key to instantly modify the selected task:
+- Move to projects (e.g., `Space + w` for Work)
+- Set priorities (e.g., `Space + u` for urgent priority 5)
+- Add labels (e.g., `Space + i` for Important)
+
+Configure quick actions in your config file. See `QUICK_ACTIONS.md` for full configuration guide.
+
+## Command-Line Options
+
+### Configuration
+```bash
+# Use custom config file
+cria --config /path/to/config.yaml
+
+# Use environment variables instead of config file
+cria --dev-env
+
+# Run configuration wizard
+cria --wizard
+
+# Show help
+cria --help
+```
 
 ## Command Line Usage
 
