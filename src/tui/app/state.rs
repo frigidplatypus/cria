@@ -203,7 +203,12 @@ impl App {
     pub fn previous_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = if self.selected_task_index == 0 { self.tasks.len() - 1 } else { self.selected_task_index - 1 }; } }
     pub fn get_selected_task(&self) -> Option<&Task> { self.tasks.get(self.selected_task_index) }
     pub fn toggle_info_pane(&mut self) { self.show_info_pane = !self.show_info_pane; }
-    pub fn show_quick_add_modal(&mut self) { self.show_quick_add_modal = true; self.quick_add_input.clear(); self.quick_add_cursor_position = 0; self.hide_edit_modal(); }
+    pub fn show_quick_add_modal(&mut self) { 
+        self.close_all_modals();
+        self.show_quick_add_modal = true; 
+        self.quick_add_input.clear(); 
+        self.quick_add_cursor_position = 0; 
+    }
     pub fn hide_quick_add_modal(&mut self) { self.show_quick_add_modal = false; self.quick_add_input.clear(); self.quick_add_cursor_position = 0; }
     pub fn add_char_to_quick_add(&mut self, c: char) { self.quick_add_input.insert(self.quick_add_cursor_position, c); self.quick_add_cursor_position += 1; }
     pub fn delete_char_from_quick_add(&mut self) { if self.quick_add_cursor_position > 0 { self.quick_add_cursor_position -= 1; self.quick_add_input.remove(self.quick_add_cursor_position); } }
@@ -229,7 +234,17 @@ impl App {
         }
     }
     pub fn clear_debug_messages(&mut self) { self.debug_messages.clear(); }
-    pub fn show_edit_modal(&mut self) { if let Some(task) = self.get_selected_task() { let task_id = task.id; let magic_syntax = self.task_to_magic_syntax(task); self.show_edit_modal = true; self.editing_task_id = Some(task_id); self.edit_input = magic_syntax; self.edit_cursor_position = self.edit_input.len(); self.hide_quick_add_modal(); } }
+    pub fn show_edit_modal(&mut self) { 
+        if let Some(task) = self.get_selected_task() { 
+            let task_id = task.id; 
+            let magic_syntax = self.task_to_magic_syntax(task); 
+            self.close_all_modals();
+            self.show_edit_modal = true; 
+            self.editing_task_id = Some(task_id); 
+            self.edit_input = magic_syntax; 
+            self.edit_cursor_position = self.edit_input.len(); 
+        } 
+    }
     pub fn hide_edit_modal(&mut self) { self.show_edit_modal = false; self.edit_input.clear(); self.edit_cursor_position = 0; self.editing_task_id = None; }
     pub fn add_char_to_edit(&mut self, c: char) { self.edit_input.insert(self.edit_cursor_position, c); self.edit_cursor_position += 1; }
     pub fn delete_char_from_edit(&mut self) { if self.edit_cursor_position > 0 { self.edit_cursor_position -= 1; self.edit_input.remove(self.edit_cursor_position); } }
@@ -398,20 +413,48 @@ impl App {
             }
         }
     }
+    pub fn show_help_modal(&mut self) {
+        self.close_all_modals();
+        self.show_help_modal = true;
+    }
+    
     pub fn hide_help_modal(&mut self) {
         self.show_help_modal = false;
     }
+    
+    pub fn show_sort_modal(&mut self) {
+        self.close_all_modals();
+        self.show_sort_modal = true;
+    }
+    
     pub fn hide_sort_modal(&mut self) {
         self.show_sort_modal = false;
     }
 
     pub fn show_quick_actions_modal(&mut self) {
+        self.close_all_modals();
         self.show_quick_actions_modal = true;
         self.selected_quick_action_index = 0;
     }
 
     pub fn hide_quick_actions_modal(&mut self) {
         self.show_quick_actions_modal = false;
+        self.selected_quick_action_index = 0;
+    }
+
+    // Helper method to close all modals
+    fn close_all_modals(&mut self) {
+        self.show_help_modal = false;
+        self.show_sort_modal = false;
+        self.show_quick_actions_modal = false;
+        self.show_quick_add_modal = false;
+        self.show_edit_modal = false;
+        // Reset modal state
+        self.quick_add_input.clear();
+        self.quick_add_cursor_position = 0;
+        self.edit_input.clear();
+        self.edit_cursor_position = 0;
+        self.editing_task_id = None;
         self.selected_quick_action_index = 0;
     }
 

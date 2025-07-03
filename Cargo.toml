@@ -37,3 +37,6 @@ itertools = "0.12"
 fuzzy-matcher = "0.3"
 dirs = "5.0"
 anyhow = "1.0"
+
+[dev-dependencies]
+proptest = "1.0"
