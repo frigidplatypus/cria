@@ -52,6 +52,11 @@ impl App {
     pub fn apply_project_filter(&mut self) {
         if let Some(project_id) = self.current_project_id {
             self.tasks = self.all_tasks.iter().filter(|task| task.project_id == project_id).cloned().collect();
+            
+            // Apply layout-specific sort if no manual sort is active
+            if self.current_sort.is_none() {
+                self.apply_layout_sort();
+            }
         }
     }
     pub fn get_current_project_name(&self) -> String {

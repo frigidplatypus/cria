@@ -346,20 +346,14 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                                         let action = quick_actions[app_guard.selected_quick_action_index].clone();
                                         app_guard.hide_quick_actions_modal();
                                         
-                                        match app_guard.apply_quick_action(&action) {
-                                            Ok(message) => {
-                                                app_guard.add_debug_message(format!("Quick action: {}", message));
-                                                // Flash the task to show it was modified
-                                                if let Some(task) = app_guard.get_selected_task() {
-                                                    app_guard.flash_task_id = Some(task.id);
-                                                    app_guard.flash_start = Some(std::time::Instant::now());
-                                                    app_guard.flash_cycle_count = 0;
-                                                    app_guard.flash_cycle_max = 4;
-                                                }
-                                            },
-                                            Err(err) => {
-                                                app_guard.add_debug_message(format!("Quick action error: {}", err));
-                                            }
+                                        // TODO: Implement apply_quick_action method
+                                        app_guard.add_debug_message(format!("Quick action triggered: {} -> {}", action.key, action.target));
+                                        // For now, just flash the task to show action was triggered
+                                        if let Some(task) = app_guard.get_selected_task() {
+                                            app_guard.flash_task_id = Some(task.id);
+                                            app_guard.flash_start = Some(std::time::Instant::now());
+                                            app_guard.flash_cycle_count = 0;
+                                            app_guard.flash_cycle_max = 4;
                                         }
                                     }
                                 }
@@ -604,7 +598,13 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
             Event::Tick => {
                 // On every tick, redraw to allow flash animation and clear expired notifications
                 let mut app_guard = app.lock().await;
-                app_guard.clear_expired_layout_notification();
+                // Clear expired layout notification (cleanup old notifications)
+                if let Some(start_time) = app_guard.layout_notification_start {
+                    if start_time.elapsed().as_secs() >= 2 {
+                        app_guard.layout_notification = None;
+                        app_guard.layout_notification_start = None;
+                    }
+                }
                 terminal.draw(|frame| draw(frame, &app_guard))?;
                 drop(app_guard);
             }

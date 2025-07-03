@@ -173,6 +173,7 @@ impl CriaConfig {
     }
 
     /// Get the table columns to display, using layouts if configured or falling back to table_columns
+    #[allow(dead_code)]
     pub fn get_table_columns(&self) -> Vec<TableColumn> {
         // First check if we have column layouts and an active layout
         if let Some(layouts) = &self.column_layouts {
@@ -248,6 +249,8 @@ pub struct TableColumn {
     pub max_width: Option<u16>, // Maximum width in characters
     #[serde(default)]
     pub wrap_text: Option<bool>, // Whether to wrap text in this column
+    #[serde(default)]
+    pub sort: Option<ColumnSort>, // Optional sort configuration for this column
 }
 
 fn default_true() -> bool {
@@ -279,6 +282,7 @@ impl TaskColumn {
                 min_width: Some(20),
                 max_width: None, // No max for title
                 wrap_text: Some(true), // Wrap task titles
+                sort: None, // No default sort
             },
             TableColumn {
                 name: "Project".to_string(),
@@ -288,6 +292,7 @@ impl TaskColumn {
                 min_width: Some(10),
                 max_width: Some(20),
                 wrap_text: Some(false),
+                sort: None,
             },
             TableColumn {
                 name: "Due Date".to_string(),
@@ -297,6 +302,7 @@ impl TaskColumn {
                 min_width: Some(10),
                 max_width: Some(12),
                 wrap_text: Some(false),
+                sort: None,
             },
             TableColumn {
                 name: "Start Date".to_string(),
@@ -306,6 +312,7 @@ impl TaskColumn {
                 min_width: Some(10),
                 max_width: Some(12),
                 wrap_text: Some(false),
+                sort: None,
             },
             TableColumn {
                 name: "Labels".to_string(),
@@ -315,10 +322,12 @@ impl TaskColumn {
                 min_width: Some(8),
                 max_width: Some(25),
                 wrap_text: Some(true),
+                sort: None,
             },
         ]
     }
 
+    #[allow(dead_code)]
     pub fn get_display_name(&self) -> &'static str {
         match self {
             TaskColumn::Title => "Title",
@@ -362,6 +371,7 @@ impl ColumnLayout {
                         min_width: Some(30),
                         max_width: None,
                         wrap_text: Some(true),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Due".to_string(),
@@ -371,6 +381,7 @@ impl ColumnLayout {
                         min_width: Some(10),
                         max_width: Some(12),
                         wrap_text: Some(false),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Project".to_string(),
@@ -380,6 +391,7 @@ impl ColumnLayout {
                         min_width: Some(10),
                         max_width: Some(15),
                         wrap_text: Some(false),
+                        sort: None,
                     },
                 ],
             },
@@ -395,6 +407,7 @@ impl ColumnLayout {
                         min_width: Some(12),
                         max_width: Some(20),
                         wrap_text: Some(false),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Task".to_string(),
@@ -404,6 +417,7 @@ impl ColumnLayout {
                         min_width: Some(25),
                         max_width: None,
                         wrap_text: Some(true),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Priority".to_string(),
@@ -413,6 +427,7 @@ impl ColumnLayout {
                         min_width: Some(8),
                         max_width: Some(10),
                         wrap_text: Some(false),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Due".to_string(),
@@ -422,6 +437,7 @@ impl ColumnLayout {
                         min_width: Some(10),
                         max_width: Some(12),
                         wrap_text: Some(false),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Labels".to_string(),
@@ -431,6 +447,7 @@ impl ColumnLayout {
                         min_width: Some(8),
                         max_width: Some(20),
                         wrap_text: Some(true),
+                        sort: None,
                     },
                 ],
             },
@@ -446,6 +463,7 @@ impl ColumnLayout {
                         min_width: Some(25),
                         max_width: None,
                         wrap_text: Some(true),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Start".to_string(),
@@ -455,6 +473,7 @@ impl ColumnLayout {
                         min_width: Some(10),
                         max_width: Some(12),
                         wrap_text: Some(false),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Due".to_string(),
@@ -464,6 +483,7 @@ impl ColumnLayout {
                         min_width: Some(10),
                         max_width: Some(12),
                         wrap_text: Some(false),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Created".to_string(),
@@ -473,6 +493,7 @@ impl ColumnLayout {
                         min_width: Some(10),
                         max_width: Some(12),
                         wrap_text: Some(false),
+                        sort: None,
                     },
                     TableColumn {
                         name: "Project".to_string(),
@@ -482,9 +503,23 @@ impl ColumnLayout {
                         min_width: Some(10),
                         max_width: Some(15),
                         wrap_text: Some(false),
+                        sort: None,
                     },
                 ],
             },
         ]
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColumnSort {
+    pub order: u16,           // Sort priority (1 = primary, 2 = secondary, etc.)
+    pub direction: SortDirection, // asc or desc
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum SortDirection {
+    Asc,  // ascending
+    Desc, // descending
 }

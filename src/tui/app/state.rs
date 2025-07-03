@@ -521,6 +521,9 @@ impl App {
         self.show_layout_notification(message);
         // Debug message to see what's happening
         self.add_debug_message(format!("Layout switch: {} -> {} (total: {})", old_layout, layout_name, layouts.len()));
+        
+        // Apply layout-specific sort if defined
+        self.apply_layout_sort();
     }
 
     pub fn switch_to_previous_layout(&mut self) {
@@ -536,82 +539,190 @@ impl App {
         self.show_layout_notification(message);
         // Debug message to see what's happening
         self.add_debug_message(format!("Layout switch: {} -> {} (total: {})", old_layout, layout_name, layouts.len()));
+        
+        // Apply layout-specific sort if defined
+        self.apply_layout_sort();
     }
 
-    pub fn get_current_layout_columns(&self) -> Vec<crate::config::TableColumn> {
+    /// Extract and apply layout-specific sort configuration
+    pub fn apply_layout_sort(&mut self) {
         if let Some(layout) = self.config.get_layout(&self.current_layout_name) {
-            layout.columns
-        } else {
-            self.config.get_table_columns()
+            let mut sort_columns: Vec<(&crate::config::TableColumn, &crate::config::ColumnSort)> = layout
+                .columns
+                .iter()
+                .filter_map(|col| col.sort.as_ref().map(|sort| (col, sort)))
+                .collect();
+            
+            // Sort by order (primary sort = 1, secondary = 2, etc.)
+            sort_columns.sort_by_key(|(_, sort)| sort.order);
+            
+            if !sort_columns.is_empty() {
+                self.add_debug_message(format!("Applying layout sort with {} levels", sort_columns.len()));
+                self.apply_multi_level_sort(&sort_columns);
+                // Clear manual sort when layout sort is applied
+                self.current_sort = None;
+            }
         }
     }
 
+    /// Apply multi-level sorting based on column configuration
+    fn apply_multi_level_sort(&mut self, sort_columns: &[(&crate::config::TableColumn, &crate::config::ColumnSort)]) {
+        use crate::config::{TaskColumn, SortDirection};
+        
+        self.tasks.sort_by(|a, b| {
+            for (column, sort_config) in sort_columns {
+                let ordering = match column.column_type {
+                    TaskColumn::Title => {
+                        let cmp = normalize_string(&a.title).cmp(&normalize_string(&b.title));
+                        match sort_config.direction {
+                            SortDirection::Asc => cmp,
+                            SortDirection::Desc => cmp.reverse(),
+                        }
+                    }
+                    TaskColumn::Project => {
+                        let a_project = self.project_map.get(&a.project_id)
+                            .map(|p| p.as_str())
+                            .unwrap_or("");
+                        let b_project = self.project_map.get(&b.project_id)
+                            .map(|p| p.as_str())
+                            .unwrap_or("");
+                        let cmp = a_project.cmp(b_project);
+                        match sort_config.direction {
+                            SortDirection::Asc => cmp,
+                            SortDirection::Desc => cmp.reverse(),
+                        }
+                    }
+                    TaskColumn::Priority => {
+                        // None (no priority) should always sort last, regardless of direction
+                        let cmp = match (a.priority, b.priority) {
+                            (None, None) => std::cmp::Ordering::Equal,
+                            (None, Some(_)) => std::cmp::Ordering::Greater, // None always last
+                            (Some(_), None) => std::cmp::Ordering::Less,    // None always last
+                            (Some(a_prio), Some(b_prio)) => match sort_config.direction {
+                                SortDirection::Asc => a_prio.cmp(&b_prio),
+                                SortDirection::Desc => b_prio.cmp(&a_prio),
+                            },
+                        };
+                        cmp
+                    }
+                    TaskColumn::DueDate => {
+                        // None (no due date) should always sort last
+                        let cmp = match (&a.due_date, &b.due_date) {
+                            (None, None) => std::cmp::Ordering::Equal,
+                            (None, Some(_)) => std::cmp::Ordering::Greater, // None always last
+                            (Some(_), None) => std::cmp::Ordering::Less,    // None always last
+                            (Some(a_due), Some(b_due)) => a_due.cmp(b_due),
+                        };
+                        match sort_config.direction {
+                            SortDirection::Asc => cmp,
+                            SortDirection::Desc => match cmp {
+                                std::cmp::Ordering::Greater => std::cmp::Ordering::Greater, // Keep None last
+                                std::cmp::Ordering::Less => std::cmp::Ordering::Less,       // Keep None last
+                                std::cmp::Ordering::Equal => std::cmp::Ordering::Equal,
+                            },
+                        }
+                    }
+                    TaskColumn::StartDate => {
+                        // None (no start date) should always sort last
+                        let cmp = match (&a.start_date, &b.start_date) {
+                            (None, None) => std::cmp::Ordering::Equal,
+                            (None, Some(_)) => std::cmp::Ordering::Greater, // None always last
+                            (Some(_), None) => std::cmp::Ordering::Less,    // None always last
+                            (Some(a_start), Some(b_start)) => a_start.cmp(b_start),
+                        };
+                        match sort_config.direction {
+                            SortDirection::Asc => cmp,
+                            SortDirection::Desc => match cmp {
+                                std::cmp::Ordering::Greater => std::cmp::Ordering::Greater, // Keep None last
+                                std::cmp::Ordering::Less => std::cmp::Ordering::Less,       // Keep None last
+                                std::cmp::Ordering::Equal => std::cmp::Ordering::Equal,
+                            },
+                        }
+                    }
+                    TaskColumn::Created => {
+                        // Task.created is Option<String>, need to handle comparison
+                        let cmp = match (&a.created, &b.created) {
+                            (None, None) => std::cmp::Ordering::Equal,
+                            (None, Some(_)) => std::cmp::Ordering::Greater, // None always last
+                            (Some(_), None) => std::cmp::Ordering::Less,    // None always last
+                            (Some(a_created), Some(b_created)) => a_created.cmp(b_created),
+                        };
+                        match sort_config.direction {
+                            SortDirection::Asc => cmp,
+                            SortDirection::Desc => match cmp {
+                                std::cmp::Ordering::Greater => std::cmp::Ordering::Greater, // Keep None last
+                                std::cmp::Ordering::Less => std::cmp::Ordering::Less,       // Keep None last
+                                std::cmp::Ordering::Equal => std::cmp::Ordering::Equal,
+                            },
+                        }
+                    }
+                    TaskColumn::Updated => {
+                        // Task.updated is Option<String>, need to handle comparison
+                        let cmp = match (&a.updated, &b.updated) {
+                            (None, None) => std::cmp::Ordering::Equal,
+                            (None, Some(_)) => std::cmp::Ordering::Greater, // None always last
+                            (Some(_), None) => std::cmp::Ordering::Less,    // None always last
+                            (Some(a_updated), Some(b_updated)) => a_updated.cmp(b_updated),
+                        };
+                        match sort_config.direction {
+                            SortDirection::Asc => cmp,
+                            SortDirection::Desc => match cmp {
+                                std::cmp::Ordering::Greater => std::cmp::Ordering::Greater, // Keep None last
+                                std::cmp::Ordering::Less => std::cmp::Ordering::Less,       // Keep None last
+                                std::cmp::Ordering::Equal => std::cmp::Ordering::Equal,
+                            },
+                        }
+                    }
+                    TaskColumn::Status => {
+                        let cmp = a.done.cmp(&b.done);
+                        match sort_config.direction {
+                            SortDirection::Asc => cmp,
+                            SortDirection::Desc => cmp.reverse(),
+                        }
+                    }
+                    // For columns that don't have meaningful sort (Labels, Assignees), 
+                    // fall back to title sort
+                    _ => {
+                        let cmp = normalize_string(&a.title).cmp(&normalize_string(&b.title));
+                        match sort_config.direction {
+                            SortDirection::Asc => cmp,
+                            SortDirection::Desc => cmp.reverse(),
+                        }
+                    }
+                };
+                
+                // If this level produces a non-equal result, use it
+                if ordering != std::cmp::Ordering::Equal {
+                    return ordering;
+                }
+                // Otherwise, continue to the next sort level
+            }
+            
+            // If all sort levels are equal, maintain stable sort
+            std::cmp::Ordering::Equal
+        });
+    }
+
+    /// Get current layout name and description
     pub fn get_current_layout_info(&self) -> (String, Option<String>) {
         if let Some(layout) = self.config.get_layout(&self.current_layout_name) {
-            (layout.name, layout.description)
+            (layout.name.clone(), layout.description.clone())
         } else {
             (self.current_layout_name.clone(), None)
         }
     }
 
-    // Quick action methods
-    pub fn apply_quick_action(&mut self, action: &crate::config::QuickAction) -> Result<String, String> {
-        if self.tasks.is_empty() {
-            return Err("No tasks available".to_string());
-        }
-
-        let task_index = self.selected_task_index;
-        if task_index >= self.tasks.len() {
-            return Err("Invalid task selection".to_string());
-        }
-
-        match action.action.as_str() {
-            "project" => {
-                // Find project ID by name
-                let project_id = self.project_map
-                    .iter()
-                    .find_map(|(id, name)| {
-                        if name.eq_ignore_ascii_case(&action.target) {
-                            Some(*id)
-                        } else {
-                            None
-                        }
-                    })
-                    .ok_or_else(|| format!("Project '{}' not found", action.target))?;
-
-                self.tasks[task_index].project_id = project_id;
-                Ok(format!("Moved task to project: {}", action.target))
-            },
-            "priority" => {
-                let priority: i32 = action.target.parse()
-                    .map_err(|_| format!("Invalid priority: {}", action.target))?;
-                
-                if priority < 1 || priority > 5 {
-                    return Err("Priority must be between 1 and 5".to_string());
-                }
-
-                self.tasks[task_index].priority = Some(priority);
-                Ok(format!("Set task priority to: {}", priority))
-            },
-            "label" => {
-                // This is more complex as we need to add to existing labels
-                // For now, we'll just return a message that this would add the label
-                Ok(format!("Would add label: {}", action.target))
-            },
-            _ => Err(format!("Unknown action: {}", action.action))
-        }
-    }
-
-    // Layout notification methods
+    /// Show layout notification message
     pub fn show_layout_notification(&mut self, message: String) {
         self.layout_notification = Some(message);
         self.layout_notification_start = Some(std::time::Instant::now());
     }
-    
+
+    /// Get layout notification if active and within display duration
     pub fn get_layout_notification(&self) -> Option<&String> {
         if let (Some(ref notification), Some(start_time)) = (&self.layout_notification, self.layout_notification_start) {
-            // Show notification for 3 seconds
-            if start_time.elapsed().as_secs() < 3 {
+            // Show notification for 2 seconds
+            if start_time.elapsed().as_secs() < 2 {
                 Some(notification)
             } else {
                 None
@@ -620,13 +731,14 @@ impl App {
             None
         }
     }
-    
-    pub fn clear_expired_layout_notification(&mut self) {
-        if let Some(start_time) = self.layout_notification_start {
-            if start_time.elapsed().as_secs() >= 3 {
-                self.layout_notification = None;
-                self.layout_notification_start = None;
-            }
+
+    /// Get current layout columns for rendering
+    pub fn get_current_layout_columns(&self) -> Vec<crate::config::TableColumn> {
+        if let Some(layout) = self.config.get_layout(&self.current_layout_name) {
+            layout.columns.clone()
+        } else {
+            // Fallback to default columns if layout not found
+            self.config.get_columns()
         }
     }
 }

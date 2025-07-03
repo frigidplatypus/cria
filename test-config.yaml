@@ -14,11 +14,17 @@ column_layouts:
         min_width: 3
         max_width: 6
         enabled: true
+        sort:
+          order: 1
+          direction: "desc"
       - name: "Task"
         column_type: "Title"
         min_width: 30
         wrap_text: true
         enabled: true
+        sort:
+          order: 2
+          direction: "asc"
       - name: "Project"
         column_type: "Project"
         min_width: 12
@@ -44,11 +50,17 @@ column_layouts:
         min_width: 40
         wrap_text: true
         enabled: true
+        sort:
+          order: 1
+          direction: "asc"
       - name: "Due"
         column_type: "DueDate"
         min_width: 10
         max_width: 12
         enabled: true
+        sort:
+          order: 2
+          direction: "asc"
       - name: "Priority"
         column_type: "Priority"
         min_width: 3
@@ -73,11 +85,17 @@ column_layouts:
         min_width: 10
         max_width: 12
         enabled: true
+        sort:
+          order: 1
+          direction: "asc"
       - name: "Due"
         column_type: "DueDate"
         min_width: 10
         max_width: 12
         enabled: true
+        sort:
+          order: 2
+          direction: "asc"
       - name: "Created"
         column_type: "Created"
         min_width: 10

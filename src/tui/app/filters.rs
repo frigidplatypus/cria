@@ -78,6 +78,11 @@ impl App {
             crate::tui::app::state::TaskFilter::All => true,
             crate::tui::app::state::TaskFilter::CompletedOnly => task.done,
         }).cloned().collect();
+        
+        // Apply layout-specific sort if no manual sort is active
+        if self.current_sort.is_none() {
+            self.apply_layout_sort();
+        }
     }
     pub fn get_filter_display_name(&self) -> String {
         if let Some(filter_id) = self.current_filter_id {
@@ -104,5 +109,10 @@ impl App {
             crate::tui::app::state::TaskFilter::All => true,
             crate::tui::app::state::TaskFilter::CompletedOnly => task.done,
         }).collect();
+        
+        // Apply layout-specific sort if no manual sort is active
+        if self.current_sort.is_none() {
+            self.apply_layout_sort();
+        }
     }
 }
