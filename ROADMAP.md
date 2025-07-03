@@ -40,6 +40,10 @@ CRIA TUI is feature-complete for core task management functionality with a clean
   - Manual sort modal temporarily overrides layout sort
   - Comprehensive automated tests for layout parsing and sorting
   - Zero warnings, clean build
+  - Nerd font icons for priority and favorite markers
+  - Layout change notifications
+  - Label colorization restored in dynamic column system
+  - Robust test coverage for layouts and sorting
 
 ### **v0.9.0 - User Experience & Quality of Life** 
 *Target: After initial user testing feedback*

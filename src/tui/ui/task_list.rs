@@ -8,6 +8,7 @@ use ratatui::widgets::{Table, Row, Cell, Block, Borders};
 use ratatui::layout::Constraint;
 use super::hex_to_color;
 use chrono::{DateTime, Utc, Local};
+use ratatui::text::{Line, Span};
 
 fn format_date(date: &Option<DateTime<Utc>>) -> String {
     match date {
@@ -208,7 +209,7 @@ fn create_wrapped_cell_for_column<'a>(
                 .cloned()
                 .unwrap_or_else(|| "Unknown".to_string());
             let project_color = app.project_colors.get(&task.project_id)
-                .map(|hex| hex_to_color(hex))
+                .and_then(|hex| Some(hex_to_color(hex.as_str())))
                 .unwrap_or(Color::White);
             
             let truncated = if project_name.len() > width as usize {
@@ -221,21 +222,24 @@ fn create_wrapped_cell_for_column<'a>(
         }
         TaskColumn::Labels => {
             if let Some(labels) = &task.labels {
-                let labels_text = labels.iter()
-                    .map(|label| label.title.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                
+                let mut spans = Vec::new();
+                for (i, label) in labels.iter().enumerate() {
+                    let color = app.label_colors.get(&label.id)
+                        .and_then(|hex| Some(hex_to_color(hex.as_str())))
+                        .unwrap_or(ratatui::style::Color::Gray);
+                    spans.push(Span::styled(
+                        label.title.clone(),
+                        Style::default().fg(color),
+                    ));
+                    if i < labels.len() - 1 {
+                        spans.push(Span::raw(", "));
+                    }
+                }
                 if should_wrap {
-                    let wrapped = wrap_text_for_cell(&labels_text, width, true);
-                    Cell::from(wrapped)
+                    // Wrapping for colored spans is non-trivial; fallback to no wrap for now
+                    Cell::from(Line::from(spans))
                 } else {
-                    let truncated = if labels_text.len() > width as usize {
-                        format!("{}…", &labels_text[..width.saturating_sub(1) as usize])
-                    } else {
-                        labels_text
-                    };
-                    Cell::from(truncated)
+                    Cell::from(Line::from(spans))
                 }
             } else {
                 Cell::from("")
