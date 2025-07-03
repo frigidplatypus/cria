@@ -129,7 +129,7 @@ pub struct App {
 #[allow(dead_code)]
 impl App {
     pub fn new_with_config(config: CriaConfig, default_project_name: String) -> Self {
-        let app = Self {
+        Self {
             config,
             running: true, 
             tasks: Vec::new(),
@@ -195,8 +195,7 @@ impl App {
             current_sort: None,
             show_quick_actions_modal: false,
             selected_quick_action_index: 0,
-        };
-        app
+        }
     }
 
     // --- BEGIN FULL MOVED METHODS ---
@@ -254,7 +253,46 @@ impl App {
     pub fn move_edit_cursor_right(&mut self) { if self.edit_cursor_position < self.edit_input.len() { self.edit_cursor_position += 1; } }
     pub fn get_edit_input(&self) -> &str { &self.edit_input }
     pub fn clear_edit_input(&mut self) { self.edit_input.clear(); self.edit_cursor_position = 0; }
-    fn task_to_magic_syntax(&self, task: &crate::vikunja::models::Task) -> String { let mut result = task.title.clone(); if task.is_favorite { result.push_str(" ^star"); } if let Some(labels) = &task.labels { for label in labels { result.push_str(&format!(" *{}", label.title)); } } if let Some(assignees) = &task.assignees { for assignee in assignees { result.push_str(&format!(" @{}", assignee.username)); } } if let Some(project_name) = self.project_map.get(&task.project_id) { if project_name != "Inbox" && task.project_id != 1 { result.push_str(&format!(" +{}", project_name)); } } if let Some(priority) = task.priority { if priority > 0 { result.push_str(&format!(" !{}", priority)); } } if let Some(due_date) = &task.due_date { if due_date.year() > 1900 { let formatted_date = due_date.format("%Y-%m-%d").to_string(); result.push_str(&format!(" {}", formatted_date)); } } result }
+    fn task_to_magic_syntax(&self, task: &crate::vikunja::models::Task) -> String {
+        let mut result = task.title.clone();
+        
+        if task.is_favorite {
+            result.push_str(" ^star");
+        }
+        
+        if let Some(labels) = &task.labels {
+            for label in labels {
+                result.push_str(&format!(" *{}", label.title));
+            }
+        }
+        
+        if let Some(assignees) = &task.assignees {
+            for assignee in assignees {
+                result.push_str(&format!(" @{}", assignee.username));
+            }
+        }
+        
+        if let Some(project_name) = self.project_map.get(&task.project_id) {
+            if project_name != "Inbox" && task.project_id != 1 {
+                result.push_str(&format!(" +{}", project_name));
+            }
+        }
+        
+        if let Some(priority) = task.priority {
+            if priority > 0 {
+                result.push_str(&format!(" !{}", priority));
+            }
+        }
+        
+        if let Some(due_date) = &task.due_date {
+            if due_date.year() > 1900 {
+                let formatted_date = due_date.format("%Y-%m-%d").to_string();
+                result.push_str(&format!(" {}", formatted_date));
+            }
+        }
+        
+        result
+    }
     // --- Task manipulation logic moved to tasks.rs ---
     pub fn update_suggestions(&mut self, input: &str, cursor: usize) {
         // Find the last * or + before the cursor

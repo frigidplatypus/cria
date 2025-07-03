@@ -44,6 +44,7 @@ impl Default for CriaConfig {
 
 impl CriaConfig {
     /// Load config from ~/.config/cria/config.yaml (XDG spec)
+    #[allow(dead_code)]
     pub fn load() -> Option<Self> {
         Self::load_from_path(None)
     }
@@ -130,6 +131,7 @@ impl CriaConfig {
     }
 
     /// Get quick actions as a HashMap keyed by the key character
+    #[allow(dead_code)]
     pub fn get_quick_actions_map(&self) -> HashMap<String, QuickAction> {
         self.quick_actions
             .as_ref()
@@ -143,6 +145,7 @@ impl CriaConfig {
     }
 
     /// Check if a key has a quick action assigned
+    #[allow(dead_code)]
     pub fn has_quick_action(&self, key: &str) -> bool {
         self.quick_actions
             .as_ref()
@@ -151,6 +154,7 @@ impl CriaConfig {
     }
 
     /// Get a quick action by key
+    #[allow(dead_code)]
     pub fn get_quick_action(&self, key: &str) -> Option<&QuickAction> {
         self.quick_actions
             .as_ref()

@@ -250,7 +250,7 @@ fn test_property_based_testing_setup() {
     let app = App::new_with_config(config, "Test".to_string());
     
     // The app should be properly initialized with empty project map initially
-    assert!(app.project_map.len() >= 0);
+    assert_eq!(app.project_map.len(), 0);
     assert!(!app.running == false); // Should be running
 }
 

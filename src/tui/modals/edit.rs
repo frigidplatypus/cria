@@ -47,8 +47,6 @@ pub async fn handle_edit_modal(
             let should_autocomplete = if app.suggestion_mode.is_some() && !app.suggestions.is_empty() {
                 // Only auto-complete if the current text exactly matches a suggestion prefix
                 // This prevents auto-completing when the user has typed a complete, valid label
-                let cursor = app.edit_cursor_position;
-                let input = app.get_edit_input();
                 let prefix = &app.suggestion_prefix;
                 
                 // If the suggestion prefix is not an exact match to any existing label/project,

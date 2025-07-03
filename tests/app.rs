@@ -97,7 +97,7 @@ fn test_task_navigation() {
 fn test_task_completion_and_undo() {
     let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     app.tasks.push(sample_task(1, false));
-    let id = app.toggle_task_completion().unwrap();
+    let _id = app.toggle_task_completion().unwrap();
     assert!(app.tasks[0].done);
     app.undo_last_action();
     assert!(!app.tasks[0].done);
@@ -265,7 +265,7 @@ fn test_add_task() {
 #[test]
 fn test_edit_task_title() {
     let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
-    let mut task = sample_task(1, false);
+    let task = sample_task(1, false);
     app.tasks.push(task.clone());
     // Simulate editing the task title
     app.tasks[0].title = "Edited Task".to_string();
@@ -275,7 +275,7 @@ fn test_edit_task_title() {
 #[test]
 fn test_edit_task_priority_and_labels() {
     let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
-    let mut task = sample_task(1, false);
+    let task = sample_task(1, false);
     app.tasks.push(task.clone());
     // Edit priority
     app.tasks[0].priority = Some(5);

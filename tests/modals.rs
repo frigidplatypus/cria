@@ -108,7 +108,7 @@ fn test_undo_redo_from_within_modal() {
     // Open edit modal
     app.show_edit_modal();
     // Complete the task (simulate action)
-    let id = app.toggle_task_completion().unwrap();
+    let _id = app.toggle_task_completion().unwrap();
     assert!(app.tasks[0].done);
     // Undo while modal is open
     app.undo_last_action();

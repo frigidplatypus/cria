@@ -2,7 +2,7 @@ use cria::vikunja_parser::QuickAddParser;
 
 #[test]
 fn test_label_parsing_debug() {
-    let mut parser = QuickAddParser::new();
+    let parser = QuickAddParser::new();
     
     // Test various label inputs
     let test_cases = vec![

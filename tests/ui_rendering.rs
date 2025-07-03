@@ -12,6 +12,7 @@ fn create_test_terminal() -> Terminal<TestBackend> {
     Terminal::new(backend).unwrap()
 }
 
+#[allow(dead_code)]
 fn sample_task(id: i64, done: bool) -> cria::vikunja::models::Task {
     use chrono::{NaiveDate, TimeZone, Utc};
     cria::vikunja::models::Task {
