@@ -13,3 +13,31 @@ api_key: "your-api-key-here"
 # If both api_key and api_key_file are set, api_key takes precedence
 
 default_project: "Inbox"
+
+# Quick actions for fast task modification
+# Press Space followed by the configured key to trigger the action
+quick_actions:
+  - key: "w"
+    action: "project"
+    target: "Work"
+  - key: "p"
+    action: "project"
+    target: "Personal"
+  - key: "h"
+    action: "project"
+    target: "Home"
+  - key: "u"
+    action: "priority"
+    target: "5"    # u for urgent (priority 5)
+  - key: "l"
+    action: "priority"
+    target: "1"    # l for low priority
+  - key: "m"
+    action: "priority"
+    target: "3"    # m for medium priority
+  - key: "i"
+    action: "label"
+    target: "Important"
+  - key: "t"
+    action: "label"
+    target: "Today"

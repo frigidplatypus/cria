@@ -56,6 +56,7 @@ pub fn first_run_wizard() -> Option<CriaConfig> {
         api_key: Some(api_key),
         api_key_file: None,
         default_project: Some(default_project),
+        quick_actions: None,
     };
 
     // Save config
