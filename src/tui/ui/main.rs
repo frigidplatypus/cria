@@ -100,8 +100,8 @@ pub fn draw(f: &mut Frame, app: &App) {
     if let Some(notification) = app.get_layout_notification() {
         let notification_width = (notification.len() as u16 + 4).min(f.size().width / 2);
         let notification_area = Rect {
-            x: f.size().width.saturating_sub(notification_width),
-            y: 1, // Top-right, just below the header border
+            x: f.size().width.saturating_sub(notification_width + 2),
+            y: f.size().height.saturating_sub(6), // Bottom right, above toast
             width: notification_width,
             height: 3,
         };
@@ -111,5 +111,22 @@ pub fn draw(f: &mut Frame, app: &App) {
             .alignment(Alignment::Center);
         f.render_widget(Clear, notification_area);
         f.render_widget(notification_msg, notification_area);
+    }
+
+    // Draw toast notification if active
+    if let Some(toast) = app.get_toast() {
+        let toast_width = (toast.len() as u16 + 4).min(f.size().width / 2);
+        let toast_area = Rect {
+            x: f.size().width.saturating_sub(toast_width + 2),
+            y: f.size().height.saturating_sub(3), // Bottom right
+            width: toast_width,
+            height: 3,
+        };
+        let toast_msg = Paragraph::new(toast.clone())
+            .block(Block::default().borders(Borders::ALL).title("Success"))
+            .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+        f.render_widget(Clear, toast_area);
+        f.render_widget(toast_msg, toast_area);
     }
 }

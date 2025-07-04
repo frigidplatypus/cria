@@ -21,8 +21,10 @@ impl App {
         
         if new_state {
             self.add_debug_message(format!("Task completed: {}", task_title));
+            self.show_toast(format!("Task marked complete: {}", task_title));
         } else {
             self.add_debug_message(format!("Task uncompleted: {}", task_title));
+            self.show_toast(format!("Task marked incomplete: {}", task_title));
         }
         Some(task_id)
     }
@@ -34,6 +36,7 @@ impl App {
             return None;
         };
         self.add_debug_message(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
+        self.show_toast(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
         Some(task_id)
     }
     pub fn request_delete_task(&mut self) {
@@ -61,7 +64,14 @@ impl App {
         }
     }
     pub fn cancel_confirmation(&mut self) { self.show_confirmation_dialog = false; self.pending_action = None; }
-    pub fn execute_delete_task(&mut self, task_id: i64) { if let Some(pos) = self.tasks.iter().position(|t| t.id == task_id) { let task = self.tasks.remove(pos); self.add_debug_message(format!("Task deleted: {}", task.title)); self.add_to_undo_stack(UndoableAction::TaskDeletion { task, position: pos }); } }
+    pub fn execute_delete_task(&mut self, task_id: i64) { 
+        if let Some(pos) = self.tasks.iter().position(|t| t.id == task_id) {
+            let task = self.tasks.remove(pos);
+            self.add_debug_message(format!("Task deleted: {}", task.title));
+            self.show_toast(format!("Task deleted: {}", task.title));
+            self.add_to_undo_stack(UndoableAction::TaskDeletion { task, position: pos });
+        } 
+    }
     #[allow(dead_code)] // Future undo/redo feature
     pub fn undo_last_action(&mut self) -> Option<i64> {
         if let Some(action) = self.undo_stack.pop() {

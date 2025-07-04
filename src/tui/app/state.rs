@@ -129,6 +129,9 @@ pub struct App {
     // Layout notification state
     pub layout_notification: Option<String>, // Notification message to show
     pub layout_notification_start: Option<std::time::Instant>, // When notification started
+    // Toast notification state
+    pub toast_notification: Option<String>, // Toast message to show
+    pub toast_notification_start: Option<std::time::Instant>, // When toast started
 }
 
 #[allow(dead_code)]
@@ -204,6 +207,8 @@ impl App {
             current_layout_name,
             layout_notification: None,
             layout_notification_start: None,
+            toast_notification: None,
+            toast_notification_start: None,
         }
     }
 
@@ -730,6 +735,32 @@ impl App {
         } else {
             None
         }
+    }
+
+    /// Show toast notification message
+    pub fn show_toast(&mut self, message: String) {
+        self.toast_notification = Some(message);
+        self.toast_notification_start = Some(std::time::Instant::now());
+    }
+
+    /// Get toast notification if active and within display duration
+    pub fn get_toast(&self) -> Option<&String> {
+        if let (Some(ref notification), Some(start_time)) = (&self.toast_notification, self.toast_notification_start) {
+            // Show toast for 2 seconds
+            if start_time.elapsed().as_secs() < 2 {
+                Some(notification)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Clear toast notification (for use in tick handler)
+    pub fn clear_toast(&mut self) {
+        self.toast_notification = None;
+        self.toast_notification_start = None;
     }
 
     /// Get current layout columns for rendering

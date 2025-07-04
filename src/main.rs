@@ -443,31 +443,31 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         },
                         KeyCode::Char('D') => {
                             app_guard.request_delete_task();
-                        },
+                        }
                         KeyCode::Char('j') => {
                             app_guard.next_task();
                         }
                         KeyCode::Char('k') => {
                             app_guard.previous_task();
-                        },
+                        }
                         KeyCode::Char('g') => {
                             app_guard.jump_to_top();
-                        },
+                        }
                         KeyCode::Char('G') => {
                             app_guard.jump_to_bottom();
-                        },
+                        }
                         KeyCode::Char('f') => {
                             app_guard.show_filter_picker();
-                        },
+                        }
                         KeyCode::Char('a') => {
                             app_guard.show_quick_add_modal = true;
-                        },
+                        }
                         KeyCode::Char('e') => {
                             app_guard.show_edit_modal();
-                        },
+                        }
                         KeyCode::Char('p') => {
                             app_guard.show_project_picker();
-                        },
+                        }
                         KeyCode::Char('s') => {
                             app_guard.show_sort_modal = true;
                         }
@@ -537,10 +537,10 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         },
                         KeyCode::Char('i') => {
                             app_guard.show_info_pane = !app_guard.show_info_pane;
-                        },
+                        }
                         KeyCode::Char('?') => {
                             app_guard.show_help_modal = true;
-                        },
+                        }
                         KeyCode::Esc => {
                             // Handle Escape globally to close any modal
                             if app_guard.show_quick_add_modal {
@@ -576,21 +576,21 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         KeyCode::Char('l') => {
                             // Cycle filter forward
                             app_guard.cycle_task_filter();
-                        },
+                        }
                         KeyCode::Char('H') => {
                             // Switch to previous column layout
                             app_guard.switch_to_previous_layout();
-                        },
+                        }
                         KeyCode::Char('L') => {
                             // Switch to next column layout  
                             app_guard.switch_to_next_layout();
-                        },
+                        }
                         KeyCode::Up => {
                             app_guard.previous_task();
-                        },
+                        }
                         KeyCode::Down => {
                             app_guard.next_task();
-                        },
+                        }
                         _ => {}
                     }
                 }
@@ -603,6 +603,13 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                     if start_time.elapsed().as_secs() >= 2 {
                         app_guard.layout_notification = None;
                         app_guard.layout_notification_start = None;
+                    }
+                }
+                // Clear expired toast notification
+                if let Some(start_time) = app_guard.toast_notification_start {
+                    if start_time.elapsed().as_secs() >= 2 {
+                        app_guard.toast_notification = None;
+                        app_guard.toast_notification_start = None;
                     }
                 }
                 terminal.draw(|frame| draw(frame, &app_guard))?;
