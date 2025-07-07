@@ -1,0 +1,103 @@
+# Test configuration for cargo test
+api_url: "https://test.vikunja.example.com/api/v1"
+api_key: "test-api-key"
+default_project: "Inbox"
+
+# Quick actions for testing
+quick_actions:
+  - key: "w"
+    action: "project"
+    target: "Work"
+  - key: "p"
+    action: "project" 
+    target: "Personal"
+
+# Column layouts for testing
+column_layouts:
+  - name: "default"
+    description: "Default test layout with priority and title sorting"
+    columns:
+      - name: "Task"
+        column_type: "Title"
+        min_width: 25
+        wrap_text: true
+        enabled: true
+        sort:
+          order: 2
+          direction: asc
+      - name: "Project"
+        column_type: "Project"
+        min_width: 10
+        max_width: 18
+        enabled: true
+      - name: "Priority"
+        column_type: "Priority"
+        min_width: 8
+        max_width: 10
+        enabled: true
+        sort:
+          order: 1
+          direction: desc
+      - name: "Due Date"
+        column_type: "DueDate"
+        min_width: 10
+        max_width: 12
+        enabled: true
+
+  - name: "minimal"
+    description: "Minimal test layout with title and due date sorting"
+    columns:
+      - name: "Task"
+        column_type: "Title"
+        min_width: 30
+        wrap_text: true
+        enabled: true
+        sort:
+          order: 1
+          direction: asc
+      - name: "Due"
+        column_type: "DueDate"
+        min_width: 10
+        max_width: 12
+        enabled: true
+        sort:
+          order: 2
+          direction: asc
+      - name: "Project"
+        column_type: "Project"
+        min_width: 10
+        max_width: 15
+        enabled: true
+
+  - name: "timeline"
+    description: "Timeline test layout with start and due date sorting"
+    columns:
+      - name: "Task"
+        column_type: "Title"
+        min_width: 25
+        wrap_text: true
+        enabled: true
+      - name: "Start"
+        column_type: "StartDate"
+        min_width: 10
+        max_width: 12
+        enabled: true
+        sort:
+          order: 1
+          direction: asc
+      - name: "Due"
+        column_type: "DueDate"
+        min_width: 10
+        max_width: 12
+        enabled: true
+        sort:
+          order: 2
+          direction: asc
+      - name: "Project"
+        column_type: "Project"
+        min_width: 10
+        max_width: 15
+        enabled: true
+
+# Set default layout
+active_layout: "default"

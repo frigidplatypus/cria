@@ -42,7 +42,7 @@ fn sample_tasks() -> Vec<Task> {
 
 #[test]
 fn test_layout_parsing_and_sort_config() {
-    let yaml = std::fs::read_to_string("test-config.yaml").expect("test-config.yaml missing");
+    let yaml = std::fs::read_to_string("cargo-test.config.yaml").expect("cargo-test.config.yaml missing");
     let config: CriaConfig = serde_yaml::from_str(&yaml).expect("Failed to parse config");
 
     // Check that layouts are parsed
@@ -62,7 +62,7 @@ fn test_layout_parsing_and_sort_config() {
 
 #[test]
 fn test_layout_sorting_logic() {
-    let yaml = std::fs::read_to_string("test-config.yaml").expect("test-config.yaml missing");
+    let yaml = std::fs::read_to_string("cargo-test.config.yaml").expect("cargo-test.config.yaml missing");
     let config: CriaConfig = serde_yaml::from_str(&yaml).expect("Failed to parse config");
     let mut app = App::new_with_config(config.clone(), "Inbox".to_string());
 
