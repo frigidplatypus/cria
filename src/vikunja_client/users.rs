@@ -10,6 +10,7 @@ pub struct VikunjaUser {
     pub id: Option<u64>,
     pub username: String,
     pub name: Option<String>,
+    pub email: Option<String>,
 }
 
 impl super::VikunjaClient {

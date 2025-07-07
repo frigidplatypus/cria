@@ -4,6 +4,7 @@ use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::debug::debug_log;
+use chrono::Local;
 
 pub async fn handle_edit_modal(
     app: &mut App,
@@ -113,7 +114,7 @@ pub async fn handle_edit_modal(
                     Ok(task) => {
                         debug_log(&format!("SUCCESS: Task updated successfully! ID: {:?}, Title: '{}'", task.id, task.title));
                         app.flash_task_id = task.id.map(|id| id as i64);
-                        app.flash_start = Some(std::time::Instant::now());
+                        app.flash_start = Some(Local::now());
                         drop(api_client_guard);
                         let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
                         app.all_tasks = tasks;

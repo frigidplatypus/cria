@@ -9,7 +9,8 @@ use ratatui::text::{Line, Span};
 use super::task_list::draw_tasks_table;
 use super::task_details::draw_task_details;
 use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dialog, draw_quick_actions_modal};
-use super::pickers::{draw_project_picker_modal, draw_filter_picker_modal};
+use super::form_edit::draw_form_edit_modal;
+use super::pickers::{draw_project_picker_modal, draw_filter_picker_modal, draw_label_picker_modal};
 
 pub fn hex_to_color(hex: &str) -> Color {
     let hex = hex.trim_start_matches('#');
@@ -69,10 +70,14 @@ pub fn draw(f: &mut Frame, app: &App) {
         crate::tui::ui::modals::draw_sort_modal(f, app);
     } else if app.show_project_picker {
         draw_project_picker_modal(f, app);
+    } else if app.show_label_picker {
+        draw_label_picker_modal(f, app);
     } else if app.show_quick_add_modal {
         draw_quick_add_modal(f, app);
     } else if app.show_edit_modal {
         draw_edit_modal(f, app);
+    } else if app.show_form_edit_modal {
+        draw_form_edit_modal(f, app);
     } else if app.show_confirmation_dialog {
         draw_confirmation_dialog(f, app);
     } else if app.show_filter_picker {

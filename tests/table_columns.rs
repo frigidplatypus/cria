@@ -41,6 +41,7 @@ fn test_config_table_columns() {
             min_width: Some(20),
             max_width: None,
             wrap_text: Some(true),
+            sort: None,
         },
         TableColumn {
             name: "Due".to_string(),
@@ -50,6 +51,7 @@ fn test_config_table_columns() {
             min_width: Some(10),
             max_width: Some(12),
             wrap_text: Some(false),
+            sort: None,
         },
     ]);
     
@@ -80,6 +82,7 @@ fn test_app_uses_config_columns() {
             min_width: Some(20),
             max_width: None,
             wrap_text: Some(true),
+            sort: None,
         },
         TableColumn {
             name: "Custom Priority".to_string(),
@@ -89,6 +92,7 @@ fn test_app_uses_config_columns() {
             min_width: Some(8),
             max_width: Some(10),
             wrap_text: Some(false),
+            sort: None,
         },
     ]);
     
@@ -111,6 +115,7 @@ fn test_disabled_columns_filtering() {
             min_width: Some(20),
             max_width: None,
             wrap_text: Some(true),
+            sort: None,
         },
         TableColumn {
             name: "Disabled".to_string(),
@@ -120,6 +125,7 @@ fn test_disabled_columns_filtering() {
             min_width: Some(8),
             max_width: Some(10),
             wrap_text: Some(false),
+            sort: None,
         },
     ];
     

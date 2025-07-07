@@ -5,6 +5,7 @@ use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::debug::debug_log;
+use chrono::Local;
 
 pub async fn handle_quick_add_modal(
     app: &mut App,
@@ -124,7 +125,7 @@ pub async fn handle_quick_add_modal(
                     Ok(task) => {
                         debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
                         app.flash_task_id = task.id.map(|id| id as i64);
-                        app.flash_start = Some(std::time::Instant::now());
+                        app.flash_start = Some(Local::now());
                         app.flash_cycle_count = 0;
                         app.flash_cycle_max = 6;
                         drop(api_client_guard);
@@ -138,7 +139,7 @@ pub async fn handle_quick_add_modal(
                             if let Some(idx) = app.tasks.iter().position(|t| t.id == new_id) {
                                 app.selected_task_index = idx;
                                 app.flash_task_id = Some(new_id);
-                                app.flash_start = Some(std::time::Instant::now());
+                                app.flash_start = Some(Local::now());
                                 app.flash_cycle_count = 0;
                                 app.flash_cycle_max = 6;
                             }

@@ -65,6 +65,18 @@ impl VikunjaClient {
         }
     }
 
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    pub fn client(&self) -> &Client {
+        &self.client
+    }
+
+    pub fn auth_token(&self) -> &str {
+        &self.auth_token
+    }
+
     pub async fn test_connection(&self) -> ReqwestResult<bool> {
         debug_log(&format!("Testing connection to {}", self.base_url));
         let url = format!("{}/api/v1/info", self.base_url);

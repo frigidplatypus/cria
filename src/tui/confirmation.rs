@@ -4,6 +4,7 @@ use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::debug::debug_log;
+use chrono::Local;
 
 // Confirmation dialog handler
 pub async fn handle_confirmation_dialog(
@@ -38,7 +39,7 @@ pub async fn handle_confirmation_dialog(
                     // Flash the row for the next selected task (if any)
                     if let Some(task) = app.tasks.get(app.selected_task_index) {
                         app.flash_task_id = Some(task.id);
-                        app.flash_start = Some(std::time::Instant::now());
+                        app.flash_start = Some(Local::now());
                     }
                     app.flash_cycle_count = 0;
                     app.flash_cycle_max = 6;

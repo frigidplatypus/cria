@@ -44,6 +44,93 @@ pub enum SuggestionMode {
 }
 
 #[derive(Clone, Debug)]
+pub struct FormEditState {
+    pub field_index: usize,
+    pub title: String,
+    pub description: String,
+    pub due_date: Option<String>,
+    pub start_date: Option<String>,
+    pub priority: Option<i32>,
+    pub project_id: i64,
+    pub label_ids: Vec<i64>,
+    pub assignee_ids: Vec<i64>,
+    pub is_favorite: bool,
+    pub task_id: i64,
+    pub comment: String,
+    pub cursor_position: usize,
+    pub show_project_picker: bool,
+    pub show_label_picker: bool,
+}
+
+impl FormEditState {
+    pub fn new(task: &Task) -> Self {
+        Self {
+            field_index: 0,
+            title: task.title.clone(),
+            description: task.description.clone().unwrap_or_default(),
+            due_date: task.due_date.map(|d| d.format("%Y-%m-%d").to_string()),
+            start_date: task.start_date.map(|d| d.format("%Y-%m-%d").to_string()),
+            priority: task.priority,
+            project_id: task.project_id,
+            label_ids: task.labels.as_ref().map(|labels| labels.iter().map(|l| l.id).collect()).unwrap_or_default(),
+            assignee_ids: task.assignees.as_ref().map(|assignees| assignees.iter().map(|a| a.id).collect()).unwrap_or_default(),
+            is_favorite: task.is_favorite,
+            task_id: task.id,
+            comment: String::new(),
+            cursor_position: 0,
+            show_project_picker: false,
+            show_label_picker: false,
+        }
+    }
+    
+    pub fn get_field_count() -> usize {
+        10 // title, description, due_date, start_date, priority, project, labels, assignees, is_favorite, comment
+    }
+    
+    pub fn get_current_field_text(&self) -> String {
+        match self.field_index {
+            0 => self.title.clone(),
+            1 => self.description.clone(),
+            2 => self.due_date.clone().unwrap_or_default(),
+            3 => self.start_date.clone().unwrap_or_default(),
+            4 => self.priority.map(|p| p.to_string()).unwrap_or_default(),
+            9 => self.comment.clone(),
+            _ => String::new(),
+        }
+    }
+    
+    pub fn set_current_field_text(&mut self, text: String) {
+        match self.field_index {
+            0 => {
+                self.title = text;
+                self.cursor_position = self.title.len();
+            },
+            1 => {
+                self.description = text;
+                self.cursor_position = self.description.len();
+            },
+            2 => {
+                self.due_date = if text.is_empty() { None } else { Some(text) };
+                self.cursor_position = self.due_date.as_ref().map(|s| s.len()).unwrap_or(0);
+            },
+            3 => {
+                self.start_date = if text.is_empty() { None } else { Some(text) };
+                self.cursor_position = self.start_date.as_ref().map(|s| s.len()).unwrap_or(0);
+            },
+            4 => {
+                self.priority = text.parse().ok();
+                self.cursor_position = text.len();
+            },
+            9 => {
+                self.comment = text;
+                self.cursor_position = self.comment.len();
+            },
+            _ => {}
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 #[allow(dead_code)] // Future sort options
 pub enum SortOrder {
     Default,
@@ -78,6 +165,9 @@ pub struct App {
     pub edit_input: String,
     pub edit_cursor_position: usize,
     pub editing_task_id: Option<i64>,
+    // Form Edit Modal state
+    pub show_form_edit_modal: bool,
+    pub form_edit_state: Option<FormEditState>,
     // Debug pane state
     pub show_debug_pane: bool,
     pub debug_messages: Vec<(DateTime<Local>, String)>,
@@ -97,41 +187,47 @@ pub struct App {
     pub filtered_projects: Vec<(i64, String)>, // (project_id, name)
     pub selected_project_picker_index: usize,
     pub current_project_id: Option<i64>,
-    // Saved filter picker modal state
+    // Label picker modal state
+    pub show_label_picker: bool,
+    pub label_picker_input: String,
+    pub filtered_labels: Vec<(i64, String)>, // (label_id, title)
+    pub selected_label_picker_index: usize,
+    pub selected_label_ids: Vec<i64>, // Currently selected labels
+    // Filter picker modal state
     pub show_filter_picker: bool,
     pub filter_picker_input: String,
-    pub filters: Vec<(i64, String)>, // (filter_id, title)
-    pub filtered_filters: Vec<(i64, String)>,
+    pub filtered_filters: Vec<(i64, String)>, // (filter_id, title)
     pub selected_filter_picker_index: usize,
+    pub filters: Vec<(i64, String)>, // Available filters
     pub current_filter_id: Option<i64>,
-    pub refreshing: bool, // Indicates if a refresh is in progress
-    // Flash effect for task row
+    // Flash feedback state
+    pub refreshing: bool,
     pub flash_task_id: Option<i64>,
-    pub flash_start: Option<std::time::Instant>,
-    pub flash_cycle_count: u8, // Number of completed flash cycles
-    pub flash_cycle_max: u8,   // Max cycles to flash
+    pub flash_start: Option<DateTime<Local>>,
+    pub flash_cycle_count: usize,
+    pub flash_cycle_max: usize,
+    // Suggestion system
     pub suggestions: Vec<String>,
     pub selected_suggestion: usize,
     pub suggestion_mode: Option<SuggestionMode>,
     pub suggestion_prefix: String,
-    pub default_project_name: String, // NEW: store config default project name
-    pub show_help_modal: bool, // Help modal state
-    // Sorting modal state
+    // Default project
+    pub default_project_name: String,
+    // Modal states
+    pub show_help_modal: bool,
     pub show_sort_modal: bool,
     pub sort_options: Vec<&'static str>,
     pub selected_sort_index: usize,
     pub current_sort: Option<SortOrder>,
-    // Quick actions modal state
-    pub show_quick_actions_modal: bool, // True when quick actions modal is shown
-    pub selected_quick_action_index: usize, // Currently selected quick action in modal
-    // Column layout state
-    pub current_layout_name: String, // Track current active layout
-    // Layout notification state
-    pub layout_notification: Option<String>, // Notification message to show
-    pub layout_notification_start: Option<std::time::Instant>, // When notification started
-    // Toast notification state
-    pub toast_notification: Option<String>, // Toast message to show
-    pub toast_notification_start: Option<std::time::Instant>, // When toast started
+    pub show_quick_actions_modal: bool,
+    pub selected_quick_action_index: usize,
+    // Layout system
+    pub current_layout_name: String,
+    pub layout_notification: Option<String>,
+    pub layout_notification_start: Option<DateTime<Local>>,
+    // Toast notifications
+    pub toast_notification: Option<String>,
+    pub toast_notification_start: Option<DateTime<Local>>,
 }
 
 #[allow(dead_code)]
@@ -156,6 +252,8 @@ impl App {
             edit_input: String::new(),
             edit_cursor_position: 0,
             editing_task_id: None,
+            show_form_edit_modal: false,
+            form_edit_state: None,
             show_debug_pane: false,
             debug_messages: Vec::new(),
             undo_stack: Vec::new(),
@@ -170,11 +268,16 @@ impl App {
             filtered_projects: Vec::new(),
             selected_project_picker_index: 0,
             current_project_id: None,
+            show_label_picker: false,
+            label_picker_input: String::new(),
+            filtered_labels: Vec::new(),
+            selected_label_picker_index: 0,
+            selected_label_ids: Vec::new(),
             show_filter_picker: false,
             filter_picker_input: String::new(),
-            filters: Vec::new(),
             filtered_filters: Vec::new(),
             selected_filter_picker_index: 0,
+            filters: Vec::new(),
             current_filter_id: None,
             refreshing: false,
             flash_task_id: None,
@@ -261,6 +364,21 @@ impl App {
         } 
     }
     pub fn hide_edit_modal(&mut self) { self.show_edit_modal = false; self.edit_input.clear(); self.edit_cursor_position = 0; self.editing_task_id = None; }
+    
+    pub fn show_form_edit_modal(&mut self) {
+        if let Some(task) = self.get_selected_task() {
+            let form_state = FormEditState::new(task);
+            self.close_all_modals();
+            self.show_form_edit_modal = true;
+            self.form_edit_state = Some(form_state);
+        }
+    }
+    
+    pub fn hide_form_edit_modal(&mut self) {
+        self.show_form_edit_modal = false;
+        self.form_edit_state = None;
+    }
+    
     pub fn add_char_to_edit(&mut self, c: char) { self.edit_input.insert(self.edit_cursor_position, c); self.edit_cursor_position += 1; }
     pub fn delete_char_from_edit(&mut self) { if self.edit_cursor_position > 0 { self.edit_cursor_position -= 1; self.edit_input.remove(self.edit_cursor_position); } }
     pub fn move_edit_cursor_left(&mut self) { if self.edit_cursor_position > 0 { self.edit_cursor_position -= 1; } }
@@ -503,12 +621,14 @@ impl App {
         self.show_quick_actions_modal = false;
         self.show_quick_add_modal = false;
         self.show_edit_modal = false;
+        self.show_form_edit_modal = false;
         // Reset modal state
         self.quick_add_input.clear();
         self.quick_add_cursor_position = 0;
         self.edit_input.clear();
         self.edit_cursor_position = 0;
         self.editing_task_id = None;
+        self.form_edit_state = None;
         self.selected_quick_action_index = 0;
     }
 
@@ -720,14 +840,14 @@ impl App {
     /// Show layout notification message
     pub fn show_layout_notification(&mut self, message: String) {
         self.layout_notification = Some(message);
-        self.layout_notification_start = Some(std::time::Instant::now());
+        self.layout_notification_start = Some(Local::now());
     }
 
     /// Get layout notification if active and within display duration
     pub fn get_layout_notification(&self) -> Option<&String> {
         if let (Some(ref notification), Some(start_time)) = (&self.layout_notification, self.layout_notification_start) {
             // Show notification for 2 seconds
-            if start_time.elapsed().as_secs() < 2 {
+            if Local::now().signed_duration_since(start_time).num_seconds() < 2 {
                 Some(notification)
             } else {
                 None
@@ -740,14 +860,14 @@ impl App {
     /// Show toast notification message
     pub fn show_toast(&mut self, message: String) {
         self.toast_notification = Some(message);
-        self.toast_notification_start = Some(std::time::Instant::now());
+        self.toast_notification_start = Some(Local::now());
     }
 
     /// Get toast notification if active and within display duration
     pub fn get_toast(&self) -> Option<&String> {
         if let (Some(ref notification), Some(start_time)) = (&self.toast_notification, self.toast_notification_start) {
             // Show toast for 2 seconds
-            if start_time.elapsed().as_secs() < 2 {
+            if Local::now().signed_duration_since(start_time).num_seconds() < 2 {
                 Some(notification)
             } else {
                 None
@@ -770,6 +890,74 @@ impl App {
         } else {
             // Fallback to default columns if layout not found
             self.config.get_columns()
+        }
+    }
+
+    pub fn apply_quick_action(&mut self, action: &crate::config::QuickAction) -> Result<(), String> {
+        if self.tasks.is_empty() {
+            return Err("No tasks available".to_string());
+        }
+        let task = self.tasks.get_mut(self.selected_task_index).ok_or("No selected task")?;
+        match action.action.as_str() {
+            "project" => {
+                // Find project by name
+                let project_id = self.project_map.iter().find_map(|(id, name)| {
+                    if name == &action.target { Some(*id) } else { None }
+                });
+                if let Some(pid) = project_id {
+                    task.project_id = pid;
+                    Ok(())
+                } else {
+                    Err(format!("Project '{}' not found", action.target))
+                }
+            },
+            "priority" => {
+                if let Ok(priority) = action.target.parse::<i32>() {
+                    if (1..=5).contains(&priority) {
+                        task.priority = Some(priority);
+                        Ok(())
+                    } else {
+                        Err(format!("Invalid priority '{}': must be 1-5", action.target))
+                    }
+                } else {
+                    Err(format!("Invalid priority '{}': not a number", action.target))
+                }
+            },
+            "label" => {
+                // Find label by name
+                let label_id = self.label_map.iter().find_map(|(id, name)| {
+                    if name == &action.target { Some(*id) } else { None }
+                });
+                if let Some(lid) = label_id {
+                    if let Some(ref mut labels) = task.labels {
+                        if !labels.iter().any(|l| l.id == lid) {
+                            labels.push(crate::vikunja::models::Label {
+                                id: lid,
+                                title: action.target.clone(),
+                                hex_color: None,
+                                description: None,
+                                created: None,
+                                updated: None,
+                                created_by: None,
+                            });
+                        }
+                    } else {
+                        task.labels = Some(vec![crate::vikunja::models::Label {
+                            id: lid,
+                            title: action.target.clone(),
+                            hex_color: None,
+                            description: None,
+                            created: None,
+                            updated: None,
+                            created_by: None,
+                        }]);
+                    }
+                    Ok(())
+                } else {
+                    Err(format!("Label '{}' not found", action.target))
+                }
+            },
+            _ => Err(format!("Unknown quick action: {}", action.action)),
         }
     }
 }

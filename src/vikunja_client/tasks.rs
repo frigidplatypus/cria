@@ -17,9 +17,11 @@ pub struct VikunjaTask {
     pub done: Option<bool>,
     pub priority: Option<u8>,
     pub due_date: Option<DateTime<Utc>>,
+    pub start_date: Option<DateTime<Utc>>,
     pub project_id: u64,
     pub labels: Option<Vec<VikunjaLabel>>,
     pub assignees: Option<Vec<VikunjaUser>>,
+    pub is_favorite: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -76,9 +78,11 @@ impl super::VikunjaClient {
             done: Some(false),
             priority: parsed.priority,
             due_date: parsed.due_date,
+            start_date: None,
             project_id: project_id.try_into().unwrap(),
             labels: None,
             assignees: None,
+            is_favorite: Some(false),
         };
 
         debug_log(&format!("Creating task with project_id: {}, title: '{}'", project_id, task.title));
@@ -222,9 +226,11 @@ impl super::VikunjaClient {
             done: current_task.done,
             priority: parsed.priority.or(current_task.priority),
             due_date: parsed.due_date.or(current_task.due_date),
+            start_date: current_task.start_date,
             project_id: project_id.try_into().unwrap(),
             labels: None,
             assignees: None,
+            is_favorite: current_task.is_favorite,
         };
         debug_log(&format!("Updating task with project_id: {}, title: '{}'", project_id, updated_task.title));
         let updated_task = self.update_task(&updated_task).await?;
@@ -313,6 +319,139 @@ impl super::VikunjaClient {
         }
     }
 
+    pub async fn update_task_with_form_data(
+        &self,
+        task_id: i64,
+        title: &str,
+        description: Option<&str>,
+        priority: Option<i32>,
+        project_id: i64,
+        is_favorite: bool,
+    ) -> ReqwestResult<VikunjaTask> {
+        debug_log(&format!("Updating task {} with form data - title: '{}', priority: {:?}, project_id: {}, favorite: {}", 
+                 task_id, title, priority, project_id, is_favorite));
+
+        let task = VikunjaTask {
+            id: Some(task_id as u64),
+            title: title.to_string(),
+            description: description.map(|s| s.to_string()),
+            done: None, // Don't change done status in form edit
+            priority: priority.map(|p| p as u8),
+            due_date: None, // TODO: Parse due_date from form
+            start_date: None,
+            project_id: project_id as u64,
+            labels: None, // TODO: Handle labels from form
+            assignees: None, // TODO: Handle assignees from form
+            is_favorite: Some(is_favorite),
+        };
+
+        self.update_task(&task).await
+    }
+    
+    pub async fn update_task_from_form(
+        &self,
+        task_id: i64,
+        title: &str,
+        description: &str,
+        due_date: Option<&str>,
+        start_date: Option<&str>,
+        priority: Option<i32>,
+        project_id: i64,
+        label_ids: &[i64],
+        assignee_ids: &[i64],
+        is_favorite: bool,
+        comment: Option<&str>,
+    ) -> Result<crate::vikunja::models::Task, Box<dyn Error>> {
+        debug_log(&format!("Updating task {} from form - title: '{}', priority: {:?}, project_id: {}, favorite: {}", 
+                 task_id, title, priority, project_id, is_favorite));
+
+        // Parse dates
+        let due_date_parsed = if let Some(date_str) = due_date {
+            if !date_str.trim().is_empty() {
+                chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                    .ok()
+                    .map(|d| d.and_hms_opt(23, 59, 59).unwrap().and_utc())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let start_date_parsed = if let Some(date_str) = start_date {
+            if !date_str.trim().is_empty() {
+                chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                    .ok()
+                    .map(|d| d.and_hms_opt(0, 0, 0).unwrap().and_utc())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // Create task object for update
+        let task = VikunjaTask {
+            id: Some(task_id as u64),
+            title: title.to_string(),
+            description: if description.trim().is_empty() { None } else { Some(description.to_string()) },
+            done: None, // Don't change done status in form edit
+            priority: priority.map(|p| p as u8),
+            due_date: due_date_parsed,
+            start_date: start_date_parsed,
+            project_id: project_id as u64,
+            labels: None, // Will be set separately
+            assignees: None, // Will be set separately
+            is_favorite: Some(is_favorite),
+        };
+
+        // Update the basic task
+        let _updated_task = self.update_task(&task).await?;
+        
+        // Handle labels - first remove all existing labels, then add new ones
+        if let Err(e) = self.clear_task_labels(task_id as u64).await {
+            debug_log(&format!("Warning: Failed to clear labels for task {}: {}", task_id, e));
+        }
+        
+        for &label_id in label_ids {
+            if let Err(e) = self.add_label_to_task(task_id as u64, label_id as u64).await {
+                debug_log(&format!("Warning: Failed to add label {} to task {}: {}", label_id, task_id, e));
+            }
+        }
+
+        // Handle assignees - similar approach
+        if let Err(e) = self.clear_task_assignees(task_id as u64).await {
+            debug_log(&format!("Warning: Failed to clear assignees for task {}: {}", task_id, e));
+        }
+        
+        for &assignee_id in assignee_ids {
+            if let Err(e) = self.add_assignee_to_task(task_id as u64, assignee_id as u64).await {
+                debug_log(&format!("Warning: Failed to add assignee {} to task {}: {}", assignee_id, task_id, e));
+            }
+        }
+
+        // Handle favorite status
+        if let Err(e) = self.set_task_favorite(task_id as u64, is_favorite).await {
+            debug_log(&format!("Warning: Failed to set favorite status for task {}: {}", task_id, e));
+        }
+
+        // Handle comment
+        if let Some(comment_text) = comment {
+            if !comment_text.trim().is_empty() {
+                if let Err(e) = self.add_comment_to_task(task_id as u64, comment_text).await {
+                    debug_log(&format!("Warning: Failed to add comment to task {}: {}", task_id, e));
+                }
+            }
+        }
+
+        // Get the final updated task
+        self.get_task(task_id as u64).await
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+            .and_then(|vikunja_task| {
+                Ok(crate::vikunja::models::Task::from_vikunja_task(vikunja_task))
+            })
+    }
+    
     pub async fn ensure_label_exists(&self, label_name: &str) -> ReqwestResult<VikunjaLabel> {
         if let Ok(Some(label)) = self.find_label_by_name(label_name).await {
             return Ok(label);
@@ -735,15 +874,52 @@ impl super::VikunjaClient {
         Ok(())
     }
 
-    // ...existing code...
-}
+    // Helper methods for form editing
+    pub async fn clear_task_labels(&self, task_id: u64) -> ReqwestResult<()> {
+            // Get current task to find existing labels
+            let task = self.get_task(task_id).await?;
+            if let Some(labels) = task.labels {
+                for label in labels {
+                    if let Some(label_id) = label.id {
+                        let _ = self.remove_label_from_task(task_id, label_id).await;
+                    }
+                }
+            }
+            Ok(())
+        }
+        
+        pub async fn clear_task_assignees(&self, task_id: u64) -> ReqwestResult<()> {
+            // Get current task to find existing assignees
+            let task = self.get_task(task_id).await?;
+            if let Some(assignees) = task.assignees {
+                for assignee in assignees {
+                    if let Some(assignee_id) = assignee.id {
+                        let _ = self.remove_assignee_from_task(task_id, assignee_id).await;
+                    }
+                }
+            }
+            Ok(())
+        }
 
-// Make VikunjaClient fields public for setup_test_env.rs
-#[allow(dead_code)]
-impl crate::vikunja_client::VikunjaClient {
-    pub fn base_url(&self) -> &str { &self.base_url }
-    pub fn client(&self) -> &reqwest::Client { &self.client }
-    pub fn auth_token(&self) -> &str { &self.auth_token }
-}
+        pub async fn set_task_favorite(&self, _task_id: u64, _is_favorite: bool) -> ReqwestResult<()> {
+            // This would typically be part of the update_task call
+            // For now, we can include it in the main task update
+            Ok(())
+        }
 
-// ... Project, Filter, User impls remain in their files ...
+        pub async fn add_comment_to_task(&self, task_id: u64, comment: &str) -> ReqwestResult<()> {
+            let url = format!("{}/api/v1/tasks/{}/comments", self.base_url, task_id);
+            let comment_data = serde_json::json!({
+                "comment": comment
+            });
+            self.client
+                .put(&url)
+                .header("Authorization", format!("Bearer {}", self.auth_token))
+                .json(&comment_data)
+                .send()
+                .await?;
+            Ok(())
+        }
+    }
+
+    // ... Project, Filter, User impls remain in their files ...

@@ -102,6 +102,11 @@ fn create_rich_test_app() -> App {
     app.project_map.insert(3, "Personal".to_string());
     app.project_map.insert(4, "Learning".to_string());
     
+    // Add labels for quick actions
+    app.label_map.insert(1, "test".to_string());
+    app.label_map.insert(2, "Important".to_string());
+    app.label_map.insert(3, "Review".to_string());
+    
     // Add various tasks with different priorities and projects
     app.tasks.push(sample_task_with_details(1, "High priority work task", Some(5), 2));
     app.tasks.push(sample_task_with_details(2, "Medium priority personal task", Some(3), 3));
@@ -171,9 +176,9 @@ fn simulate_key_sequence(app: &mut App, keys: Vec<KeyCode>) -> Vec<String> {
                         
                     if let Some(action) = action_to_apply {
                         match app.apply_quick_action(&action) {
-                            Ok(msg) => {
+                            Ok(_) => {
                                 app.hide_quick_actions_modal();
-                                format!("Applied quick action: {}", msg)
+                                "Applied quick action".to_string()
                             },
                             Err(err) => format!("Quick action failed: {}", err),
                         }

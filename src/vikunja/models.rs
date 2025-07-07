@@ -196,3 +196,57 @@ impl Default for Task {
         }
     }
 }
+
+impl Task {
+    pub fn from_vikunja_task(vikunja_task: crate::vikunja_client::tasks::VikunjaTask) -> Self {
+        Self {
+            id: vikunja_task.id.unwrap_or(0) as i64,
+            title: vikunja_task.title,
+            description: vikunja_task.description,
+            done: vikunja_task.done.unwrap_or(false),
+            done_at: None,
+            project_id: vikunja_task.project_id as i64,
+            labels: vikunja_task.labels.map(|labels| labels.into_iter().map(|l| Label {
+                id: l.id.unwrap_or(0) as i64,
+                title: l.title,
+                hex_color: l.hex_color,
+                description: None,
+                created: None,
+                updated: None,
+                created_by: None,
+            }).collect()),
+            assignees: vikunja_task.assignees.map(|assignees| assignees.into_iter().map(|a| User {
+                id: a.id.unwrap_or(0) as i64,
+                username: a.username,
+                name: a.name,
+                email: a.email,
+                created: None,
+                updated: None,
+            }).collect()),
+            priority: vikunja_task.priority.map(|p| p as i32),
+            due_date: vikunja_task.due_date,
+            start_date: vikunja_task.start_date,
+            end_date: None,
+            created: None,
+            updated: None,
+            created_by: None,
+            percent_done: None,
+            is_favorite: vikunja_task.is_favorite.unwrap_or(false),
+            position: None,
+            index: None,
+            identifier: None,
+            hex_color: None,
+            cover_image_attachment_id: None,
+            bucket_id: None,
+            buckets: None,
+            attachments: None,
+            comments: None,
+            reactions: None,
+            related_tasks: None,
+            reminders: None,
+            repeat_after: None,
+            repeat_mode: None,
+            subscription: None,
+        }
+    }
+}

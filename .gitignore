@@ -74,3 +74,6 @@ coverage/
 flamegraph.svg
 perf.data*
 result
+
+config.yaml
+test-config.yaml

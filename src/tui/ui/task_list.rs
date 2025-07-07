@@ -378,9 +378,9 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
             let mut flash_bg = None;
             if let (Some(flash_id), Some(start_time)) = (app.flash_task_id, app.flash_start) {
                 if task.id == flash_id {
-                    let elapsed = start_time.elapsed().as_millis() as u64;
+                    let elapsed = Local::now().signed_duration_since(start_time).num_milliseconds() as u64;
                     let cycle = (elapsed / 50) as u8;
-                    if cycle < app.flash_cycle_max {
+                    if usize::from(cycle) < app.flash_cycle_max {
                         let project_color = app.project_colors.get(&task.project_id)
                             .map(|hex| hex_to_color(hex))
                             .unwrap_or(Color::White);

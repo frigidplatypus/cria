@@ -155,7 +155,7 @@ fn test_quick_actions_execution() {
     
     let result = app.apply_quick_action(&invalid_priority_action);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("Priority must be between 1 and 5"));
+    assert!(result.unwrap_err().contains("must be 1-5"));
 }
 
 #[test]

@@ -26,6 +26,8 @@ async fn test_create_and_delete_task() {
         project_id,
         labels: None,
         assignees: None,
+        start_date: None,
+        is_favorite: Some(false),
     };
     let created = client.create_task(&task).await.expect("create_task failed");
     assert_eq!(created.title, task.title);
