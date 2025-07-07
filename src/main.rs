@@ -269,19 +269,27 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         tui::modals::handle_edit_modal(&mut app_guard, &key, &api_client, &client_clone).await;
                         continue;
                     }
+                    if app_guard.show_form_edit_modal {
+                        tui::modals::handle_form_edit_modal(&mut app_guard, &key, &api_client, &client_clone).await;
+                        continue;
+                    }
                     if app_guard.show_confirmation_dialog {
                         tui::confirmation::handle_confirmation_dialog(&mut app_guard, &key, &api_client, &client_clone).await;
                         continue;
                     }
                     if app_guard.show_project_picker {
-                        tui::pickers::handle_project_picker(&mut app_guard, &key);
+                        tui::pickers::project::handle_project_picker(&mut app_guard, &key);
+                        continue;
+                    }
+                    if app_guard.show_label_picker {
+                        tui::pickers::label::handle_label_picker(&mut app_guard, &key);
                         continue;
                     }
                     if app_guard.show_filter_picker {
                         // Await the async filter picker handler
                         drop(app_guard); // Release lock before await
                         let mut app_guard = app.lock().await;
-                        tui::pickers::handle_filter_picker(&mut app_guard, &key, &api_client).await;
+                        tui::pickers::filter::handle_filter_picker(&mut app_guard, &key, &api_client).await;
                         // Force redraw after filter selection
                         drop(app_guard);
                         let app_guard = app.lock().await;
@@ -351,7 +359,7 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                                         // For now, just flash the task to show action was triggered
                                         if let Some(task) = app_guard.get_selected_task() {
                                             app_guard.flash_task_id = Some(task.id);
-                                            app_guard.flash_start = Some(std::time::Instant::now());
+                                            app_guard.flash_start = Some(chrono::Local::now());
                                             app_guard.flash_cycle_count = 0;
                                             app_guard.flash_cycle_max = 4;
                                         }
@@ -436,6 +444,8 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                                         project_id: task.project_id as u64,
                                         labels: None, // Not editing labels here
                                         assignees: None, // Not editing assignees here
+                                        is_favorite: Some(task.is_favorite),
+                                        start_date: task.start_date,
                                     };
                                     let _ = client_clone.lock().await.update_task(&api_task).await;
                                 }
@@ -464,6 +474,9 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         }
                         KeyCode::Char('e') => {
                             app_guard.show_edit_modal();
+                        }
+                        KeyCode::Char('E') => {
+                            app_guard.show_form_edit_modal();
                         }
                         KeyCode::Char('p') => {
                             app_guard.show_project_picker();
@@ -529,6 +542,8 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                                         project_id: task.project_id as u64,
                                         labels: None, // Not editing labels here
                                         assignees: None, // Not editing assignees here
+                                        is_favorite: Some(task.is_favorite),
+                                        start_date: task.start_date,
                                         // Add is_favorite if VikunjaTask supports it
                                     };
                                     let _ = client_clone.lock().await.update_task(&api_task).await;
@@ -547,10 +562,14 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                                 app_guard.hide_quick_add_modal();
                             } else if app_guard.show_edit_modal {
                                 app_guard.hide_edit_modal();
+                            } else if app_guard.show_form_edit_modal {
+                                app_guard.hide_form_edit_modal();
                             } else if app_guard.show_confirmation_dialog {
                                 app_guard.cancel_confirmation();
                             } else if app_guard.show_project_picker {
                                 app_guard.hide_project_picker();
+                            } else if app_guard.show_label_picker {
+                                app_guard.hide_label_picker();
                             } else if app_guard.show_filter_picker {
                                 app_guard.hide_filter_picker();
                             } else if app_guard.show_sort_modal {
@@ -600,14 +619,14 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                 let mut app_guard = app.lock().await;
                 // Clear expired layout notification (cleanup old notifications)
                 if let Some(start_time) = app_guard.layout_notification_start {
-                    if start_time.elapsed().as_secs() >= 2 {
+                    if chrono::Local::now().signed_duration_since(start_time).num_seconds() >= 2 {
                         app_guard.layout_notification = None;
                         app_guard.layout_notification_start = None;
                     }
                 }
                 // Clear expired toast notification
                 if let Some(start_time) = app_guard.toast_notification_start {
-                    if start_time.elapsed().as_secs() >= 2 {
+                    if chrono::Local::now().signed_duration_since(start_time).num_seconds() >= 2 {
                         app_guard.toast_notification = None;
                         app_guard.toast_notification_start = None;
                     }
