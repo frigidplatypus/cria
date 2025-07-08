@@ -55,3 +55,34 @@ fn test_picker_input_resets_on_cancel() {
     assert!(!app.show_filter_picker);
     assert_eq!(app.filter_picker_input, "");
 }
+
+#[test]
+fn test_project_picker_all_projects_option() {
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
+    app.project_map.insert(1, "Inbox".to_string());
+    app.project_map.insert(2, "Work".to_string());
+    // Add tasks for both projects
+    app.all_tasks = vec![
+        cria::vikunja::models::Task { id: 1, project_id: 1, title: "Inbox Task".to_string(), ..Default::default() },
+        cria::vikunja::models::Task { id: 2, project_id: 2, title: "Work Task".to_string(), ..Default::default() },
+    ];
+    app.tasks = app.all_tasks.clone();
+    // Select a project
+    app.show_project_picker();
+    app.selected_project_picker_index = 1; // Select 'Work'
+    app.select_project_picker();
+    assert_eq!(app.current_project_id, Some(2));
+    assert_eq!(app.tasks.len(), 1);
+    assert_eq!(app.tasks[0].title, "Work Task");
+    // Open picker again, should show 'All Projects' option
+    app.show_project_picker();
+    assert!(app.filtered_projects.iter().any(|(id, name)| *id == -1 && name == "All Projects"));
+    // Select 'All Projects'
+    app.selected_project_picker_index = 0; // 'All Projects' is at index 0
+    app.select_project_picker();
+    assert_eq!(app.current_project_id, None);
+    assert_eq!(app.tasks.len(), 2);
+    let titles: Vec<_> = app.tasks.iter().map(|t| t.title.as_str()).collect();
+    assert!(titles.contains(&"Inbox Task"));
+    assert!(titles.contains(&"Work Task"));
+}

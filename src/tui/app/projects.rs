@@ -36,9 +36,22 @@ impl App {
     }
     pub fn select_project_picker(&mut self) {
         if let Some(project) = self.filtered_projects.get(self.selected_project_picker_index) {
-            self.current_project_id = Some(project.0);
-            self.project_picker_input = project.1.clone();
-            self.hide_project_picker();
+            if project.0 == -1 {
+                // All Projects selected
+                self.current_project_id = None;
+                self.project_picker_input = project.1.clone();
+                self.hide_project_picker();
+                // Show all tasks
+                self.tasks = self.all_tasks.clone();
+                if self.current_sort.is_none() {
+                    self.apply_layout_sort();
+                }
+            } else {
+                self.current_project_id = Some(project.0);
+                self.project_picker_input = project.1.clone();
+                self.hide_project_picker();
+                self.apply_project_filter();
+            }
         }
     }
     pub fn update_filtered_projects(&mut self) {
@@ -47,6 +60,10 @@ impl App {
             .filter(|(_, name)| contains_ignore_case(name, query))
             .map(|(id, name)| (*id, name.clone()))
             .collect::<Vec<_>>();
+        // Add 'All Projects' option if a project is selected
+        if self.current_project_id.is_some() {
+            self.filtered_projects.insert(0, (-1, "All Projects".to_string()));
+        }
     }
     #[allow(dead_code)] // Future feature
     pub fn apply_project_filter(&mut self) {
