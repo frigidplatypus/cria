@@ -69,16 +69,18 @@ fn test_project_picker_all_projects_option() {
     app.tasks = app.all_tasks.clone();
     // Select a project
     app.show_project_picker();
-    app.selected_project_picker_index = 1; // Select 'Work'
+    // Dynamically find the index for 'Work'
+    let work_index = app.filtered_projects.iter().position(|(id, name)| *id == 2 && name == "Work").expect("'Work' project not found in filtered_projects");
+    app.selected_project_picker_index = work_index;
     app.select_project_picker();
     assert_eq!(app.current_project_id, Some(2));
     assert_eq!(app.tasks.len(), 1);
     assert_eq!(app.tasks[0].title, "Work Task");
     // Open picker again, should show 'All Projects' option
     app.show_project_picker();
-    assert!(app.filtered_projects.iter().any(|(id, name)| *id == -1 && name == "All Projects"));
+    let all_projects_index = app.filtered_projects.iter().position(|(id, name)| *id == -1 && name == "All Projects").expect("'All Projects' option not found in filtered_projects");
     // Select 'All Projects'
-    app.selected_project_picker_index = 0; // 'All Projects' is at index 0
+    app.selected_project_picker_index = all_projects_index;
     app.select_project_picker();
     assert_eq!(app.current_project_id, None);
     assert_eq!(app.tasks.len(), 2);
