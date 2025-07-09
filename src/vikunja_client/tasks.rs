@@ -319,6 +319,7 @@ impl super::VikunjaClient {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn update_task_with_form_data(
         &self,
         task_id: i64,

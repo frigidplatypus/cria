@@ -58,7 +58,9 @@ pub struct FormEditState {
     pub task_id: i64,
     pub comment: String,
     pub cursor_position: usize,
+    #[allow(dead_code)]
     pub show_project_picker: bool,
+    #[allow(dead_code)]
     pub show_label_picker: bool,
 }
 
@@ -99,6 +101,7 @@ impl FormEditState {
         }
     }
     
+    #[allow(dead_code)]
     pub fn set_current_field_text(&mut self, text: String) {
         match self.field_index {
             0 => {

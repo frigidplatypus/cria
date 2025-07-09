@@ -65,14 +65,17 @@ impl VikunjaClient {
         }
     }
 
+    #[allow(dead_code)]
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
 
+    #[allow(dead_code)]
     pub fn client(&self) -> &Client {
         &self.client
     }
 
+    #[allow(dead_code)]
     pub fn auth_token(&self) -> &str {
         &self.auth_token
     }
