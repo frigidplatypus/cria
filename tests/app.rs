@@ -417,3 +417,23 @@ fn test_config_loading_nonexistent_file() {
     let config = cria::config::CriaConfig::load_from_path(Some("nonexistent.yaml"));
     assert!(config.is_none());
 }
+
+#[test]
+fn test_task_filter_header_display() {
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
+    // Default should be ActiveOnly
+    assert_eq!(app.task_filter, cria::tui::app::TaskFilter::ActiveOnly);
+    assert_eq!(app.get_filter_display_name(), "Active Tasks Only");
+    // Cycle to All
+    app.cycle_task_filter();
+    assert_eq!(app.task_filter, cria::tui::app::TaskFilter::All);
+    assert_eq!(app.get_filter_display_name(), "All Tasks");
+    // Cycle to CompletedOnly
+    app.cycle_task_filter();
+    assert_eq!(app.task_filter, cria::tui::app::TaskFilter::CompletedOnly);
+    assert_eq!(app.get_filter_display_name(), "Completed Tasks Only");
+    // Cycle back to ActiveOnly
+    app.cycle_task_filter();
+    assert_eq!(app.task_filter, cria::tui::app::TaskFilter::ActiveOnly);
+    assert_eq!(app.get_filter_display_name(), "Active Tasks Only");
+}

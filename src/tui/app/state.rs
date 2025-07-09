@@ -5,7 +5,7 @@ use chrono::{DateTime, Local, Datelike};
 use crate::config::CriaConfig;
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TaskFilter {
     ActiveOnly,    // Hide completed tasks (default)
     All,          // Show all tasks

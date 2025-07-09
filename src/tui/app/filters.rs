@@ -91,7 +91,12 @@ impl App {
             }
             format!("Filter {}", filter_id)
         } else {
-            "All Tasks".to_string()
+            // Show task filter state if no saved filter is selected
+            match self.task_filter {
+                crate::tui::app::state::TaskFilter::ActiveOnly => "Active Tasks Only".to_string(),
+                crate::tui::app::state::TaskFilter::All => "All Tasks".to_string(),
+                crate::tui::app::state::TaskFilter::CompletedOnly => "Completed Tasks Only".to_string(),
+            }
         }
     }
     pub fn cycle_task_filter(&mut self) {
