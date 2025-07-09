@@ -22,7 +22,7 @@ fn main() {
     // Parse command-line arguments
     let matches = Command::new("cria")
         .about("CRIA - Terminal User Interface for Vikunja task management")
-        .version("0.9.1")
+        .version("0.9.2")
         .arg(
             Arg::new("config")
                 .long("config")
@@ -235,15 +235,6 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
         debug_log(&format!("App filtered_filters after set_filters: {:?}", app_guard.filtered_filters));
         debug_log(&format!("App filter_picker_input: {:?}", app_guard.filter_picker_input));
         debug_log(&format!("App selected_filter_picker_index: {}", app_guard.selected_filter_picker_index));
-        // Debug quick actions configuration
-        if let Some(ref quick_actions) = app_guard.config.quick_actions {
-            debug_log(&format!("Quick actions loaded: {} actions", quick_actions.len()));
-            for (i, action) in quick_actions.iter().enumerate() {
-                debug_log(&format!("  Action {}: key='{}', action='{}', target='{}'", i, action.key, action.action, action.target));
-            }
-        } else {
-            debug_log("No quick actions configured");
-        }
     }
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
@@ -278,20 +269,20 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         tui::modals::handle_edit_modal(&mut app_guard, &key, &api_client, &client_clone).await;
                         continue;
                     }
-                    if app_guard.show_project_picker {
-                        tui::pickers::project::handle_project_picker(&mut app_guard, &key);
-                        continue;
-                    }
-                    if app_guard.show_label_picker {
-                        tui::pickers::label::handle_label_picker(&mut app_guard, &key);
-                        continue;
-                    }
                     if app_guard.show_form_edit_modal {
                         tui::modals::handle_form_edit_modal(&mut app_guard, &key, &api_client, &client_clone).await;
                         continue;
                     }
                     if app_guard.show_confirmation_dialog {
                         tui::confirmation::handle_confirmation_dialog(&mut app_guard, &key, &api_client, &client_clone).await;
+                        continue;
+                    }
+                    if app_guard.show_project_picker {
+                        tui::pickers::project::handle_project_picker(&mut app_guard, &key);
+                        continue;
+                    }
+                    if app_guard.show_label_picker {
+                        tui::pickers::label::handle_label_picker(&mut app_guard, &key);
                         continue;
                     }
                     if app_guard.show_filter_picker {
@@ -357,145 +348,22 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                                     }
                                 }
                             }
-                            KeyCode::Char(ch) => {
-                                // Handle direct key presses for quick actions
-                                debug_log(&format!("Character '{}' pressed in quick actions modal", ch));
-                                if let Some(ref quick_actions) = app_guard.config.quick_actions {
-                                    if let Some(action) = quick_actions.iter().find(|a| a.key == ch.to_string()) {
-                                        debug_log(&format!("Found matching quick action: {} -> {}", action.key, action.target));
-                                        let action_clone = action.clone();
-                                        app_guard.hide_quick_actions_modal();
-                                        
-                                        // Apply the quick action
-                                        debug_log(&format!("Calling apply_quick_action for: {}", action_clone.action));
-                                        match app_guard.apply_quick_action(&action_clone) {
-                                            Ok(()) => {
-                                                debug_log(&format!("Quick action applied successfully: {} -> {}", action_clone.key, action_clone.target));
-                                                app_guard.add_debug_message(format!("Quick action applied: {} -> {}", action_clone.key, action_clone.target));
-                                                // Update the task on the server and in all_tasks
-                                                if let Some(task) = app_guard.get_selected_task() {
-                                                    let task_clone = task.clone();
-                                                    let task_id = task.id;
-                                                    
-                                                    app_guard.flash_task_id = Some(task_id);
-                                                    app_guard.flash_start = Some(chrono::Local::now());
-                                                    app_guard.flash_cycle_count = 0;
-                                                    app_guard.flash_cycle_max = 4;
-                                                    
-                                                    // Update the task in all_tasks as well
-                                                    if let Some(all_task) = app_guard.all_tasks.iter_mut().find(|t| t.id == task_id) {
-                                                        *all_task = task_clone.clone();
-                                                    }
-                                                    
-                                                    drop(app_guard);
-                                                    
-                                                    // Convert labels to the API format
-                                                    let api_labels = task_clone.labels.as_ref().map(|labels| {
-                                                        labels.iter().map(|label| crate::vikunja_client::VikunjaLabel {
-                                                            id: Some(label.id as u64),
-                                                            title: label.title.clone(),
-                                                            hex_color: label.hex_color.clone(),
-                                                        }).collect()
-                                                    });
-                                                    
-                                                    let api_task = crate::vikunja_client::VikunjaTask {
-                                                        id: Some(task_id as u64),
-                                                        title: task_clone.title.clone(),
-                                                        description: task_clone.description.clone(),
-                                                        done: Some(task_clone.done),
-                                                        priority: task_clone.priority.map(|p| p as u8),
-                                                        due_date: task_clone.due_date,
-                                                        project_id: task_clone.project_id as u64,
-                                                        labels: api_labels,
-                                                        assignees: None,
-                                                        is_favorite: Some(task_clone.is_favorite),
-                                                        start_date: task_clone.start_date,
-                                                    };
-                                                    
-                                                    let client_clone = client_clone.clone();
-                                                    tokio::spawn(async move {
-                                                        let _ = client_clone.lock().await.update_task(&api_task).await;
-                                                    });
-                                                }
-                                            }
-                                            Err(err) => {
-                                                debug_log(&format!("Failed to apply quick action: {}", err));
-                                                app_guard.add_debug_message(format!("Failed to apply quick action: {}", err));
-                                            }
-                                        }
-                                    } else {
-                                        debug_log(&format!("No quick action found for key: {}", ch));
-                                    }
-                                }
-                            }
                             KeyCode::Enter => {
-                                debug_log("Enter pressed in quick actions modal");
                                 if let Some(ref quick_actions) = app_guard.config.quick_actions {
-                                    debug_log(&format!("Quick actions available: {}", quick_actions.len()));
                                     if app_guard.selected_quick_action_index < quick_actions.len() {
                                         let action = quick_actions[app_guard.selected_quick_action_index].clone();
-                                        debug_log(&format!("Attempting to apply quick action: {} -> {}", action.key, action.target));
                                         app_guard.hide_quick_actions_modal();
                                         
-                                        // Apply the quick action
-                                        debug_log(&format!("Calling apply_quick_action for: {}", action.action));
-                                        match app_guard.apply_quick_action(&action) {
-                                            Ok(()) => {
-                                                debug_log(&format!("Quick action applied successfully: {} -> {}", action.key, action.target));
-                                                app_guard.add_debug_message(format!("Quick action applied: {} -> {}", action.key, action.target));
-                                                // Update the task on the server and in all_tasks
-                                                if let Some(task) = app_guard.get_selected_task() {
-                                                    let task_clone = task.clone();
-                                                    let task_id = task.id;
-                                                    
-                                                    app_guard.flash_task_id = Some(task_id);
-                                                    app_guard.flash_start = Some(chrono::Local::now());
-                                                    app_guard.flash_cycle_count = 0;
-                                                    app_guard.flash_cycle_max = 4;
-                                                    
-                                                    // Update the task in all_tasks as well
-                                                    if let Some(all_task) = app_guard.all_tasks.iter_mut().find(|t| t.id == task_id) {
-                                                        *all_task = task_clone.clone();
-                                                    }
-                                                    
-                                                    drop(app_guard);
-                                                    
-                                                    // Convert labels to the API format
-                                                    let api_labels = task_clone.labels.as_ref().map(|labels| {
-                                                        labels.iter().map(|label| crate::vikunja_client::VikunjaLabel {
-                                                            id: Some(label.id as u64),
-                                                            title: label.title.clone(),
-                                                            hex_color: label.hex_color.clone(),
-                                                        }).collect()
-                                                    });
-                                                    
-                                                    let api_task = crate::vikunja_client::VikunjaTask {
-                                                        id: Some(task_clone.id as u64),
-                                                        title: task_clone.title.clone(),
-                                                        description: None, // Not editing description here
-                                                        done: Some(task_clone.done),
-                                                        priority: task_clone.priority.map(|p| p as u8),
-                                                        due_date: task_clone.due_date,
-                                                        project_id: task_clone.project_id as u64,
-                                                        labels: api_labels,
-                                                        assignees: None, // Not editing assignees here
-                                                        is_favorite: Some(task_clone.is_favorite),
-                                                        start_date: task_clone.start_date,
-                                                    };
-                                                    let client_clone = client_clone.clone();
-                                                    let _ = client_clone.lock().await.update_task(&api_task).await;
-                                                }
-                                            },
-                                            Err(error) => {
-                                                debug_log(&format!("Quick action failed with error: {}", error));
-                                                app_guard.add_debug_message(format!("Quick action failed: {}", error));
-                                            }
+                                        // TODO: Implement apply_quick_action method
+                                        app_guard.add_debug_message(format!("Quick action triggered: {} -> {}", action.key, action.target));
+                                        // For now, just flash the task to show action was triggered
+                                        if let Some(task) = app_guard.get_selected_task() {
+                                            app_guard.flash_task_id = Some(task.id);
+                                            app_guard.flash_start = Some(chrono::Local::now());
+                                            app_guard.flash_cycle_count = 0;
+                                            app_guard.flash_cycle_max = 4;
                                         }
-                                    } else {
-                                        debug_log(&format!("Selected index {} out of bounds for {} actions", app_guard.selected_quick_action_index, quick_actions.len()));
                                     }
-                                } else {
-                                    debug_log("No quick actions configured in app_guard.config.quick_actions");
                                 }
                             }
                             _ => {}
@@ -547,7 +415,6 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                     match key.code {
                         KeyCode::Char(' ') => {
                             // Space key shows quick actions modal
-                            debug_log("Space key pressed - showing quick actions modal");
                             app_guard.show_quick_actions_modal();
                         },
                         KeyCode::Char('q') => {
