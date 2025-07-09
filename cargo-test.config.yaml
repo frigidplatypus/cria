@@ -3,6 +3,10 @@ api_url: "https://test.vikunja.example.com/api/v1"
 api_key: "test-api-key"
 default_project: "Inbox"
 
+# Auto-refresh configuration for tests
+auto_refresh: true
+refresh_interval_seconds: 60
+
 # Quick actions for testing
 quick_actions:
   - key: "w"

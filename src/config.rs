@@ -31,6 +31,8 @@ pub struct CriaConfig {
     pub table_columns: Option<Vec<TableColumn>>,
     pub column_layouts: Option<Vec<ColumnLayout>>,
     pub active_layout: Option<String>,
+    pub refresh_interval_seconds: Option<u64>,
+    pub auto_refresh: Option<bool>,
 }
 
 impl Default for CriaConfig {
@@ -44,6 +46,8 @@ impl Default for CriaConfig {
             table_columns: None,
             column_layouts: None,
             active_layout: None,
+            refresh_interval_seconds: Some(300), // Default to 5 minutes
+            auto_refresh: Some(true), // Default to enabled
         }
     }
 }
@@ -165,6 +169,16 @@ impl CriaConfig {
         self.quick_actions
             .as_ref()
             .and_then(|actions| actions.iter().find(|action| action.key == key))
+    }
+
+    /// Get the refresh interval in seconds, with a default of 300 seconds (5 minutes)
+    pub fn get_refresh_interval_seconds(&self) -> u64 {
+        self.refresh_interval_seconds.unwrap_or(300)
+    }
+
+    /// Check if auto refresh is enabled, defaults to true
+    pub fn is_auto_refresh_enabled(&self) -> bool {
+        self.auto_refresh.unwrap_or(true)
     }
 
     /// Get the configured columns, or default columns if none are configured

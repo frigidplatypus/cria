@@ -419,6 +419,73 @@ fn test_config_loading_nonexistent_file() {
 }
 
 #[test]
+fn test_config_refresh_settings_defaults() {
+    // Test that default refresh settings are correct
+    let config = CriaConfig::default();
+    assert_eq!(config.get_refresh_interval_seconds(), 300); // 5 minutes
+    assert_eq!(config.is_auto_refresh_enabled(), true); // Enabled by default
+}
+
+#[test]
+fn test_config_refresh_settings_from_test_config() {
+    // Test loading refresh settings from our test config
+    let config = cria::config::CriaConfig::load_from_path(Some("cargo-test.config.yaml"));
+    assert!(config.is_some());
+    
+    let config = config.unwrap();
+    assert_eq!(config.get_refresh_interval_seconds(), 60); // 1 minute from test config
+    assert_eq!(config.is_auto_refresh_enabled(), true); // Enabled in test config
+}
+
+#[test]
+fn test_config_refresh_settings_explicit_values() {
+    // Test that explicit config values override defaults
+    let yaml_content = r#"
+api_url: "https://test.example.com/api/v1"
+api_key: "test-key"
+default_project: "Test"
+auto_refresh: false
+refresh_interval_seconds: 600
+"#;
+    
+    let config: CriaConfig = serde_yaml::from_str(yaml_content).expect("Failed to parse config");
+    assert_eq!(config.get_refresh_interval_seconds(), 600); // 10 minutes
+    assert_eq!(config.is_auto_refresh_enabled(), false); // Explicitly disabled
+}
+
+#[test]
+fn test_config_refresh_settings_partial_config() {
+    // Test that missing config values use defaults
+    let yaml_content = r#"
+api_url: "https://test.example.com/api/v1"
+api_key: "test-key"
+default_project: "Test"
+auto_refresh: false
+# refresh_interval_seconds is missing
+"#;
+    
+    let config: CriaConfig = serde_yaml::from_str(yaml_content).expect("Failed to parse config");
+    assert_eq!(config.get_refresh_interval_seconds(), 300); // Default 5 minutes
+    assert_eq!(config.is_auto_refresh_enabled(), false); // Explicitly disabled
+}
+
+#[test]
+fn test_config_refresh_settings_only_interval() {
+    // Test that setting only interval works
+    let yaml_content = r#"
+api_url: "https://test.example.com/api/v1"
+api_key: "test-key"
+default_project: "Test"
+# auto_refresh is missing
+refresh_interval_seconds: 120
+"#;
+    
+    let config: CriaConfig = serde_yaml::from_str(yaml_content).expect("Failed to parse config");
+    assert_eq!(config.get_refresh_interval_seconds(), 120); // 2 minutes
+    assert_eq!(config.is_auto_refresh_enabled(), true); // Default enabled
+}
+
+#[test]
 fn test_task_filter_header_display() {
     let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     // Default should be ActiveOnly
