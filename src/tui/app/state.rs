@@ -148,6 +148,13 @@ pub enum SortOrder {
     StartDateLatestFirst,   // Sort by start date (latest first)
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum PickerContext {
+    None,
+    FormEditProject,
+    FormEditLabel,
+}
+
 pub struct App {
     pub config: CriaConfig,
     pub running: bool,
@@ -231,6 +238,7 @@ pub struct App {
     // Toast notifications
     pub toast_notification: Option<String>,
     pub toast_notification_start: Option<DateTime<Local>>,
+    pub picker_context: PickerContext,
 }
 
 #[allow(dead_code)]
@@ -315,7 +323,12 @@ impl App {
             layout_notification_start: None,
             toast_notification: None,
             toast_notification_start: None,
+            picker_context: PickerContext::None,
         }
+    }
+
+    pub fn default() -> Self {
+        Self::new_with_config(CriaConfig::default(), "Inbox".to_string())
     }
 
     // --- BEGIN FULL MOVED METHODS ---

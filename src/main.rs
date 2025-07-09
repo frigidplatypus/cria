@@ -278,20 +278,20 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         tui::modals::handle_edit_modal(&mut app_guard, &key, &api_client, &client_clone).await;
                         continue;
                     }
-                    if app_guard.show_form_edit_modal {
-                        tui::modals::handle_form_edit_modal(&mut app_guard, &key, &api_client, &client_clone).await;
-                        continue;
-                    }
-                    if app_guard.show_confirmation_dialog {
-                        tui::confirmation::handle_confirmation_dialog(&mut app_guard, &key, &api_client, &client_clone).await;
-                        continue;
-                    }
                     if app_guard.show_project_picker {
                         tui::pickers::project::handle_project_picker(&mut app_guard, &key);
                         continue;
                     }
                     if app_guard.show_label_picker {
                         tui::pickers::label::handle_label_picker(&mut app_guard, &key);
+                        continue;
+                    }
+                    if app_guard.show_form_edit_modal {
+                        tui::modals::handle_form_edit_modal(&mut app_guard, &key, &api_client, &client_clone).await;
+                        continue;
+                    }
+                    if app_guard.show_confirmation_dialog {
+                        tui::confirmation::handle_confirmation_dialog(&mut app_guard, &key, &api_client, &client_clone).await;
                         continue;
                     }
                     if app_guard.show_filter_picker {

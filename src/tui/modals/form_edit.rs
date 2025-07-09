@@ -1,4 +1,4 @@
-use crate::tui::app::{App, FormEditState};
+use crate::tui::app::{App, FormEditState, PickerContext};
 use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
@@ -56,11 +56,13 @@ pub async fn handle_form_edit_modal(
                 match form.field_index {
                     5 => {
                         // Project picker - show project picker modal
+                        app.picker_context = crate::tui::app::PickerContext::FormEditProject;
                         app.show_project_picker();
                     }
                     6 => {
                         // Label picker - show label picker modal
                         app.selected_label_ids = form.label_ids.clone();
+                        app.picker_context = crate::tui::app::PickerContext::FormEditLabel;
                         app.show_label_picker();
                     }
                     8 => {

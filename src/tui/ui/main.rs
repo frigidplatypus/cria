@@ -68,6 +68,14 @@ pub fn draw(f: &mut Frame, app: &App) {
         crate::tui::ui::modals::draw_help_modal(f, app);
     } else if app.show_sort_modal {
         crate::tui::ui::modals::draw_sort_modal(f, app);
+    } else if app.show_form_edit_modal {
+        draw_form_edit_modal(f, app);
+        // If a picker is also open, draw it on top of the form editor
+        if app.show_project_picker {
+            draw_project_picker_modal(f, app);
+        } else if app.show_label_picker {
+            draw_label_picker_modal(f, app);
+        }
     } else if app.show_project_picker {
         draw_project_picker_modal(f, app);
     } else if app.show_label_picker {
@@ -76,8 +84,6 @@ pub fn draw(f: &mut Frame, app: &App) {
         draw_quick_add_modal(f, app);
     } else if app.show_edit_modal {
         draw_edit_modal(f, app);
-    } else if app.show_form_edit_modal {
-        draw_form_edit_modal(f, app);
     } else if app.show_confirmation_dialog {
         draw_confirmation_dialog(f, app);
     } else if app.show_filter_picker {

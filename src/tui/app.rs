@@ -6,3 +6,4 @@ mod labels;
 
 #[allow(unused_imports)] // Used in tests
 pub use state::{App, TaskFilter, SuggestionMode, SortOrder, UndoableAction, FormEditState};
+pub use self::state::PickerContext;

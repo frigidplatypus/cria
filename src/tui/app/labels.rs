@@ -1,4 +1,4 @@
-use crate::tui::app::App;
+use crate::tui::app::{App, PickerContext};
 use crate::tui::utils::contains_ignore_case;
 
 impl App {
@@ -59,7 +59,16 @@ impl App {
     }
     
     pub fn select_label_picker(&mut self) {
+        let picker_context = self.picker_context.clone();
         self.hide_label_picker();
+        if let PickerContext::FormEditLabel = picker_context {
+            if let Some(ref mut form) = self.form_edit_state {
+                // Set label_ids to selected_label_ids
+                form.label_ids = self.selected_label_ids.clone();
+            }
+            self.show_form_edit_modal = true;
+            self.picker_context = crate::tui::app::PickerContext::None;
+        }
     }
     
     pub fn update_filtered_labels(&mut self) {

@@ -1,4 +1,4 @@
-use crate::tui::app::App;
+use crate::tui::app::{App, PickerContext};
 use crate::tui::utils::contains_ignore_case;
 
 impl App {
@@ -35,20 +35,30 @@ impl App {
         }
     }
     pub fn select_project_picker(&mut self) {
-        if let Some(project) = self.filtered_projects.get(self.selected_project_picker_index) {
-            if project.0 == -1 {
-                // All Projects selected
-                self.current_project_id = None;
-                self.project_picker_input = project.1.clone();
+        if let Some((project_id, project_name)) = self.filtered_projects.get(self.selected_project_picker_index).cloned() {
+            let picker_context = self.picker_context.clone();
+            if picker_context == PickerContext::FormEditProject {
+                // Only update the form, do not touch main task list/filter
                 self.hide_project_picker();
-                // Show all tasks
+                if let Some(ref mut form) = self.form_edit_state {
+                    form.project_id = project_id;
+                }
+                self.show_form_edit_modal = true;
+                self.picker_context = PickerContext::None;
+                return;
+            }
+            // Normal (non-form) picker behavior
+            if project_id == -1 {
+                self.current_project_id = None;
+                self.project_picker_input = project_name.clone();
+                self.hide_project_picker();
                 self.tasks = self.all_tasks.clone();
                 if self.current_sort.is_none() {
                     self.apply_layout_sort();
                 }
             } else {
-                self.current_project_id = Some(project.0);
-                self.project_picker_input = project.1.clone();
+                self.current_project_id = Some(project_id);
+                self.project_picker_input = project_name.clone();
                 self.hide_project_picker();
                 self.apply_project_filter();
             }
