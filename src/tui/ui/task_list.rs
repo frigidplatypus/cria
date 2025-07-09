@@ -402,15 +402,24 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
                 }
             }
             
-            // Apply selection and flash styling
+            // Apply selection, flash, and alternating row styling
             if i == app.selected_task_index {
+                // Selected row takes priority over alternating colors
                 if let Some(bg) = flash_bg {
                     row = row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD));
                 } else {
                     row = row.style(Style::default().bg(Color::DarkGray));
                 }
             } else if let Some(bg) = flash_bg {
+                // Flash effect takes priority over alternating colors
                 row = row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD));
+            } else {
+                // Apply alternating row highlighting for easier scanning
+                // Use the actual task index (i) for alternating, not the display index
+                if i % 2 == 1 {
+                    // Every other row gets a subtle background
+                    row = row.style(Style::default().bg(Color::Rgb(20, 20, 25)));
+                }
             }
             
             row
