@@ -504,3 +504,30 @@ fn test_task_filter_header_display() {
     assert_eq!(app.task_filter, cria::tui::app::TaskFilter::ActiveOnly);
     assert_eq!(app.get_filter_display_name(), "Active Tasks Only");
 }
+
+#[test]
+fn test_apply_label_quick_action() {
+    use cria::vikunja::models::{Task, Label};
+    use cria::tui::app::App;
+    use cria::config::{CriaConfig, QuickAction};
+
+    let mut config = CriaConfig::default();
+    config.quick_actions = Some(vec![
+        QuickAction {
+            key: "l".to_string(),
+            action: "label".to_string(),
+            target: "Important".to_string(),
+        },
+    ]);
+    let mut app = App::new_with_config(config, "Inbox".to_string());
+    app.label_map.insert(1, "Important".to_string());
+    app.tasks.push(Task::default());
+    app.selected_task_index = 0;
+
+    let label_action = app.config.get_quick_action("l").cloned().unwrap();
+    let result = app.apply_quick_action(&label_action);
+    assert!(result.is_ok());
+    let task = &app.tasks[0];
+    let labels = task.labels.as_ref().expect("Task should have labels after label quick action");
+    assert!(labels.iter().any(|lbl| lbl.title == "Important"));
+}
