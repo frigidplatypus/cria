@@ -342,14 +342,15 @@ pub fn draw_help_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::styled("s", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Star/unstar task")]),
         Line::from(vec![Span::styled("i", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle info pane")]),
         Line::from(vec![Span::styled("h / l", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Cycle filters backward/forward")]),
-        Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Show quick actions modal")]),
+        Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quick actions modal")]),
+        Line::from(vec![Span::styled(".", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quick action mode (press key directly)")]),
         Line::raw("")
     ];
 
     // Quick actions section
     if let Some(ref quick_actions) = app.config.quick_actions {
         if !quick_actions.is_empty() {
-            help_lines.push(Line::raw("─ Quick Actions (Press Space to open modal) ─"));
+            help_lines.push(Line::raw("─ Quick Actions (Space for modal, . then key for direct) ─"));
             for action in quick_actions {
                 help_lines.push(Line::from(vec![
                     Span::styled(format!("{}", action.key), Style::default().add_modifier(Modifier::BOLD)), 

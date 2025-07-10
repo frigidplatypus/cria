@@ -92,6 +92,21 @@ pub fn draw(f: &mut Frame, app: &App) {
         draw_quick_actions_modal(f, app);
     }
 
+    // Draw quick action mode indicator
+    if app.quick_action_mode {
+        let quick_area = Rect {
+            x: 0,
+            y: f.size().height.saturating_sub(if app.refreshing { 2 } else { 1 }),
+            width: f.size().width,
+            height: 1,
+        };
+        let quick_msg = Paragraph::new("Quick Action Mode: Press a key for quick action or Esc to cancel")
+            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+        f.render_widget(Clear, quick_area);
+        f.render_widget(quick_msg, quick_area);
+    }
+
     // Draw refreshing indicator if refreshing
     if app.refreshing {
         let refresh_area = Rect {
