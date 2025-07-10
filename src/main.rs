@@ -511,6 +511,32 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         KeyCode::Char('E') => {
                             app_guard.show_form_edit_modal();
                         }
+                        KeyCode::Char('r') => {
+                            // Refresh tasks, projects, and labels from API
+                            drop(app_guard); // Release lock before await
+                            let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
+                            debug_log(&format!("[r] Refreshed {} tasks from API", tasks.len()));
+                            let all_labels = client_clone.lock().await.get_all_labels().await.unwrap_or_default();
+                            debug_log(&format!("[r] Refreshed {} labels from API", all_labels.len()));
+                            let filters = client_clone.lock().await.get_saved_filters().await.unwrap_or_default();
+                            debug_log(&format!("[r] Refreshed {} saved filters from backend", filters.len()));
+                            let mut app_guard = app.lock().await;
+                            app_guard.update_all_tasks(tasks);
+                            app_guard.project_map = project_map;
+                            app_guard.project_colors = project_colors;
+                            app_guard.set_filters(filters);
+                            // Merge all_labels into label_map and label_colors
+                            for label in all_labels {
+                                if let Some(id) = label.id {
+                                    app_guard.label_map.insert(id as i64, label.title.clone());
+                                    app_guard.label_colors.insert(id as i64, label.hex_color.unwrap_or_default());
+                                }
+                            }
+                            app_guard.add_debug_message("Tasks, projects, and labels refreshed from API (r)".to_string());
+                            // Show toast notification
+                            app_guard.toast_notification = Some("Refreshed tasks, projects, and labels from API".to_string());
+                            app_guard.toast_notification_start = Some(chrono::Local::now());
+                        }
                         _ => {}
                     }
                 }
