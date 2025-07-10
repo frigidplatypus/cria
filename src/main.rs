@@ -445,9 +445,15 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                             app_guard.show_quick_actions_modal();
                         },
                         KeyCode::Char('q') => {
+                            // Instead of quitting immediately, show confirmation dialog and set pending_action
+                            app_guard.pending_action = Some(crate::tui::app::PendingAction::QuitApp);
+                            app_guard.confirmation_message = "Are you sure you want to quit? (y/n)".to_string();
+                            app_guard.show_confirmation_dialog = true;
+                        },
+                        KeyCode::Char('Q') => {
                             app_guard.quit();
                             break;
-                        },
+                        }
                         KeyCode::Char('d') => {
                             // Toggle task completion
                             if let Some(task_id) = app_guard.toggle_task_completion() {
@@ -530,6 +536,12 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                 drop(app_guard);
             }
         }
+        // Exit loop if quit was requested (e.g., via confirmation dialog)
+        let app_guard = app.lock().await;
+        if !app_guard.running {
+            break;
+        }
+        drop(app_guard);
     }
 
     disable_raw_mode()?;
