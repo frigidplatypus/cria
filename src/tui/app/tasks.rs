@@ -58,6 +58,10 @@ impl App {
                     self.execute_delete_task(task_id);
                     Some(task_id)
                 }
+                PendingAction::QuitApp => {
+                    self.quit();
+                    None
+                }
             }
         } else {
             None
