@@ -232,6 +232,9 @@ pub struct App {
     pub current_sort: Option<SortOrder>,
     pub show_quick_actions_modal: bool,
     pub selected_quick_action_index: usize,
+    // Quick action mode - direct key handling after Space
+    pub quick_action_mode: bool,
+    pub quick_action_mode_start: Option<DateTime<Local>>,
     // Layout system
     pub current_layout_name: String,
     pub layout_notification: Option<String>,
@@ -319,6 +322,8 @@ impl App {
             current_sort: None,
             show_quick_actions_modal: false,
             selected_quick_action_index: 0,
+            quick_action_mode: false,
+            quick_action_mode_start: None,
             current_layout_name,
             layout_notification: None,
             layout_notification_start: None,
@@ -631,6 +636,25 @@ impl App {
         self.selected_quick_action_index = 0;
     }
 
+    pub fn enter_quick_action_mode(&mut self) {
+        self.close_all_modals();
+        self.quick_action_mode = true;
+        self.quick_action_mode_start = Some(chrono::Local::now());
+    }
+
+    pub fn exit_quick_action_mode(&mut self) {
+        self.quick_action_mode = false;
+        self.quick_action_mode_start = None;
+    }
+
+    pub fn is_quick_action_mode_expired(&self) -> bool {
+        if let Some(start_time) = self.quick_action_mode_start {
+            chrono::Local::now().signed_duration_since(start_time).num_seconds() >= 2
+        } else {
+            false
+        }
+    }
+
     // Helper method to close all modals
     fn close_all_modals(&mut self) {
         self.show_help_modal = false;
@@ -639,6 +663,8 @@ impl App {
         self.show_quick_add_modal = false;
         self.show_edit_modal = false;
         self.show_form_edit_modal = false;
+        self.quick_action_mode = false;
+        self.quick_action_mode_start = None;
         // Reset modal state
         self.quick_add_input.clear();
         self.quick_add_cursor_position = 0;
@@ -915,7 +941,9 @@ impl App {
             return Err("No tasks available".to_string());
         }
         let task = self.tasks.get_mut(self.selected_task_index).ok_or("No selected task")?;
-        match action.action.as_str() {
+        let task_id = task.id; // Get the task ID before we modify it
+        
+        let result = match action.action.as_str() {
             "project" => {
                 // Find project by name
                 let project_id = self.project_map.iter().find_map(|(id, name)| {
@@ -951,7 +979,7 @@ impl App {
                             labels.push(crate::vikunja::models::Label {
                                 id: lid,
                                 title: action.target.clone(),
-                                hex_color: None,
+                                hex_color: self.label_colors.get(&lid).cloned(),
                                 description: None,
                                 created: None,
                                 updated: None,
@@ -962,7 +990,7 @@ impl App {
                         task.labels = Some(vec![crate::vikunja::models::Label {
                             id: lid,
                             title: action.target.clone(),
-                            hex_color: None,
+                            hex_color: self.label_colors.get(&lid).cloned(),
                             description: None,
                             created: None,
                             updated: None,
@@ -975,6 +1003,21 @@ impl App {
                 }
             },
             _ => Err(format!("Unknown quick action: {}", action.action)),
+        };
+        
+        // If the quick action was successful, also update the corresponding task in all_tasks
+        if result.is_ok() {
+            if let Some(all_task) = self.all_tasks.iter_mut().find(|t| t.id == task_id) {
+                // Copy the updated fields from the filtered task to all_tasks
+                match action.action.as_str() {
+                    "project" => all_task.project_id = task.project_id,
+                    "priority" => all_task.priority = task.priority,
+                    "label" => all_task.labels = task.labels.clone(),
+                    _ => {}
+                }
+            }
         }
+        
+        result
     }
 }
