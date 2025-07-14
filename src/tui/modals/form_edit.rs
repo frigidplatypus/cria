@@ -1,4 +1,4 @@
-use crate::tui::app::{App, FormEditState, PickerContext};
+use crate::tui::app::{App, FormEditState};
 use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
