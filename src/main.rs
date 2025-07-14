@@ -648,6 +648,10 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                             app_guard.toast_notification = Some("Refreshed tasks, projects, and labels from API".to_string());
                             app_guard.toast_notification_start = Some(chrono::Local::now());
                         }
+                        KeyCode::Char('?') => {
+                            // Show help modal
+                            app_guard.show_help_modal();
+                        }
                         _ => {}
                     }
                 }
