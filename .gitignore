@@ -24,6 +24,9 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
+# Syncthing
+.stfolder/
+
 # Environment Variables
 .env
 .env.local

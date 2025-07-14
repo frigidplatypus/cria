@@ -3,6 +3,7 @@ use crate::tui::utils::contains_ignore_case;
 
 impl App {
     pub fn show_filter_picker(&mut self) {
+        self.close_all_modals();
         self.show_filter_picker = true;
         self.filter_picker_input.clear();
         self.selected_filter_picker_index = 0;

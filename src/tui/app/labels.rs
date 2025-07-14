@@ -3,6 +3,7 @@ use crate::tui::utils::contains_ignore_case;
 
 impl App {
     pub fn show_label_picker(&mut self) {
+        self.close_all_modals();
         self.show_label_picker = true;
         self.label_picker_input.clear();
         self.selected_label_picker_index = 0;

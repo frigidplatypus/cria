@@ -3,6 +3,7 @@ use crate::tui::utils::contains_ignore_case;
 
 impl App {
     pub fn show_project_picker(&mut self) {
+        self.close_all_modals();
         self.show_project_picker = true;
         self.project_picker_input.clear();
         self.selected_project_picker_index = 0;
