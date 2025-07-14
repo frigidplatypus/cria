@@ -652,6 +652,10 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                             // Show help modal
                             app_guard.show_help_modal();
                         }
+                        KeyCode::Char('i') => {
+                            // Toggle info pane
+                            app_guard.toggle_info_pane();
+                        }
                         _ => {}
                     }
                 }
