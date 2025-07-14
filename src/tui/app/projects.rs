@@ -53,10 +53,8 @@ impl App {
                 self.current_project_id = None;
                 self.project_picker_input = project_name.clone();
                 self.hide_project_picker();
-                self.tasks = self.all_tasks.clone();
-                if self.current_sort.is_none() {
-                    self.apply_layout_sort();
-                }
+                // Apply task filter to show all tasks respecting current filter (Active/All/Completed)
+                self.apply_task_filter();
             } else {
                 self.current_project_id = Some(project_id);
                 self.project_picker_input = project_name.clone();
@@ -79,7 +77,18 @@ impl App {
     #[allow(dead_code)] // Future feature
     pub fn apply_project_filter(&mut self) {
         if let Some(project_id) = self.current_project_id {
-            self.tasks = self.all_tasks.iter().filter(|task| task.project_id == project_id).cloned().collect();
+            // First filter by project, then apply task filter (Active/All/Completed)
+            let project_tasks: Vec<_> = self.all_tasks.iter()
+                .filter(|task| task.project_id == project_id)
+                .cloned()
+                .collect();
+            
+            // Apply task filter to the project-filtered tasks
+            self.tasks = project_tasks.into_iter().filter(|task| match self.task_filter {
+                crate::tui::app::state::TaskFilter::ActiveOnly => !task.done,
+                crate::tui::app::state::TaskFilter::All => true,
+                crate::tui::app::state::TaskFilter::CompletedOnly => task.done,
+            }).collect();
             
             // Apply layout-specific sort if no manual sort is active
             if self.current_sort.is_none() {

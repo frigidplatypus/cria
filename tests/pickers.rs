@@ -88,3 +88,150 @@ fn test_project_picker_all_projects_option() {
     assert!(titles.contains(&"Inbox Task"));
     assert!(titles.contains(&"Work Task"));
 }
+
+#[test]
+fn test_project_picker_preserves_task_filter() {
+    use cria::tui::app::TaskFilter;
+    
+    let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
+    
+    // Set up projects
+    app.project_map.insert(1, "Inbox".to_string());
+    app.project_map.insert(2, "Work".to_string());
+    
+    // Set up test tasks - some completed, some not
+    let tasks = vec![
+        cria::vikunja::models::Task {
+            id: 1,
+            title: "Inbox Active Task".to_string(),
+            description: Some("test".to_string()),
+            done: false,
+            done_at: None,
+            priority: Some(1),
+            due_date: None,
+            project_id: 1,
+            labels: Some(vec![]),
+            assignees: Some(vec![]),
+            is_favorite: false,
+            start_date: None,
+            end_date: None,
+            created: Some("2023-01-01T00:00:00Z".to_string()),
+            updated: Some("2023-01-01T00:00:00Z".to_string()),
+            created_by: None,
+            percent_done: Some(0),
+            position: Some(0),
+            index: Some(1),
+            identifier: Some("1".to_string()),
+            hex_color: None,
+            cover_image_attachment_id: None,
+            bucket_id: Some(0),
+            buckets: Some(vec![]),
+            attachments: Some(vec![]),
+            comments: None,
+            reactions: None,
+            related_tasks: None,
+            reminders: None,
+            repeat_after: None,
+            repeat_mode: Some(0),
+            subscription: None,
+        },
+        cria::vikunja::models::Task {
+            id: 2,
+            title: "Work Active Task".to_string(),
+            description: Some("test".to_string()),
+            done: false,
+            done_at: None,
+            priority: Some(1),
+            due_date: None,
+            project_id: 2,
+            labels: Some(vec![]),
+            assignees: Some(vec![]),
+            is_favorite: false,
+            start_date: None,
+            end_date: None,
+            created: Some("2023-01-01T00:00:00Z".to_string()),
+            updated: Some("2023-01-01T00:00:00Z".to_string()),
+            created_by: None,
+            percent_done: Some(0),
+            position: Some(0),
+            index: Some(2),
+            identifier: Some("2".to_string()),
+            hex_color: None,
+            cover_image_attachment_id: None,
+            bucket_id: Some(0),
+            buckets: Some(vec![]),
+            attachments: Some(vec![]),
+            comments: None,
+            reactions: None,
+            related_tasks: None,
+            reminders: None,
+            repeat_after: None,
+            repeat_mode: Some(0),
+            subscription: None,
+        },
+        cria::vikunja::models::Task {
+            id: 3,
+            title: "Work Completed Task".to_string(),
+            description: Some("test".to_string()),
+            done: true,
+            done_at: Some("2023-01-01T00:00:00Z".to_string()),
+            priority: Some(1),
+            due_date: None,
+            project_id: 2,
+            labels: Some(vec![]),
+            assignees: Some(vec![]),
+            is_favorite: false,
+            start_date: None,
+            end_date: None,
+            created: Some("2023-01-01T00:00:00Z".to_string()),
+            updated: Some("2023-01-01T00:00:00Z".to_string()),
+            created_by: None,
+            percent_done: Some(100),
+            position: Some(0),
+            index: Some(3),
+            identifier: Some("3".to_string()),
+            hex_color: None,
+            cover_image_attachment_id: None,
+            bucket_id: Some(0),
+            buckets: Some(vec![]),
+            attachments: Some(vec![]),
+            comments: None,
+            reactions: None,
+            related_tasks: None,
+            reminders: None,
+            repeat_after: None,
+            repeat_mode: Some(0),
+            subscription: None,
+        },
+    ];
+    
+    app.update_all_tasks(tasks);
+    
+    // Initially, task filter should be ActiveOnly (default), showing only active tasks
+    assert_eq!(app.task_filter, TaskFilter::ActiveOnly);
+    assert_eq!(app.tasks.len(), 2); // Should show only active tasks (1 from Inbox, 1 from Work)
+    assert!(app.tasks.iter().all(|t| !t.done)); // All visible tasks should be active
+    
+    // Switch to Work project via project picker
+    app.show_project_picker();
+    app.project_picker_input = "Work".to_string();
+    app.update_filtered_projects();
+    
+    // Find and select Work project
+    if let Some(work_index) = app.filtered_projects.iter().position(|(_, name)| name == "Work") {
+        app.selected_project_picker_index = work_index;
+        app.select_project_picker();
+    }
+    
+    // After switching to Work project, task filter should still be ActiveOnly
+    assert_eq!(app.task_filter, TaskFilter::ActiveOnly);
+    assert_eq!(app.current_project_id, Some(2)); // Should be on Work project
+    assert_eq!(app.tasks.len(), 1); // Should show only active tasks from Work project
+    assert!(app.tasks.iter().all(|t| !t.done && t.project_id == 2)); // Only active Work tasks
+    
+    // Change task filter to All while on Work project
+    app.cycle_task_filter(); // ActiveOnly -> All
+    assert_eq!(app.task_filter, TaskFilter::All);
+    assert_eq!(app.tasks.len(), 2); // Should show all tasks from Work project (active + completed)
+    assert!(app.tasks.iter().all(|t| t.project_id == 2)); // All tasks should be from Work project
+}
