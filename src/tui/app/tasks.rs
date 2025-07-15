@@ -50,6 +50,22 @@ impl App {
         }
         Some(task_id)
     }
+
+    /// Test-only synchronous version of toggle_star_selected_task for unit tests
+    pub fn toggle_star_selected_task(&mut self) -> Option<i64> {
+        if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
+            task.is_favorite = !task.is_favorite;
+            let task_id = task.id;
+            let task_title = task.title.clone();
+            let is_favorite = task.is_favorite;
+            self.add_debug_message(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
+            self.show_toast(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
+            Some(task_id)
+        } else {
+            None
+        }
+    }
+
     pub fn request_delete_task(&mut self) {
         let (show, message, pending) = if let Some(task) = self.get_selected_task() {
             (true, format!("Delete task '{}'?...", task.title), Some(PendingAction::DeleteTask { task_id: task.id }))
@@ -78,6 +94,25 @@ impl App {
             None
         }
     }
+    /// Test-only synchronous version of confirm_action for unit tests
+    pub fn confirm_action(&mut self) -> Option<i64> {
+        let action = self.pending_action.take();
+        self.show_confirmation_dialog = false;
+        if let Some(action) = action {
+            match action {
+                PendingAction::DeleteTask { task_id } => {
+                    self.execute_delete_task(task_id);
+                    Some(task_id)
+                }
+                PendingAction::QuitApp => {
+                    self.quit();
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
     pub fn cancel_confirmation(&mut self) { self.show_confirmation_dialog = false; self.pending_action = None; }
     pub async fn execute_delete_task_async(&mut self, task_id: i64, client: &crate::vikunja_client::VikunjaClient) {
         match client.delete_task(task_id).await {
@@ -94,6 +129,15 @@ impl App {
                 self.show_toast(format!("Failed to delete task: {}", e));
             }
         }
+    }
+    /// Test-only synchronous version of execute_delete_task for unit tests
+    pub fn execute_delete_task(&mut self, task_id: i64) { 
+        if let Some(pos) = self.tasks.iter().position(|t| t.id == task_id) {
+            let task = self.tasks.remove(pos);
+            self.add_debug_message(format!("Task deleted: {}", task.title));
+            self.show_toast(format!("Task deleted: {}", task.title));
+            self.add_to_undo_stack(UndoableAction::TaskDeletion { task, position: pos });
+        } 
     }
     #[allow(dead_code)] // Future undo/redo feature
     pub fn undo_last_action(&mut self) -> Option<i64> {
