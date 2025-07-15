@@ -1,7 +1,7 @@
 // Tests for modal event handling: quick add and edit modals
 
 use cria::config::CriaConfig;
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 
 // Helper to create a sample task for modal tests
 fn sample_task(id: i64, done: bool) -> cria::vikunja::models::Task {

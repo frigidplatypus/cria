@@ -1,11 +1,12 @@
-use crate::tui::app::App;
+use crate::tui::app::state::App;
+use crate::tui::app::suggestion_mode::SuggestionMode;
 use crate::tui::utils::{get_label_color, get_project_color};
 use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Paragraph, Block, Borders, Clear, Wrap};
 use ratatui::text::{Line, Span};
 
-fn colorize_quickadd_input<'a>(input: &'a str, app: &'a crate::tui::app::App) -> Vec<ratatui::text::Span<'a>> {
+fn colorize_quickadd_input<'a>(input: &'a str, app: &'a App) -> Vec<ratatui::text::Span<'a>> {
     let mut spans = Vec::new();
     let mut chars = input.char_indices().peekable();
     let mut last = 0;
@@ -93,8 +94,8 @@ pub fn draw_quick_add_modal(f: &mut Frame, app: &App) {
             .take(max_visible)
             .map(|(i, s)| {
                 let (color, prefix) = match app.suggestion_mode {
-                    Some(crate::tui::app::SuggestionMode::Label) => (get_label_color(s, app), "*"),
-                    Some(crate::tui::app::SuggestionMode::Project) => (get_project_color(s, app), "+"),
+                    Some(SuggestionMode::Label) => (get_label_color(s, app), "*"),
+                    Some(SuggestionMode::Project) => (get_project_color(s, app), "+"),
                     _ => (Color::Gray, "")
                 };
                 let styled = Span::styled(format!("{}{}", prefix, s), Style::default().fg(color));
@@ -213,8 +214,8 @@ pub fn draw_edit_modal(f: &mut Frame, app: &App) {
             .take(max_visible)
             .map(|(i, s)| {
                 let (color, prefix) = match app.suggestion_mode {
-                    Some(crate::tui::app::SuggestionMode::Label) => (get_label_color(s, app), "*"),
-                    Some(crate::tui::app::SuggestionMode::Project) => (get_project_color(s, app), "+"),
+                    Some(SuggestionMode::Label) => (get_label_color(s, app), "*"),
+                    Some(SuggestionMode::Project) => (get_project_color(s, app), "+"),
                     _ => (Color::Gray, "")
                 };
                 let styled = Span::styled(format!("{}{}", prefix, s), Style::default().fg(color));

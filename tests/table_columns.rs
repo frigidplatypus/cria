@@ -1,7 +1,7 @@
 // Tests for the customizable table column functionality
 
 use cria::config::{CriaConfig, TaskColumn, TableColumn};
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 
 #[test]
 fn test_default_table_columns() {

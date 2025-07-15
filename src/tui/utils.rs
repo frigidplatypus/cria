@@ -1,5 +1,5 @@
 use ratatui::style::Color;
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 
 pub fn hex_to_color(hex: &str) -> Option<Color> {
     let hex = hex.trim_start_matches('#');

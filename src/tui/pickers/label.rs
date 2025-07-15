@@ -1,5 +1,5 @@
 // Label Picker event handler
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use crossterm::event::KeyEvent;
 
 pub fn handle_label_picker(app: &mut App, key: &KeyEvent) {

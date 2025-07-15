@@ -1,7 +1,8 @@
 // Tests for the new column layout and per-layout sorting functionality
 
 use cria::config::{CriaConfig, TaskColumn, TableColumn, ColumnLayout, ColumnSort, SortDirection};
-use cria::tui::app::App;
+use cria::tui::app::state::App;
+use cria::tui::app::sort_order::SortOrder;
 use cria::vikunja::models::Task;
 use std::collections::HashMap;
 
@@ -519,11 +520,8 @@ fn test_manual_sort_overrides_layout_sort() {
     assert!(app.current_sort.is_none());
     
     // Apply a manual sort
-    app.apply_sort(cria::tui::app::SortOrder::TitleAZ);
-    
-    // Check that manual sort is now active
-    assert!(app.current_sort.is_some());
-    assert!(matches!(app.current_sort.as_ref().unwrap(), cria::tui::app::SortOrder::TitleAZ));
+    app.apply_sort(SortOrder::TitleAZ);
+    assert!(matches!(app.current_sort.as_ref().unwrap(), SortOrder::TitleAZ));
     
     // Switching layouts should reapply layout sort and clear manual sort
     app.switch_to_next_layout();

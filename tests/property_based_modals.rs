@@ -2,7 +2,7 @@
 // This demonstrates how to use proptest for comprehensive testing
 
 use cria::config::{CriaConfig, QuickAction};
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 use proptest::prelude::*;
 
 // Generate arbitrary quick actions for testing

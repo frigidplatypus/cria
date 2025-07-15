@@ -1,6 +1,6 @@
 // Picker rendering (project picker, filter picker)
 
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Paragraph, Block, Borders, Clear, Wrap};

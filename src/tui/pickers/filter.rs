@@ -1,5 +1,5 @@
 // Filter Picker event handler split from pickers.rs
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;

@@ -1,4 +1,5 @@
-use crate::tui::app::App;
+use crate::tui::app::state::App;
+use crate::tui::app::form_edit_state::FormEditState;
 use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Paragraph, Block, Borders, Clear, Wrap};
@@ -46,7 +47,7 @@ pub fn draw_form_edit_modal(f: &mut Frame, app: &App) {
     }
 }
 
-fn render_form_fields(f: &mut Frame, area: Rect, app: &App, form: &crate::tui::app::FormEditState) {
+fn render_form_fields(f: &mut Frame, area: Rect, app: &App, form: &FormEditState) {
     let mut lines = Vec::new();
     
     // Title field
@@ -263,7 +264,7 @@ fn render_form_fields(f: &mut Frame, area: Rect, app: &App, form: &crate::tui::a
     f.render_widget(paragraph, area);
 }
 
-fn render_help_section(f: &mut Frame, area: Rect, form: &crate::tui::app::FormEditState) {
+fn render_help_section(f: &mut Frame, area: Rect, form: &FormEditState) {
     let mut help_lines = Vec::new();
     
     help_lines.push(Line::from(vec![

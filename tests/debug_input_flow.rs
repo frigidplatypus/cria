@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use cria::config::CriaConfig;
-    use cria::tui::app::App;
+    use cria::tui::app::state::App;
     use cria::vikunja_parser::QuickAddParser;
 
     #[test]

@@ -1,4 +1,5 @@
-use crate::tui::app::{App, PickerContext};
+use crate::tui::app::state::App;
+use crate::tui::app::picker_context::PickerContext;
 use crate::tui::utils::contains_ignore_case;
 
 impl App {
@@ -85,9 +86,9 @@ impl App {
             
             // Apply task filter to the project-filtered tasks
             self.tasks = project_tasks.into_iter().filter(|task| match self.task_filter {
-                crate::tui::app::state::TaskFilter::ActiveOnly => !task.done,
-                crate::tui::app::state::TaskFilter::All => true,
-                crate::tui::app::state::TaskFilter::CompletedOnly => task.done,
+                crate::tui::app::task_filter::TaskFilter::ActiveOnly => !task.done,
+                crate::tui::app::task_filter::TaskFilter::All => true,
+                crate::tui::app::task_filter::TaskFilter::CompletedOnly => task.done,
             }).collect();
             
             // Apply layout-specific sort if no manual sort is active

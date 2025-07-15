@@ -2,7 +2,9 @@
 // Place this in tests/app.rs or similar
 
 use cria::config::CriaConfig;
-use cria::tui::app::{App, SortOrder};
+use cria::tui::app::state::App;
+use cria::tui::app::sort_order::SortOrder;
+use cria::tui::app::task_filter::TaskFilter;
 use cria::vikunja::models::{Task, Label};
 use chrono::{NaiveDate, TimeZone, Utc};
 
@@ -489,26 +491,26 @@ refresh_interval_seconds: 120
 fn test_task_filter_header_display() {
     let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     // Default should be ActiveOnly
-    assert_eq!(app.task_filter, cria::tui::app::TaskFilter::ActiveOnly);
+    assert_eq!(app.task_filter, TaskFilter::ActiveOnly);
     assert_eq!(app.get_filter_display_name(), "Active Tasks Only");
     // Cycle to All
     app.cycle_task_filter();
-    assert_eq!(app.task_filter, cria::tui::app::TaskFilter::All);
+    assert_eq!(app.task_filter, TaskFilter::All);
     assert_eq!(app.get_filter_display_name(), "All Tasks");
     // Cycle to CompletedOnly
     app.cycle_task_filter();
-    assert_eq!(app.task_filter, cria::tui::app::TaskFilter::CompletedOnly);
+    assert_eq!(app.task_filter, TaskFilter::CompletedOnly);
     assert_eq!(app.get_filter_display_name(), "Completed Tasks Only");
     // Cycle back to ActiveOnly
     app.cycle_task_filter();
-    assert_eq!(app.task_filter, cria::tui::app::TaskFilter::ActiveOnly);
+    assert_eq!(app.task_filter, TaskFilter::ActiveOnly);
     assert_eq!(app.get_filter_display_name(), "Active Tasks Only");
 }
 
 #[test]
 fn test_apply_label_quick_action() {
     use cria::vikunja::models::{Task, Label};
-    use cria::tui::app::App;
+    use cria::tui::app::state::App;
     use cria::config::{CriaConfig, QuickAction};
 
     let mut config = CriaConfig::default();

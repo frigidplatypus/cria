@@ -1,7 +1,8 @@
 // Tests for picker event handling: project and filter pickers
 
 use cria::config::CriaConfig;
-use cria::tui::app::App;
+use cria::tui::app::state::App;
+use cria::tui::app::task_filter::TaskFilter;
 
 #[test]
 fn test_project_picker_events() {
@@ -91,7 +92,7 @@ fn test_project_picker_all_projects_option() {
 
 #[test]
 fn test_project_picker_preserves_task_filter() {
-    use cria::tui::app::TaskFilter;
+    use cria::tui::app::task_filter::TaskFilter;
     
     let mut app = App::new_with_config(CriaConfig::default(), "Inbox".to_string());
     

@@ -1,4 +1,6 @@
-use super::state::{App, UndoableAction, PendingAction};
+use super::state::App;
+use crate::tui::app::undoable_action::UndoableAction;
+use crate::tui::app::pending_action::PendingAction;
 use crate::vikunja::models::Task;
 
 impl App {

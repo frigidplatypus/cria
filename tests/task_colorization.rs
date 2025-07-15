@@ -1,7 +1,7 @@
 // Tests for colorization of project and labels in the TUI task list
 
 use cria::config::CriaConfig;
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 use cria::tui::ui::main::draw;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;

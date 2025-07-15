@@ -1,5 +1,5 @@
 // Project Picker event handler split from pickers.rs
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use crossterm::event::KeyEvent;
 
 pub fn handle_project_picker(app: &mut App, key: &KeyEvent) {

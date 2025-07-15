@@ -2,7 +2,7 @@
 // This ensures that help modal keybindings remain functional and correctly implemented
 
 use cria::config::{CriaConfig, QuickAction};
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 use cria::vikunja::models::Task;
 use chrono::{NaiveDate, TimeZone, Utc};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};

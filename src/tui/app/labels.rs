@@ -1,4 +1,5 @@
-use crate::tui::app::{App, PickerContext};
+use crate::tui::app::state::App;
+use crate::tui::app::picker_context::PickerContext;
 use crate::tui::utils::contains_ignore_case;
 
 impl App {
@@ -68,7 +69,7 @@ impl App {
                 form.label_ids = self.selected_label_ids.clone();
             }
             self.show_form_edit_modal = true;
-            self.picker_context = crate::tui::app::PickerContext::None;
+            self.picker_context = PickerContext::None;
         }
     }
     

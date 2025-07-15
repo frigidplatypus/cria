@@ -3,158 +3,13 @@ use crate::tui::utils::{normalize_string, fuzzy_match_score};
 use std::collections::HashMap;
 use chrono::{DateTime, Local, Datelike};
 use crate::config::CriaConfig;
-
-#[allow(dead_code)]
-#[derive(Clone, Debug, PartialEq)]
-pub enum TaskFilter {
-    ActiveOnly,    // Hide completed tasks (default)
-    All,          // Show all tasks
-    CompletedOnly, // Show only completed tasks
-}
-
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-pub enum UndoableAction {
-    TaskCompletion { 
-        task_id: i64, 
-        previous_state: bool 
-    },
-    TaskDeletion { 
-        task: Task, 
-        position: usize 
-    },
-    TaskCreation { 
-        task_id: i64 
-    },
-    TaskEdit { 
-        task_id: i64, 
-        previous_task: Task 
-    },
-}
-
-#[derive(Clone, Debug)]
-pub enum PendingAction {
-    DeleteTask { task_id: i64 },
-    QuitApp,
-}
-
-#[derive(Clone, Debug)]
-pub enum SuggestionMode {
-    Label,
-    Project,
-}
-
-#[derive(Clone, Debug)]
-pub struct FormEditState {
-    pub field_index: usize,
-    pub title: String,
-    pub description: String,
-    pub due_date: Option<String>,
-    pub start_date: Option<String>,
-    pub priority: Option<i32>,
-    pub project_id: i64,
-    pub label_ids: Vec<i64>,
-    pub assignee_ids: Vec<i64>,
-    pub is_favorite: bool,
-    pub task_id: i64,
-    pub comment: String,
-    pub cursor_position: usize,
-    #[allow(dead_code)]
-    pub show_project_picker: bool,
-    #[allow(dead_code)]
-    pub show_label_picker: bool,
-}
-
-impl FormEditState {
-    pub fn new(task: &Task) -> Self {
-        Self {
-            field_index: 0,
-            title: task.title.clone(),
-            description: task.description.clone().unwrap_or_default(),
-            due_date: task.due_date.map(|d| d.format("%Y-%m-%d").to_string()),
-            start_date: task.start_date.map(|d| d.format("%Y-%m-%d").to_string()),
-            priority: task.priority,
-            project_id: task.project_id,
-            label_ids: task.labels.as_ref().map(|labels| labels.iter().map(|l| l.id).collect()).unwrap_or_default(),
-            assignee_ids: task.assignees.as_ref().map(|assignees| assignees.iter().map(|a| a.id).collect()).unwrap_or_default(),
-            is_favorite: task.is_favorite,
-            task_id: task.id,
-            comment: String::new(),
-            cursor_position: 0,
-            show_project_picker: false,
-            show_label_picker: false,
-        }
-    }
-    
-    pub fn get_field_count() -> usize {
-        10 // title, description, due_date, start_date, priority, project, labels, assignees, is_favorite, comment
-    }
-    
-    pub fn get_current_field_text(&self) -> String {
-        match self.field_index {
-            0 => self.title.clone(),
-            1 => self.description.clone(),
-            2 => self.due_date.clone().unwrap_or_default(),
-            3 => self.start_date.clone().unwrap_or_default(),
-            4 => self.priority.map(|p| p.to_string()).unwrap_or_default(),
-            9 => self.comment.clone(),
-            _ => String::new(),
-        }
-    }
-    
-    #[allow(dead_code)]
-    pub fn set_current_field_text(&mut self, text: String) {
-        match self.field_index {
-            0 => {
-                self.title = text;
-                self.cursor_position = self.title.len();
-            },
-            1 => {
-                self.description = text;
-                self.cursor_position = self.description.len();
-            },
-            2 => {
-                self.due_date = if text.is_empty() { None } else { Some(text) };
-                self.cursor_position = self.due_date.as_ref().map(|s| s.len()).unwrap_or(0);
-            },
-            3 => {
-                self.start_date = if text.is_empty() { None } else { Some(text) };
-                self.cursor_position = self.start_date.as_ref().map(|s| s.len()).unwrap_or(0);
-            },
-            4 => {
-                self.priority = text.parse().ok();
-                self.cursor_position = text.len();
-            },
-            9 => {
-                self.comment = text;
-                self.cursor_position = self.comment.len();
-            },
-            _ => {}
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-#[allow(dead_code)] // Future sort options
-pub enum SortOrder {
-    Default,
-    TitleAZ,
-    TitleZA,
-    PriorityHighToLow,
-    PriorityLowToHigh,
-    FavoriteStarredFirst, // NEW: Sort by favorite status (starred first)
-    DueDateEarliestFirst, // Sort by due date (earliest first)
-    DueDateLatestFirst,   // Sort by due date (latest first)
-    StartDateEarliestFirst, // Sort by start date (earliest first)
-    StartDateLatestFirst,   // Sort by start date (latest first)
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum PickerContext {
-    None,
-    FormEditProject,
-    FormEditLabel,
-}
+use crate::tui::app::form_edit_state::FormEditState;
+use crate::tui::app::sort_order::SortOrder;
+use crate::tui::app::picker_context::PickerContext;
+use crate::tui::app::task_filter::TaskFilter;
+use crate::tui::app::undoable_action::UndoableAction;
+use crate::tui::app::pending_action::PendingAction;
+use crate::tui::app::suggestion_mode::SuggestionMode;
 
 pub struct App {
     pub config: CriaConfig,
@@ -1019,5 +874,31 @@ impl App {
         }
         
         result
+    }
+
+    pub fn cycle_filter_backward(&mut self) {
+        if self.filters.is_empty() { return; }
+        let idx = match self.current_filter_id {
+            Some(id) => self.filters.iter().position(|(fid, _)| *fid == id).unwrap_or(0),
+            None => 0,
+        };
+        let new_idx = if idx == 0 { self.filters.len() - 1 } else { idx - 1 };
+        self.current_filter_id = Some(self.filters[new_idx].0);
+        self.selected_filter_picker_index = new_idx;
+    }
+    pub fn cycle_filter_forward(&mut self) {
+        if self.filters.is_empty() { return; }
+        let idx = match self.current_filter_id {
+            Some(id) => self.filters.iter().position(|(fid, _)| *fid == id).unwrap_or(0),
+            None => 0,
+        };
+        let new_idx = if idx + 1 >= self.filters.len() { 0 } else { idx + 1 };
+        self.current_filter_id = Some(self.filters[new_idx].0);
+        self.selected_filter_picker_index = new_idx;
+    }
+    pub fn refresh_all(&mut self) {
+        self.refreshing = true;
+        // This should trigger a reload of tasks, projects, filters, etc. in the main event loop
+        self.add_debug_message("Refreshing all data (tasks, projects, filters)".to_string());
     }
 }

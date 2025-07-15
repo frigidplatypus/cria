@@ -1,11 +1,12 @@
 // Quick Add Modal event handler split from modals.rs
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use crossterm::event::{KeyEvent, KeyModifiers};
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::debug::debug_log;
 use chrono::Local;
+use crate::tui::app::suggestion_mode::SuggestionMode;
 
 pub async fn handle_quick_add_modal(
     app: &mut App,
@@ -54,10 +55,10 @@ pub async fn handle_quick_add_modal(
                 // If the suggestion prefix is not an exact match to any existing label/project,
                 // then we should auto-complete. If it is an exact match, the user might want to submit.
                 let is_exact_match = match app.suggestion_mode {
-                    Some(crate::tui::app::SuggestionMode::Label) => {
+                    Some(SuggestionMode::Label) => {
                         app.label_map.values().any(|label| label.to_lowercase() == prefix.to_lowercase())
                     },
-                    Some(crate::tui::app::SuggestionMode::Project) => {
+                    Some(SuggestionMode::Project) => {
                         app.project_map.values().any(|project| project.to_lowercase() == prefix.to_lowercase())
                     },
                     _ => false

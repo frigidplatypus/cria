@@ -1,6 +1,6 @@
 //! Integration tests for quick actions in the CRIA TUI app
 
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 use cria::config::{CriaConfig, QuickAction};
 use cria::vikunja::models::Task;
 

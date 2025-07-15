@@ -2,7 +2,8 @@
 // Tests for UndoableAction, undo_stack, redo_stack, and all undo/redo operations
 
 use cria::config::CriaConfig;
-use cria::tui::app::{App, UndoableAction};
+use cria::tui::app::state::App;
+use cria::tui::app::undoable_action::UndoableAction;
 use cria::vikunja::models::Task;
 use chrono::{NaiveDate, TimeZone, Utc};
 

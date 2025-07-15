@@ -1,4 +1,4 @@
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use crate::tui::utils::contains_ignore_case;
 
 impl App {
@@ -75,9 +75,9 @@ impl App {
     }
     pub fn apply_task_filter(&mut self) {
         self.tasks = self.all_tasks.iter().filter(|task| match self.task_filter {
-            crate::tui::app::state::TaskFilter::ActiveOnly => !task.done,
-            crate::tui::app::state::TaskFilter::All => true,
-            crate::tui::app::state::TaskFilter::CompletedOnly => task.done,
+            crate::tui::app::task_filter::TaskFilter::ActiveOnly => !task.done,
+            crate::tui::app::task_filter::TaskFilter::All => true,
+            crate::tui::app::task_filter::TaskFilter::CompletedOnly => task.done,
         }).cloned().collect();
         
         // Apply layout-specific sort if no manual sort is active
@@ -94,17 +94,17 @@ impl App {
         } else {
             // Show task filter state if no saved filter is selected
             match self.task_filter {
-                crate::tui::app::state::TaskFilter::ActiveOnly => "Active Tasks Only".to_string(),
-                crate::tui::app::state::TaskFilter::All => "All Tasks".to_string(),
-                crate::tui::app::state::TaskFilter::CompletedOnly => "Completed Tasks Only".to_string(),
+                crate::tui::app::task_filter::TaskFilter::ActiveOnly => "Active Tasks Only".to_string(),
+                crate::tui::app::task_filter::TaskFilter::All => "All Tasks".to_string(),
+                crate::tui::app::task_filter::TaskFilter::CompletedOnly => "Completed Tasks Only".to_string(),
             }
         }
     }
     pub fn cycle_task_filter(&mut self) {
         self.task_filter = match self.task_filter {
-            crate::tui::app::state::TaskFilter::ActiveOnly => crate::tui::app::state::TaskFilter::All,
-            crate::tui::app::state::TaskFilter::All => crate::tui::app::state::TaskFilter::CompletedOnly,
-            crate::tui::app::state::TaskFilter::CompletedOnly => crate::tui::app::state::TaskFilter::ActiveOnly,
+            crate::tui::app::task_filter::TaskFilter::ActiveOnly => crate::tui::app::task_filter::TaskFilter::All,
+            crate::tui::app::task_filter::TaskFilter::All => crate::tui::app::task_filter::TaskFilter::CompletedOnly,
+            crate::tui::app::task_filter::TaskFilter::CompletedOnly => crate::tui::app::task_filter::TaskFilter::ActiveOnly,
         };
         
         // If we're currently viewing a specific project, apply project filter (which includes task filter)
@@ -118,9 +118,9 @@ impl App {
     pub fn update_all_tasks(&mut self, tasks: Vec<crate::vikunja::models::Task>) {
         self.all_tasks = tasks.clone();
         self.tasks = tasks.into_iter().filter(|task| match self.task_filter {
-            crate::tui::app::state::TaskFilter::ActiveOnly => !task.done,
-            crate::tui::app::state::TaskFilter::All => true,
-            crate::tui::app::state::TaskFilter::CompletedOnly => task.done,
+            crate::tui::app::task_filter::TaskFilter::ActiveOnly => !task.done,
+            crate::tui::app::task_filter::TaskFilter::All => true,
+            crate::tui::app::task_filter::TaskFilter::CompletedOnly => task.done,
         }).collect();
         
         // Apply layout-specific sort if no manual sort is active

@@ -14,6 +14,8 @@ mod config;
 mod first_run;
 
 use crate::debug::debug_log;
+use crate::tui::app::state::App;
+use crate::tui::app::sort_order::SortOrder;
 
 fn main() {
     // Load environment variables
@@ -163,7 +165,7 @@ fn main() {
 async fn tokio_main(api_url: String, api_key: String, default_project: String, config: Option<crate::config::CriaConfig>) -> Result<(), Box<dyn std::error::Error>> {
     use std::sync::Arc;
     use tokio::sync::Mutex;
-    use crate::tui::app::App;
+    use crate::tui::app::state::App;
     use crate::tui::events::{Event, EventHandler};
     use crate::tui::ui::main::draw;
     use crate::vikunja_client::VikunjaClient as ApiClient;
@@ -314,12 +316,12 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                             }
                             KeyCode::Enter => {
                                 let sort = match app_guard.selected_sort_index {
-                                    0 => crate::tui::app::SortOrder::Default,
-                                    1 => crate::tui::app::SortOrder::TitleAZ,
-                                    2 => crate::tui::app::SortOrder::TitleZA,
-                                    3 => crate::tui::app::SortOrder::PriorityHighToLow,
-                                    4 => crate::tui::app::SortOrder::PriorityLowToHigh,
-                                    _ => crate::tui::app::SortOrder::Default,
+                                    0 => SortOrder::Default,
+                                    1 => SortOrder::TitleAZ,
+                                    2 => SortOrder::TitleZA,
+                                    3 => SortOrder::PriorityHighToLow,
+                                    4 => SortOrder::PriorityLowToHigh,
+                                    _ => SortOrder::Default,
                                 };
                                 app_guard.apply_sort(sort);
                                 app_guard.hide_sort_modal();
@@ -336,22 +338,22 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                             }
                             KeyCode::Up => {
                                 if let Some(ref quick_actions) = app_guard.config.quick_actions {
-                                    if !quick_actions.is_empty() && app_guard.selected_quick_action_index > 0 {
+                                    if !quick_actions.is_empty() && app_guard.selected_quick_action_index as usize > 0 {
                                         app_guard.selected_quick_action_index -= 1;
                                     }
                                 }
                             }
                             KeyCode::Down => {
                                 if let Some(ref quick_actions) = app_guard.config.quick_actions {
-                                    if !quick_actions.is_empty() && app_guard.selected_quick_action_index + 1 < quick_actions.len() {
+                                    if !quick_actions.is_empty() && (app_guard.selected_quick_action_index as usize + 1) < quick_actions.len() {
                                         app_guard.selected_quick_action_index += 1;
                                     }
                                 }
                             }
                             KeyCode::Enter => {
                                 if let Some(ref quick_actions) = app_guard.config.quick_actions {
-                                    if app_guard.selected_quick_action_index < quick_actions.len() {
-                                        let action = quick_actions[app_guard.selected_quick_action_index].clone();
+                                    if (app_guard.selected_quick_action_index as usize) < quick_actions.len() {
+                                        let action = quick_actions[app_guard.selected_quick_action_index as usize].clone();
                                         app_guard.hide_quick_actions_modal();
                                         match app_guard.apply_quick_action(&action) {
                                             Ok(_) => {
@@ -650,6 +652,10 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                             // Space key shows quick actions modal
                             app_guard.show_quick_actions_modal();
                         },
+                        KeyCode::Char('.') => {
+                            // . key enters quick action mode
+                            app_guard.enter_quick_action_mode();
+                        },
                         KeyCode::Char('q') => {
                             app_guard.quit();
                             break;
@@ -698,10 +704,10 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         KeyCode::Char('D') => {
                             app_guard.request_delete_task();
                         }
-                        KeyCode::Char('j') => {
+                        KeyCode::Char('j') | KeyCode::Down => {
                             app_guard.next_task();
                         }
-                        KeyCode::Char('k') => {
+                        KeyCode::Char('k') | KeyCode::Up => {
                             app_guard.previous_task();
                         }
                         KeyCode::Char('g') => {
@@ -713,14 +719,14 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         KeyCode::Char('f') => {
                             app_guard.show_filter_picker();
                         }
-                        KeyCode::Char('a') => {
-                            app_guard.show_quick_add_modal = true;
+                        KeyCode::Char('h') => {
+                            app_guard.cycle_filter_backward();
                         }
-                        KeyCode::Char('e') => {
-                            app_guard.show_edit_modal();
+                        KeyCode::Char('l') => {
+                            app_guard.cycle_filter_forward();
                         }
-                        KeyCode::Char('E') => {
-                            app_guard.show_form_edit_modal();
+                        KeyCode::Char('p') => {
+                            app_guard.show_project_picker();
                         }
                         KeyCode::Char('r') => {
                             // Refresh tasks, projects, and labels from API
@@ -748,66 +754,22 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                             app_guard.toast_notification = Some("Refreshed tasks, projects, and labels from API".to_string());
                             app_guard.toast_notification_start = Some(chrono::Local::now());
                         }
+                        KeyCode::Char('a') => {
+                            app_guard.show_quick_add_modal = true;
+                        }
+                        KeyCode::Char('e') => {
+                            app_guard.show_edit_modal();
+                        }
+                        KeyCode::Char('E') => {
+                            app_guard.show_form_edit_modal();
+                        }
                         KeyCode::Char('?') => {
-                            // Show help modal
+                            app_guard.close_all_modals();
                             app_guard.show_help_modal();
                         }
                         KeyCode::Char('i') => {
-                            // Toggle info pane
-                            app_guard.toggle_info_pane();
-                        }
-                        KeyCode::Char('p') => {
-                            // Show project picker
-                            app_guard.show_project_picker();
-                        }
-                        KeyCode::Char('s') => {
-                            // Star/unstar task
-                            if let Some(task_id) = app_guard.toggle_star_selected_task() {
-                                // Update on server
-                                let selected_task = app_guard.tasks.iter().find(|t| t.id == task_id).cloned();
-                                drop(app_guard);
-                                if let Some(task) = selected_task {
-                                    let api_task = crate::vikunja_client::VikunjaTask {
-                                        id: Some(task.id as u64),
-                                        title: task.title.clone(),
-                                        description: task.description.clone(),
-                                        done: Some(task.done),
-                                        priority: task.priority.map(|p| p as u8),
-                                        due_date: task.due_date,
-                                        project_id: task.project_id as u64,
-                                        labels: None, // Not editing labels here
-                                        assignees: None, // Not editing assignees here
-                                        is_favorite: Some(task.is_favorite),
-                                        start_date: task.start_date,
-                                    };
-                                    match client_clone.lock().await.update_task(&api_task).await {
-                                        Ok(_) => {
-                                            // Task star update successful
-                                        },
-                                        Err(e) => {
-                                            eprintln!("Failed to update task star status: {}", e);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        KeyCode::Char('h') => {
-                            // Cycle task filter backward
-                            app_guard.cycle_task_filter();
-                        }
-                        KeyCode::Char('l') => {
-                            // Cycle task filter forward (same as h for now since there's only one cycle method)
-                            app_guard.cycle_task_filter();
-                        }
-                        KeyCode::Char('.') => {
-                            // Quick action mode (direct)
-                            app_guard.enter_quick_action_mode();
-                        }
-                        KeyCode::Up => {
-                            app_guard.previous_task();
-                        }
-                        KeyCode::Down => {
-                            app_guard.next_task();
+                            // Toggle info pane (task details)
+                            app_guard.show_info_pane = !app_guard.show_info_pane;
                         }
                         _ => {}
                     }
@@ -834,6 +796,7 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                 drop(app_guard);
             }
         }
+
         // Exit loop if quit was requested (e.g., via confirmation dialog)
         let app_guard = app.lock().await;
         if !app_guard.running {
@@ -841,9 +804,8 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
         }
         drop(app_guard);
     }
-
+    // Clean up terminal
     disable_raw_mode()?;
     stdout().execute(LeaveAlternateScreen)?;
-
     Ok(())
 }
