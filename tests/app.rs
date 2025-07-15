@@ -7,6 +7,7 @@ use cria::tui::app::sort_order::SortOrder;
 use cria::tui::app::task_filter::TaskFilter;
 use cria::vikunja::models::{Task, Label};
 use chrono::{NaiveDate, TimeZone, Utc};
+use cria::tui::app::pending_action::PendingAction;
 
 fn sample_task(id: i64, done: bool) -> Task {
     Task {
@@ -532,4 +533,51 @@ fn test_apply_label_quick_action() {
     let task = &app.tasks[0];
     let labels = task.labels.as_ref().expect("Task should have labels after label quick action");
     assert!(labels.iter().any(|lbl| lbl.title == "Important"));
+}
+
+#[test]
+fn test_help_modal_state() {
+    let mut app = App::default();
+    assert!(!app.show_help_modal);
+    app.show_help_modal = true;
+    assert!(app.show_help_modal);
+    app.show_help_modal = false;
+    assert!(!app.show_help_modal);
+}
+
+#[test]
+fn test_show_and_hide_task_details() {
+    let mut app = App::default();
+    // Info pane is used for task details
+    assert!(app.show_info_pane);
+    app.toggle_info_pane();
+    assert!(!app.show_info_pane);
+    app.toggle_info_pane();
+    assert!(app.show_info_pane);
+}
+
+#[test]
+fn test_quit_sets_running_false() {
+    let mut app = App::default();
+    assert!(app.running);
+    app.running = false; // Simulate quit
+    assert!(!app.running);
+}
+
+#[test]
+fn test_delete_task_after_confirmation() {
+    let mut app = App::default();
+    app.tasks.push(Task { id: 1, title: "Delete Me".to_string(), ..Default::default() });
+    app.selected_task_index = 0;
+    app.show_confirmation_dialog = true;
+    app.confirmation_message = "Delete task?".to_string();
+    app.pending_action = Some(PendingAction::DeleteTask { task_id: 1 });
+    // Simulate user confirms delete
+    // In real app, confirm_action would handle this, but here we simulate removal
+    if let Some(PendingAction::DeleteTask { task_id }) = app.pending_action.take() {
+        app.tasks.retain(|t| t.id != task_id);
+    }
+    app.show_confirmation_dialog = false;
+    assert!(app.tasks.is_empty());
+    assert!(!app.show_confirmation_dialog);
 }

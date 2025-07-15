@@ -46,6 +46,24 @@ mod tests {
         form.set_current_field_text("New Title".to_string());
         assert_eq!(form.title, "New Title");
     }
+
+    #[test]
+    fn test_quick_add_modal_integration() {
+        // Simulate a quick add input string as a user would enter in the modal
+        let input = "Buy groceries *shopping @john +personal tomorrow !2";
+        // Use the parser directly (integration with modal logic)
+        use crate::vikunja_parser::QuickAddParser;
+        let parser = QuickAddParser::new();
+        let parsed = parser.parse(input);
+
+        // Check that all fields are parsed as expected
+        assert_eq!(parsed.title, "Buy groceries");
+        assert_eq!(parsed.labels, vec!["shopping"]);
+        assert_eq!(parsed.assignees, vec!["john"]);
+        assert_eq!(parsed.project, Some("personal".to_string()));
+        assert_eq!(parsed.priority, Some(2));
+        assert!(parsed.due_date.is_some());
+    }
 }
 use crate::vikunja::models::Task;
 
