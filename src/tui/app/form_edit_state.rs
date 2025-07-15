@@ -64,6 +64,57 @@ mod tests {
         assert_eq!(parsed.priority, Some(2));
         assert!(parsed.due_date.is_some());
     }
+
+    #[test]
+    fn test_form_edit_state_field_navigation_and_editing() {
+        let task = mock_task();
+        let mut form = FormEditState::new(&task);
+        // There are 10 fields (see get_field_count)
+        let field_names = [
+            "title", "description", "due_date", "start_date", "priority", "", "", "", "", "comment"
+        ];
+        // Tab through all fields and set a value for each editable one
+        let test_values = [
+            "New Title", "New Description", "2025-12-31", "2025-11-01", "5", "", "", "", "", "A comment"
+        ];
+        for i in 0..FormEditState::get_field_count() {
+            form.field_index = i;
+            // Only set for fields that are editable
+            if !test_values[i].is_empty() {
+                form.set_current_field_text(test_values[i].to_string());
+                let value = form.get_current_field_text();
+                assert_eq!(value, test_values[i]);
+            }
+        }
+        // Check that all fields were set correctly
+        assert_eq!(form.title, "New Title");
+        assert_eq!(form.description, "New Description");
+        assert_eq!(form.due_date, Some("2025-12-31".to_string()));
+        assert_eq!(form.start_date, Some("2025-11-01".to_string()));
+        assert_eq!(form.priority, Some(5));
+        assert_eq!(form.comment, "A comment");
+    }
+
+    #[test]
+    fn test_form_edit_state_priority_parsing() {
+        let mut form = FormEditState::new(&mock_task());
+        form.field_index = 4; // priority
+        form.set_current_field_text("7".to_string());
+        assert_eq!(form.priority, Some(7));
+        form.set_current_field_text("notanumber".to_string());
+        assert_eq!(form.priority, None); // Should fail to parse
+    }
+
+    #[test]
+    fn test_form_edit_state_due_and_start_date_empty() {
+        let mut form = FormEditState::new(&mock_task());
+        form.field_index = 2; // due_date
+        form.set_current_field_text("".to_string());
+        assert_eq!(form.due_date, None);
+        form.field_index = 3; // start_date
+        form.set_current_field_text("".to_string());
+        assert_eq!(form.start_date, None);
+    }
 }
 use crate::vikunja::models::Task;
 
@@ -87,6 +138,15 @@ pub struct FormEditState {
 }
 
 impl FormEditState {
+    /// Set the project_id for the form editor
+    pub fn set_project_id(&mut self, project_id: i64) {
+        self.project_id = project_id;
+    }
+
+    /// Set the label_ids for the form editor
+    pub fn set_label_ids(&mut self, label_ids: Vec<i64>) {
+        self.label_ids = label_ids;
+    }
     pub fn new(task: &Task) -> Self {
         Self {
             field_index: 0,
