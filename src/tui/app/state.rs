@@ -104,6 +104,37 @@ pub struct App {
 
 #[allow(dead_code)]
 impl App {
+    /// Open the label picker from the form editor, preserving form state and context
+    pub fn open_label_picker_from_form(&mut self) {
+        // Do not close all modals, just hide the form modal
+        self.show_form_edit_modal = false;
+        self.show_label_picker = true;
+        self.label_picker_input.clear();
+        self.selected_label_picker_index = 0;
+        // Pre-select labels already in the form state
+        if let Some(ref form) = self.form_edit_state {
+            self.selected_label_ids = form.label_ids.clone();
+        }
+        self.update_filtered_labels();
+        self.picker_context = PickerContext::FormEditLabel;
+    }
+
+    /// Open the project picker from the form editor, preserving form state and context
+    pub fn open_project_picker_from_form(&mut self) {
+        // Do not close all modals, just hide the form modal
+        self.show_form_edit_modal = false;
+        self.show_project_picker = true;
+        self.project_picker_input.clear();
+        self.selected_project_picker_index = 0;
+        // Pre-select project already in the form state
+        if let Some(ref form) = self.form_edit_state {
+            self.current_project_id = Some(form.project_id);
+        }
+        self.update_filtered_projects();
+        self.picker_context = PickerContext::FormEditProject;
+    }
+    // ...existing code...
+    // ...existing code...
     pub fn new_with_config(config: CriaConfig, default_project_name: String) -> Self {
         let current_layout_name = config.get_active_layout_name();
         Self {

@@ -58,14 +58,11 @@ pub async fn handle_form_edit_modal(
                 match form.field_index {
                     5 => {
                         // Project picker - show project picker modal
-                        app.picker_context = PickerContext::FormEditProject;
-                        app.show_project_picker();
+                        app.open_project_picker_from_form();
                     }
                     6 => {
-                        // Label picker - show label picker modal
-                        app.selected_label_ids = form.label_ids.clone();
-                        app.picker_context = PickerContext::FormEditLabel;
-                        app.show_label_picker();
+                        // Label picker - always wire up: use App method to open label picker from form
+                        app.open_label_picker_from_form();
                     }
                     8 => {
                         // Toggle favorite

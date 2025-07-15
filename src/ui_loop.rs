@@ -52,6 +52,16 @@ pub async fn run_ui(
                     let mut app_guard = app.lock().await;
                     handle_form_edit_modal(&mut *app_guard, &key, &client_clone, &client_clone).await;
                     continue;
+                } else if app_guard.show_label_picker {
+                    drop(app_guard);
+                    let mut app_guard = app.lock().await;
+                    crate::tui::pickers::label::handle_label_picker(&mut *app_guard, &key);
+                    continue;
+                } else if app_guard.show_project_picker {
+                    drop(app_guard);
+                    let mut app_guard = app.lock().await;
+                    crate::tui::pickers::project::handle_project_picker(&mut *app_guard, &key);
+                    continue;
                 } else if app_guard.show_quick_actions_modal {
                     // Handle quick actions modal input
                     match key.code {

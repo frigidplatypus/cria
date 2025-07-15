@@ -178,5 +178,28 @@ impl FormEditState {
             _ => String::new(),
         }
     }
-    // Removed unused method: set_current_field_text
+    /// Set the value of the currently focused field to the given text
+    pub fn set_current_field_text(&mut self, text: String) {
+        match self.field_index {
+            0 => {
+                self.title = text;
+            }
+            1 => {
+                self.description = text;
+            }
+            2 => {
+                self.due_date = if text.is_empty() { None } else { Some(text) };
+            }
+            3 => {
+                self.start_date = if text.is_empty() { None } else { Some(text) };
+            }
+            4 => {
+                self.priority = if text.is_empty() { None } else { text.parse().ok() };
+            }
+            9 => {
+                self.comment = text;
+            }
+            _ => {}
+        }
+    }
 }
