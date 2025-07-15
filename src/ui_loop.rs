@@ -10,10 +10,7 @@ use crate::tui::events::EventHandler;
 use crate::tui::ui::main::draw;
 use crate::vikunja_client::VikunjaClient;
 // dispatch_key and refresh_from_api moved here from main.rs
-use chrono::Local;
-use crate::debug::debug_log;
 use crate::tui::modals::{handle_quick_add_modal, handle_edit_modal, handle_form_edit_modal};
-use crate::config::QuickAction;
 
 /// Run the main UI event loop
 pub async fn run_ui(
@@ -202,7 +199,7 @@ pub async fn run_ui(
                 // TODO: move remaining branches here
             }
             crate::tui::events::Event::Tick => {
-                let mut app_guard = app.lock().await;
+                let app_guard = app.lock().await;
                 // TODO: clear expired notifications / flash
                 terminal.draw(|f| draw(f, &app_guard))?;
             }

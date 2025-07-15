@@ -1,5 +1,4 @@
 use clap::{Arg, Command};
-use dotenv::dotenv;
 
 mod tui;
 mod vikunja;
