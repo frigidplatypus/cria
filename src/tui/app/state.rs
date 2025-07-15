@@ -518,6 +518,9 @@ impl App {
         self.show_quick_add_modal = false;
         self.show_edit_modal = false;
         self.show_form_edit_modal = false;
+        self.show_project_picker = false;
+        self.show_filter_picker = false;
+        self.show_confirmation_dialog = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
         // Reset modal state
