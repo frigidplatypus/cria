@@ -906,4 +906,13 @@ impl App {
         // This should trigger a reload of tasks, projects, filters, etc. in the main event loop
         self.add_debug_message("Refreshing all data (tasks, projects, filters)".to_string());
     }
+
+    /// Applies the edit modal's input to the selected task (simple title update for demonstration)
+    pub fn apply_edit_modal(&mut self) {
+        if let Some(idx) = self.tasks.get(self.selected_task_index).map(|_| self.selected_task_index) {
+            // For demonstration, just update the title to the edit_input
+            // In a real app, you'd parse the magic syntax and update all fields
+            self.tasks[idx].title = self.edit_input.clone();
+        }
+    }
 }
