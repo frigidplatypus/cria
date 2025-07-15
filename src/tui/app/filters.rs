@@ -3,6 +3,7 @@ use crate::tui::utils::contains_ignore_case;
 
 impl App {
     pub fn show_filter_picker(&mut self) {
+        self.close_all_modals();
         self.show_filter_picker = true;
         self.filter_picker_input.clear();
         self.selected_filter_picker_index = 0;
@@ -105,7 +106,14 @@ impl App {
             crate::tui::app::state::TaskFilter::All => crate::tui::app::state::TaskFilter::CompletedOnly,
             crate::tui::app::state::TaskFilter::CompletedOnly => crate::tui::app::state::TaskFilter::ActiveOnly,
         };
-        self.apply_task_filter();
+        
+        // If we're currently viewing a specific project, apply project filter (which includes task filter)
+        // Otherwise, just apply the task filter to all tasks
+        if self.current_project_id.is_some() {
+            self.apply_project_filter();
+        } else {
+            self.apply_task_filter();
+        }
     }
     pub fn update_all_tasks(&mut self, tasks: Vec<crate::vikunja::models::Task>) {
         self.all_tasks = tasks.clone();

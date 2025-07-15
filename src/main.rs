@@ -332,6 +332,7 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                     if app_guard.show_quick_actions_modal {
                         match key.code {
                             KeyCode::Esc => {
+                            KeyCode::Esc => {
                                 app_guard.hide_quick_actions_modal();
                             }
                             KeyCode::Up => {
@@ -356,6 +357,65 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                                         match app_guard.apply_quick_action(&action) {
                                             Ok(_) => {
                                                 app_guard.add_debug_message(format!("Quick action applied: {} -> {}", action.key, action.target));
+                                                
+                                                // Update the task on the server - handle labels differently
+                                                let selected_task = app_guard.get_selected_task().cloned();
+                                                drop(app_guard);
+                                                if let Some(task) = selected_task {
+                                                    if action.action == "label" {
+                                                        // For label actions, use the specialized label API
+                                                        let mut app_guard = app.lock().await;
+                                                        if let Some(label_id) = app_guard.label_map.iter().find_map(|(id, name)| {
+                                                            if name == &action.target { Some(*id) } else { None }
+                                                        }) {
+                                                            app_guard.add_debug_message(format!("Adding label {} (id={}) to task {}", action.target, label_id, task.id));
+                                                            drop(app_guard);
+                                                            match client_clone.lock().await.add_label_to_task(task.id as u64, label_id as u64).await {
+                                                                Ok(_) => {
+                                                                    let mut app_guard = app.lock().await;
+                                                                    app_guard.add_debug_message(format!("Label API update successful for task {}", task.id));
+                                                                },
+                                                                Err(e) => {
+                                                                    let mut app_guard = app.lock().await;
+                                                                    app_guard.add_debug_message(format!("Label API update failed: {}", e));
+                                                                }
+                                                            }
+                                                        } else {
+                                                            app_guard.add_debug_message(format!("Label '{}' not found in label_map", action.target));
+                                                        }
+                                                    } else {
+                                                        // For non-label actions, use the general task update
+                                                        let api_task = crate::vikunja_client::VikunjaTask {
+                                                            id: Some(task.id as u64),
+                                                            title: task.title.clone(),
+                                                            description: task.description.clone(),
+                                                            done: Some(task.done),
+                                                            priority: task.priority.map(|p| p as u8),
+                                                            due_date: task.due_date,
+                                                            project_id: task.project_id as u64,
+                                                            labels: None, // Don't update labels via general task update
+                                                            assignees: None,
+                                                            is_favorite: Some(task.is_favorite),
+                                                            start_date: task.start_date,
+                                                        };
+                                                        match client_clone.lock().await.update_task(&api_task).await {
+                                                            Ok(_) => {
+                                                                // API update successful
+                                                            },
+                                                            Err(e) => {
+                                                                let mut app_guard = app.lock().await;
+                                                                app_guard.add_debug_message(format!("API update failed: {}", e));
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                let mut app_guard = app.lock().await;
+                                                if let Some(task) = app_guard.get_selected_task() {
+                                                    app_guard.flash_task_id = Some(task.id);
+                                                    app_guard.flash_start = Some(chrono::Local::now());
+                                                    app_guard.flash_cycle_count = 0;
+                                                    app_guard.flash_cycle_max = 4;
+                                                }
                                                 
                                                 // Update the task on the server - handle labels differently
                                                 let selected_task = app_guard.get_selected_task().cloned();
@@ -495,6 +555,70 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                                             Err(e) => {
                                                 app_guard.add_debug_message(format!("Quick action error: {}", e));
                                             }
+                                                
+                                                // Update the task on the server - handle labels differently
+                                                let selected_task = app_guard.get_selected_task().cloned();
+                                                drop(app_guard);
+                                                if let Some(task) = selected_task {
+                                                    if action.action == "label" {
+                                                        // For label actions, use the specialized label API
+                                                        let mut app_guard = app.lock().await;
+                                                        if let Some(label_id) = app_guard.label_map.iter().find_map(|(id, name)| {
+                                                            if name == &action.target { Some(*id) } else { None }
+                                                        }) {
+                                                            app_guard.add_debug_message(format!("Adding label {} (id={}) to task {}", action.target, label_id, task.id));
+                                                            drop(app_guard);
+                                                            match client_clone.lock().await.add_label_to_task(task.id as u64, label_id as u64).await {
+                                                                Ok(_) => {
+                                                                    let mut app_guard = app.lock().await;
+                                                                    app_guard.add_debug_message(format!("Label API update successful for task {}", task.id));
+                                                                },
+                                                                Err(e) => {
+                                                                    let mut app_guard = app.lock().await;
+                                                                    app_guard.add_debug_message(format!("Label API update failed: {}", e));
+                                                                }
+                                                            }
+                                                        } else {
+                                                            app_guard.add_debug_message(format!("Label '{}' not found in label_map", action.target));
+                                                        }
+                                                    } else {
+                                                        // For non-label actions, use the general task update
+                                                        let api_task = crate::vikunja_client::VikunjaTask {
+                                                            id: Some(task.id as u64),
+                                                            title: task.title.clone(),
+                                                            description: task.description.clone(),
+                                                            done: Some(task.done),
+                                                            priority: task.priority.map(|p| p as u8),
+                                                            due_date: task.due_date,
+                                                            project_id: task.project_id as u64,
+                                                            labels: None, // Don't update labels via general task update
+                                                            assignees: None,
+                                                            is_favorite: Some(task.is_favorite),
+                                                            start_date: task.start_date,
+                                                        };
+                                                        match client_clone.lock().await.update_task(&api_task).await {
+                                                            Ok(_) => {
+                                                                // API update successful
+                                                            },
+                                                            Err(e) => {
+                                                                let mut app_guard = app.lock().await;
+                                                                app_guard.add_debug_message(format!("API update failed: {}", e));
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                let mut app_guard = app.lock().await;
+                                                app_guard.selected_quick_action_index = idx;
+                                                if let Some(task) = app_guard.get_selected_task() {
+                                                    app_guard.flash_task_id = Some(task.id);
+                                                    app_guard.flash_start = Some(chrono::Local::now());
+                                                    app_guard.flash_cycle_count = 0;
+                                                    app_guard.flash_cycle_max = 4;
+                                                }
+                                            }
+                                            Err(e) => {
+                                                app_guard.add_debug_message(format!("Quick action error: {}", e));
+                                            }
                                         }
                                     }
                                 }
@@ -544,6 +668,106 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                         continue; // Skip the regular key handling for Ctrl combinations
                     }
 
+                    // Handle quick action mode
+                    if app_guard.quick_action_mode {
+                        // Check if quick action mode has expired
+                        if app_guard.is_quick_action_mode_expired() {
+                            app_guard.exit_quick_action_mode();
+                        } else {
+                            match key.code {
+                                KeyCode::Char(' ') => {
+                                    // Space to cancel quick action mode
+                                    app_guard.exit_quick_action_mode();
+                                }
+                                KeyCode::Esc => {
+                                    // Escape to cancel quick action mode
+                                    app_guard.exit_quick_action_mode();
+                                }
+                                KeyCode::Char(c) => {
+                                    // Look for quick action with this key
+                                    if let Some(action) = app_guard.config.get_quick_action(&c.to_string()) {
+                                        let action = action.clone();
+                                        app_guard.exit_quick_action_mode();
+                                        match app_guard.apply_quick_action(&action) {
+                                            Ok(_) => {
+                                                app_guard.add_debug_message(format!("Quick action applied: {} -> {}", action.key, action.target));
+                                                // Update the task on the server - handle labels differently
+                                                let selected_task = app_guard.get_selected_task().cloned();
+                                                drop(app_guard);
+                                                if let Some(task) = selected_task {
+                                                    if action.action == "label" {
+                                                        // For label actions, use the specialized label API
+                                                        let mut app_guard = app.lock().await;
+                                                        if let Some(label_id) = app_guard.label_map.iter().find_map(|(id, name)| {
+                                                            if name == &action.target { Some(*id) } else { None }
+                                                        }) {
+                                                            app_guard.add_debug_message(format!("Adding label {} (id={}) to task {}", action.target, label_id, task.id));
+                                                            drop(app_guard);
+                                                            match client_clone.lock().await.add_label_to_task(task.id as u64, label_id as u64).await {
+                                                                Ok(_) => {
+                                                                    let mut app_guard = app.lock().await;
+                                                                    app_guard.add_debug_message(format!("Label API update successful for task {}", task.id));
+                                                                },
+                                                                Err(e) => {
+                                                                    let mut app_guard = app.lock().await;
+                                                                    app_guard.add_debug_message(format!("Label API update failed: {}", e));
+                                                                }
+                                                            }
+                                                        } else {
+                                                            app_guard.add_debug_message(format!("Label '{}' not found in label_map", action.target));
+                                                        }
+                                                    } else {
+                                                        // For non-label actions, use the general task update
+                                                        let api_task = crate::vikunja_client::VikunjaTask {
+                                                            id: Some(task.id as u64),
+                                                            title: task.title.clone(),
+                                                            description: task.description.clone(),
+                                                            done: Some(task.done),
+                                                            priority: task.priority.map(|p| p as u8),
+                                                            due_date: task.due_date,
+                                                            project_id: task.project_id as u64,
+                                                            labels: None, // Don't update labels via general task update
+                                                            assignees: None,
+                                                            is_favorite: Some(task.is_favorite),
+                                                            start_date: task.start_date,
+                                                        };
+                                                        match client_clone.lock().await.update_task(&api_task).await {
+                                                            Ok(_) => {
+                                                                // API update successful
+                                                            },
+                                                            Err(e) => {
+                                                                let mut app_guard = app.lock().await;
+                                                                app_guard.add_debug_message(format!("API update failed: {}", e));
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                let mut app_guard = app.lock().await;
+                                                if let Some(task) = app_guard.get_selected_task() {
+                                                    app_guard.flash_task_id = Some(task.id);
+                                                    app_guard.flash_start = Some(chrono::Local::now());
+                                                    app_guard.flash_cycle_count = 0;
+                                                    app_guard.flash_cycle_max = 4;
+                                                }
+                                            }
+                                            Err(e) => {
+                                                app_guard.add_debug_message(format!("Quick action error: {}", e));
+                                            }
+                                        }
+                                    } else {
+                                        app_guard.exit_quick_action_mode();
+                                        app_guard.add_debug_message(format!("No quick action configured for key: {}", c));
+                                    }
+                                }
+                                _ => {
+                                    // Any other key exits quick action mode
+                                    app_guard.exit_quick_action_mode();
+                                }
+                            }
+                            continue;
+                        }
+                    }
+
                     // Main app key handling (outside modals)
                     match key.code {
                         KeyCode::Char(' ') => {
@@ -584,6 +808,14 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                                         is_favorite: Some(task.is_favorite),
                                         start_date: task.start_date,
                                     };
+                                    match client_clone.lock().await.update_task(&api_task).await {
+                                        Ok(_) => {
+                                            // Task completion update successful
+                                        },
+                                        Err(e) => {
+                                            eprintln!("Failed to update task completion: {}", e);
+                                        }
+                                    }
                                     match client_clone.lock().await.update_task(&api_task).await {
                                         Ok(_) => {
                                             // Task completion update successful

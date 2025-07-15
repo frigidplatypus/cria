@@ -656,7 +656,7 @@ impl App {
     }
 
     // Helper method to close all modals
-    fn close_all_modals(&mut self) {
+    pub fn close_all_modals(&mut self) {
         self.show_help_modal = false;
         self.show_sort_modal = false;
         self.show_quick_actions_modal = false;
