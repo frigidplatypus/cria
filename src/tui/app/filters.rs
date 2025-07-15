@@ -2,6 +2,7 @@ use crate::tui::app::state::App;
 use crate::tui::utils::contains_ignore_case;
 
 impl App {
+    #[allow(dead_code)]
     pub fn show_filter_picker(&mut self) {
         self.close_all_modals();
         self.show_filter_picker = true;
@@ -13,11 +14,13 @@ impl App {
         self.show_filter_picker = false;
         self.filter_picker_input.clear();
     }
+    #[allow(dead_code)]
     pub fn add_char_to_filter_picker(&mut self, c: char) {
         self.filter_picker_input.insert(self.selected_filter_picker_index, c);
         self.selected_filter_picker_index += 1;
         self.update_filtered_filters();
     }
+    #[allow(dead_code)]
     pub fn delete_char_from_filter_picker(&mut self) {
         if self.selected_filter_picker_index > 0 {
             self.selected_filter_picker_index -= 1;
@@ -25,11 +28,13 @@ impl App {
             self.update_filtered_filters();
         }
     }
+    #[allow(dead_code)]
     pub fn move_filter_picker_up(&mut self) {
         if !self.filtered_filters.is_empty() {
             self.selected_filter_picker_index = (self.selected_filter_picker_index + self.filtered_filters.len() - 1) % self.filtered_filters.len();
         }
     }
+    #[allow(dead_code)]
     pub fn move_filter_picker_down(&mut self) {
         if !self.filtered_filters.is_empty() {
             self.selected_filter_picker_index = (self.selected_filter_picker_index + 1) % self.filtered_filters.len();
@@ -54,6 +59,7 @@ impl App {
         self.filters = filters;
         self.update_filtered_filters();
     }
+    #[allow(dead_code)]
     pub fn apply_filter_tasks(&mut self, tasks: Vec<crate::vikunja::models::Task>) {
         self.tasks = tasks;
     }

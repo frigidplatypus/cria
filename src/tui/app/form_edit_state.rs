@@ -15,8 +15,7 @@ pub struct FormEditState {
     pub task_id: i64,
     pub comment: String,
     pub cursor_position: usize,
-    pub show_project_picker: bool,
-    pub show_label_picker: bool,
+    // Removed unused fields: show_project_picker, show_label_picker
 }
 
 impl FormEditState {
@@ -35,8 +34,7 @@ impl FormEditState {
             task_id: task.id,
             comment: String::new(),
             cursor_position: 0,
-            show_project_picker: false,
-            show_label_picker: false,
+            // Removed unused fields: show_project_picker, show_label_picker
         }
     }
     pub fn get_field_count() -> usize {
@@ -53,33 +51,5 @@ impl FormEditState {
             _ => String::new(),
         }
     }
-    pub fn set_current_field_text(&mut self, text: String) {
-        match self.field_index {
-            0 => {
-                self.title = text;
-                self.cursor_position = self.title.len();
-            },
-            1 => {
-                self.description = text;
-                self.cursor_position = self.description.len();
-            },
-            2 => {
-                self.due_date = if text.is_empty() { None } else { Some(text) };
-                self.cursor_position = self.due_date.as_ref().map(|s| s.len()).unwrap_or(0);
-            },
-            3 => {
-                self.start_date = if text.is_empty() { None } else { Some(text) };
-                self.cursor_position = self.start_date.as_ref().map(|s| s.len()).unwrap_or(0);
-            },
-            4 => {
-                self.priority = text.parse().ok();
-                self.cursor_position = text.len();
-            },
-            9 => {
-                self.comment = text;
-                self.cursor_position = self.comment.len();
-            },
-            _ => {}
-        }
-    }
+    // Removed unused method: set_current_field_text
 }

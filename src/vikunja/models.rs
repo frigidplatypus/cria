@@ -198,6 +198,7 @@ impl Default for Task {
 }
 
 impl Task {
+    #[allow(dead_code)]
     pub fn to_vikunja_task(&self) -> crate::vikunja_client::tasks::VikunjaTask {
         crate::vikunja_client::tasks::VikunjaTask {
             id: Some(self.id as u64),

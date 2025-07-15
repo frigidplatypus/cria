@@ -10,15 +10,18 @@ impl App {
         self.selected_project_picker_index = 0;
         self.update_filtered_projects();
     }
+    #[allow(dead_code)]
     pub fn hide_project_picker(&mut self) {
         self.show_project_picker = false;
         self.project_picker_input.clear();
     }
+    #[allow(dead_code)]
     pub fn add_char_to_project_picker(&mut self, c: char) {
         self.project_picker_input.push(c);
         self.update_filtered_projects();
         self.selected_project_picker_index = 0; // Reset selection to first item
     }
+    #[allow(dead_code)]
     pub fn delete_char_from_project_picker(&mut self) {
         if !self.project_picker_input.is_empty() {
             self.project_picker_input.pop();
@@ -26,16 +29,19 @@ impl App {
             self.selected_project_picker_index = 0; // Reset selection to first item
         }
     }
+    #[allow(dead_code)]
     pub fn move_project_picker_up(&mut self) {
         if !self.filtered_projects.is_empty() {
             self.selected_project_picker_index = (self.selected_project_picker_index + self.filtered_projects.len() - 1) % self.filtered_projects.len();
         }
     }
+    #[allow(dead_code)]
     pub fn move_project_picker_down(&mut self) {
         if !self.filtered_projects.is_empty() {
             self.selected_project_picker_index = (self.selected_project_picker_index + 1) % self.filtered_projects.len();
         }
     }
+    #[allow(dead_code)]
     pub fn select_project_picker(&mut self) {
         if let Some((project_id, project_name)) = self.filtered_projects.get(self.selected_project_picker_index).cloned() {
             let picker_context = self.picker_context.clone();

@@ -36,6 +36,7 @@ impl super::VikunjaClient {
             }
         }
     }
+    #[allow(dead_code)]
     pub async fn get_tasks_for_filter(&self, filter_id: i64) -> reqwest::Result<Vec<crate::vikunja::models::Task>> {
         let url = if filter_id < 0 {
             format!("{}/api/v1/projects/{}/tasks", self.base_url, filter_id)

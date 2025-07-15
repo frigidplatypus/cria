@@ -11,17 +11,20 @@ impl App {
         self.update_filtered_labels();
     }
     
+    #[allow(dead_code)]
     pub fn hide_label_picker(&mut self) {
         self.show_label_picker = false;
         self.label_picker_input.clear();
     }
     
+    #[allow(dead_code)]
     pub fn add_char_to_label_picker(&mut self, c: char) {
         self.label_picker_input.push(c);
         self.update_filtered_labels();
         self.selected_label_picker_index = 0; // Reset selection to first item
     }
     
+    #[allow(dead_code)]
     pub fn delete_char_from_label_picker(&mut self) {
         if !self.label_picker_input.is_empty() {
             self.label_picker_input.pop();
@@ -30,18 +33,21 @@ impl App {
         }
     }
     
+    #[allow(dead_code)]
     pub fn move_label_picker_up(&mut self) {
         if !self.filtered_labels.is_empty() {
             self.selected_label_picker_index = (self.selected_label_picker_index + self.filtered_labels.len() - 1) % self.filtered_labels.len();
         }
     }
     
+    #[allow(dead_code)]
     pub fn move_label_picker_down(&mut self) {
         if !self.filtered_labels.is_empty() {
             self.selected_label_picker_index = (self.selected_label_picker_index + 1) % self.filtered_labels.len();
         }
     }
     
+    #[allow(dead_code)]
     pub fn toggle_label_picker(&mut self) {
         if let Some(label) = self.filtered_labels.get(self.selected_label_picker_index) {
             let label_id = label.0;
@@ -60,6 +66,7 @@ impl App {
         }
     }
     
+    #[allow(dead_code)]
     pub fn select_label_picker(&mut self) {
         let picker_context = self.picker_context.clone();
         self.hide_label_picker();

@@ -2,6 +2,7 @@ use crate::vikunja::models::Task;
 
 #[derive(Clone, Debug)]
 pub enum UndoableAction {
+    #[allow(dead_code)]
     TaskCompletion {
         task_id: i64,
         previous_state: bool,

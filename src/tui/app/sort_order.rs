@@ -1,4 +1,5 @@
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum SortOrder {
     Default,
     TitleAZ,

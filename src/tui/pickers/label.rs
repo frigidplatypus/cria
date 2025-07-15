@@ -2,6 +2,7 @@
 use crate::tui::app::state::App;
 use crossterm::event::KeyEvent;
 
+#[allow(dead_code)]
 pub fn handle_label_picker(app: &mut App, key: &KeyEvent) {
     use crossterm::event::KeyCode;
     match key.code {

@@ -4,6 +4,7 @@ use crate::tui::app::pending_action::PendingAction;
 use crate::vikunja::models::Task;
 
 impl App {
+    #[allow(dead_code)]
     pub fn toggle_task_completion(&mut self) -> Option<i64> {
         let (task_id, task_title, new_state, previous_state) = if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
             let previous_state = task.done;
@@ -52,6 +53,7 @@ impl App {
     }
 
     /// Test-only synchronous version of toggle_star_selected_task for unit tests
+    #[allow(dead_code)]
     pub fn toggle_star_selected_task(&mut self) -> Option<i64> {
         if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
             task.is_favorite = !task.is_favorite;
@@ -95,6 +97,7 @@ impl App {
         }
     }
     /// Test-only synchronous version of confirm_action for unit tests
+    #[allow(dead_code)]
     pub fn confirm_action(&mut self) -> Option<i64> {
         let action = self.pending_action.take();
         self.show_confirmation_dialog = false;
@@ -131,6 +134,7 @@ impl App {
         }
     }
     /// Test-only synchronous version of execute_delete_task for unit tests
+    #[allow(dead_code)]
     pub fn execute_delete_task(&mut self, task_id: i64) { 
         if let Some(pos) = self.tasks.iter().position(|t| t.id == task_id) {
             let task = self.tasks.remove(pos);

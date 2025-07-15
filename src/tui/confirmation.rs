@@ -8,6 +8,7 @@ use chrono::Local;
 use crate::tui::app::pending_action::PendingAction;
 
 // Confirmation dialog handler
+#[allow(dead_code)]
 pub async fn handle_confirmation_dialog(
     app: &mut App,
     key: &KeyEvent,
