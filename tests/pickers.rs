@@ -2,7 +2,6 @@
 
 use cria::config::CriaConfig;
 use cria::tui::app::state::App;
-use cria::tui::app::task_filter::TaskFilter;
 
 #[test]
 fn test_project_picker_events() {

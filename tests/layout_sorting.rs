@@ -4,7 +4,6 @@ use cria::config::{CriaConfig, TaskColumn, TableColumn, ColumnLayout, ColumnSort
 use cria::tui::app::state::App;
 use cria::tui::app::sort_order::SortOrder;
 use cria::vikunja::models::Task;
-use std::collections::HashMap;
 
 #[test]
 fn test_column_layout_creation() {

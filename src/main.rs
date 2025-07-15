@@ -14,7 +14,6 @@ mod config;
 mod first_run;
 
 use crate::debug::debug_log;
-use crate::tui::app::state::App;
 use crate::tui::app::sort_order::SortOrder;
 
 fn main() {

@@ -509,7 +509,7 @@ fn test_task_filter_header_display() {
 
 #[test]
 fn test_apply_label_quick_action() {
-    use cria::vikunja::models::{Task, Label};
+    use cria::vikunja::models::Task;
     use cria::tui::app::state::App;
     use cria::config::{CriaConfig, QuickAction};
 
