@@ -198,6 +198,30 @@ impl Default for Task {
 }
 
 impl Task {
+    pub fn to_vikunja_task(&self) -> crate::vikunja_client::tasks::VikunjaTask {
+        crate::vikunja_client::tasks::VikunjaTask {
+            id: Some(self.id as u64),
+            title: self.title.clone(),
+            description: self.description.clone(),
+            done: Some(self.done),
+            priority: self.priority.map(|p| p as u8),
+            due_date: self.due_date,
+            start_date: self.start_date,
+            project_id: self.project_id as u64,
+            labels: self.labels.as_ref().map(|labels| labels.iter().map(|l| crate::vikunja_client::tasks::VikunjaLabel {
+                id: Some(l.id as u64),
+                title: l.title.clone(),
+                hex_color: l.hex_color.clone(),
+            }).collect()),
+            assignees: self.assignees.as_ref().map(|assignees| assignees.iter().map(|a| crate::vikunja_client::VikunjaUser {
+                id: Some(a.id as u64),
+                username: a.username.clone(),
+                name: a.name.clone(),
+                email: a.email.clone(),
+            }).collect()),
+            is_favorite: Some(self.is_favorite),
+        }
+    }
     pub fn from_vikunja_task(vikunja_task: crate::vikunja_client::tasks::VikunjaTask) -> Self {
         Self {
             id: vikunja_task.id.unwrap_or(0) as i64,

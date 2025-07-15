@@ -11,6 +11,8 @@ use crate::tui::app::undoable_action::UndoableAction;
 use crate::tui::app::pending_action::PendingAction;
 use crate::tui::app::suggestion_mode::SuggestionMode;
 
+mod confirm_quit_ext;
+
 pub struct App {
     pub config: CriaConfig,
     pub running: bool,
