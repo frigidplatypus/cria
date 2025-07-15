@@ -66,6 +66,11 @@ Create tasks using natural language with special syntax:
 - `every 2 weeks` - Every 2 weeks
 - `every month` - Monthly
 
+#### Creation Commands
+- `new-label:label_name` - Create a new label and apply it to the task
+- `new-project:[Project Name]` - Create a new project and assign the task to it
+- `new-project:SimpleProject` - Create a new project (single word)
+
 ### Examples
 
 ```
@@ -74,6 +79,8 @@ Review proposal *urgent *"high priority" @jane @"john doe" +"Client Work" next m
 Call mom next friday at 2:30pm *personal
 Pay rent 15th !3 +finances
 Team meeting this weekend *important +work
+new-label:urgent Buy groceries *shopping +personal
+new-project:[Work Stuff] Plan meeting new-label:brainstorming
 ```
 
 ### Keyboard Shortcuts in Modal

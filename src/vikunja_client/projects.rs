@@ -54,9 +54,9 @@ impl super::VikunjaClient {
     #[allow(dead_code)]
     pub async fn create_project(&self, title: &str, color: &str) -> reqwest::Result<VikunjaProject> {
         let url = format!("{}/api/v1/projects", self.base_url);
-        let payload = serde_json::json!({"title": title, "color": color});
-        let resp = self.client.post(&url)
-            .bearer_auth(&self.auth_token)
+        let payload = serde_json::json!({"title": title, "hex_color": color});
+        let resp = self.client.put(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
             .json(&payload)
             .send()
             .await?;

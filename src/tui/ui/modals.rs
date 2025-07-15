@@ -140,6 +140,8 @@ pub fn draw_quick_add_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::raw("• "), Span::styled("Fix bug +work !3", Style::default().fg(Color::White)), Span::raw(" - sets project & priority")]),
         Line::from(vec![Span::raw("• "), Span::styled("Call mom tomorrow at 2pm", Style::default().fg(Color::White)), Span::raw(" - sets due date")]),
         Line::from(vec![Span::raw("• "), Span::styled("Team meeting every Monday", Style::default().fg(Color::White)), Span::raw(" - recurring task")]),
+        Line::from(vec![Span::raw("• "), Span::styled("new-label:urgent Buy groceries", Style::default().fg(Color::White)), Span::raw(" - creates & applies new label")]),
+        Line::from(vec![Span::raw("• "), Span::styled("new-project:[Work Stuff] Plan meeting", Style::default().fg(Color::White)), Span::raw(" - creates & assigns new project")]),
         Line::from("") ,
         Line::from(vec![
             Span::styled("Syntax: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -258,6 +260,8 @@ pub fn draw_edit_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::raw("• "), Span::styled("Fix bug +work !3", Style::default().fg(Color::White)), Span::raw(" - sets project & priority")]),
         Line::from(vec![Span::raw("• "), Span::styled("Call mom tomorrow at 2pm", Style::default().fg(Color::White)), Span::raw(" - sets due date")]),
         Line::from(vec![Span::raw("• "), Span::styled("Team meeting every Monday", Style::default().fg(Color::White)), Span::raw(" - recurring task")]),
+        Line::from(vec![Span::raw("• "), Span::styled("new-label:urgent Buy groceries", Style::default().fg(Color::White)), Span::raw(" - creates & applies new label")]),
+        Line::from(vec![Span::raw("• "), Span::styled("new-project:[Work Stuff] Plan meeting", Style::default().fg(Color::White)), Span::raw(" - creates & assigns new project")]),
         Line::from(""),
         Line::from(vec![
             Span::styled("Syntax: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
