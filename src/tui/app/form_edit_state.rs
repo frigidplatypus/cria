@@ -1,3 +1,52 @@
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vikunja::models::Task;
+
+    fn mock_task() -> Task {
+        Task {
+            id: 1,
+            title: "Test Task".to_string(),
+            description: Some("Description".to_string()),
+            due_date: None,
+            start_date: None,
+            priority: Some(2),
+            project_id: 42,
+            labels: None,
+            assignees: None,
+            is_favorite: false,
+            // ...add other fields as needed with default/mock values
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_new_form_edit_state() {
+        let task = mock_task();
+        let form = FormEditState::new(&task);
+        assert_eq!(form.title, "Test Task");
+        assert_eq!(form.description, "Description");
+        assert_eq!(form.project_id, 42);
+        assert_eq!(form.priority, Some(2));
+    }
+
+    #[test]
+    fn test_get_current_field_text() {
+        let mut form = FormEditState::new(&mock_task());
+        form.field_index = 0;
+        assert_eq!(form.get_current_field_text(), "Test Task");
+        form.field_index = 1;
+        assert_eq!(form.get_current_field_text(), "Description");
+    }
+
+    #[test]
+    fn test_set_current_field_text_title() {
+        let mut form = FormEditState::new(&mock_task());
+        form.field_index = 0;
+        form.set_current_field_text("New Title".to_string());
+        assert_eq!(form.title, "New Title");
+    }
+}
 use crate::vikunja::models::Task;
 
 #[derive(Clone, Debug)]
