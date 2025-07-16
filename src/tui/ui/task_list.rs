@@ -1,6 +1,6 @@
 // Task list rendering
 
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use crate::config::{TaskColumn, TableColumn};
 use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};

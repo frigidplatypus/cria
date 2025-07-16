@@ -2,7 +2,7 @@
 // This demonstrates more sophisticated testing strategies for TUI applications
 
 use cria::config::{CriaConfig, QuickAction};
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 use cria::vikunja::models::{Task, Label};
 use chrono::{NaiveDate, TimeZone, Utc};
 use crossterm::event::KeyCode;

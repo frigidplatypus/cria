@@ -172,11 +172,13 @@ impl CriaConfig {
     }
 
     /// Get the refresh interval in seconds, with a default of 300 seconds (5 minutes)
+    #[allow(dead_code)]
     pub fn get_refresh_interval_seconds(&self) -> u64 {
         self.refresh_interval_seconds.unwrap_or(300)
     }
 
     /// Check if auto refresh is enabled, defaults to true
+    #[allow(dead_code)]
     pub fn is_auto_refresh_enabled(&self) -> bool {
         self.auto_refresh.unwrap_or(true)
     }

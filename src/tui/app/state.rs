@@ -3,158 +3,15 @@ use crate::tui::utils::{normalize_string, fuzzy_match_score};
 use std::collections::HashMap;
 use chrono::{DateTime, Local, Datelike};
 use crate::config::CriaConfig;
+use crate::tui::app::form_edit_state::FormEditState;
+use crate::tui::app::sort_order::SortOrder;
+use crate::tui::app::picker_context::PickerContext;
+use crate::tui::app::task_filter::TaskFilter;
+use crate::tui::app::undoable_action::UndoableAction;
+use crate::tui::app::pending_action::PendingAction;
+use crate::tui::app::suggestion_mode::SuggestionMode;
 
-#[allow(dead_code)]
-#[derive(Clone, Debug, PartialEq)]
-pub enum TaskFilter {
-    ActiveOnly,    // Hide completed tasks (default)
-    All,          // Show all tasks
-    CompletedOnly, // Show only completed tasks
-}
-
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-pub enum UndoableAction {
-    TaskCompletion { 
-        task_id: i64, 
-        previous_state: bool 
-    },
-    TaskDeletion { 
-        task: Task, 
-        position: usize 
-    },
-    TaskCreation { 
-        task_id: i64 
-    },
-    TaskEdit { 
-        task_id: i64, 
-        previous_task: Task 
-    },
-}
-
-#[derive(Clone, Debug)]
-pub enum PendingAction {
-    DeleteTask { task_id: i64 },
-    QuitApp,
-}
-
-#[derive(Clone, Debug)]
-pub enum SuggestionMode {
-    Label,
-    Project,
-}
-
-#[derive(Clone, Debug)]
-pub struct FormEditState {
-    pub field_index: usize,
-    pub title: String,
-    pub description: String,
-    pub due_date: Option<String>,
-    pub start_date: Option<String>,
-    pub priority: Option<i32>,
-    pub project_id: i64,
-    pub label_ids: Vec<i64>,
-    pub assignee_ids: Vec<i64>,
-    pub is_favorite: bool,
-    pub task_id: i64,
-    pub comment: String,
-    pub cursor_position: usize,
-    #[allow(dead_code)]
-    pub show_project_picker: bool,
-    #[allow(dead_code)]
-    pub show_label_picker: bool,
-}
-
-impl FormEditState {
-    pub fn new(task: &Task) -> Self {
-        Self {
-            field_index: 0,
-            title: task.title.clone(),
-            description: task.description.clone().unwrap_or_default(),
-            due_date: task.due_date.map(|d| d.format("%Y-%m-%d").to_string()),
-            start_date: task.start_date.map(|d| d.format("%Y-%m-%d").to_string()),
-            priority: task.priority,
-            project_id: task.project_id,
-            label_ids: task.labels.as_ref().map(|labels| labels.iter().map(|l| l.id).collect()).unwrap_or_default(),
-            assignee_ids: task.assignees.as_ref().map(|assignees| assignees.iter().map(|a| a.id).collect()).unwrap_or_default(),
-            is_favorite: task.is_favorite,
-            task_id: task.id,
-            comment: String::new(),
-            cursor_position: 0,
-            show_project_picker: false,
-            show_label_picker: false,
-        }
-    }
-    
-    pub fn get_field_count() -> usize {
-        10 // title, description, due_date, start_date, priority, project, labels, assignees, is_favorite, comment
-    }
-    
-    pub fn get_current_field_text(&self) -> String {
-        match self.field_index {
-            0 => self.title.clone(),
-            1 => self.description.clone(),
-            2 => self.due_date.clone().unwrap_or_default(),
-            3 => self.start_date.clone().unwrap_or_default(),
-            4 => self.priority.map(|p| p.to_string()).unwrap_or_default(),
-            9 => self.comment.clone(),
-            _ => String::new(),
-        }
-    }
-    
-    #[allow(dead_code)]
-    pub fn set_current_field_text(&mut self, text: String) {
-        match self.field_index {
-            0 => {
-                self.title = text;
-                self.cursor_position = self.title.len();
-            },
-            1 => {
-                self.description = text;
-                self.cursor_position = self.description.len();
-            },
-            2 => {
-                self.due_date = if text.is_empty() { None } else { Some(text) };
-                self.cursor_position = self.due_date.as_ref().map(|s| s.len()).unwrap_or(0);
-            },
-            3 => {
-                self.start_date = if text.is_empty() { None } else { Some(text) };
-                self.cursor_position = self.start_date.as_ref().map(|s| s.len()).unwrap_or(0);
-            },
-            4 => {
-                self.priority = text.parse().ok();
-                self.cursor_position = text.len();
-            },
-            9 => {
-                self.comment = text;
-                self.cursor_position = self.comment.len();
-            },
-            _ => {}
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-#[allow(dead_code)] // Future sort options
-pub enum SortOrder {
-    Default,
-    TitleAZ,
-    TitleZA,
-    PriorityHighToLow,
-    PriorityLowToHigh,
-    FavoriteStarredFirst, // NEW: Sort by favorite status (starred first)
-    DueDateEarliestFirst, // Sort by due date (earliest first)
-    DueDateLatestFirst,   // Sort by due date (latest first)
-    StartDateEarliestFirst, // Sort by start date (earliest first)
-    StartDateLatestFirst,   // Sort by start date (latest first)
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum PickerContext {
-    None,
-    FormEditProject,
-    FormEditLabel,
-}
+mod confirm_quit_ext;
 
 pub struct App {
     pub config: CriaConfig,
@@ -247,6 +104,37 @@ pub struct App {
 
 #[allow(dead_code)]
 impl App {
+    /// Open the label picker from the form editor, preserving form state and context
+    pub fn open_label_picker_from_form(&mut self) {
+        // Do not close all modals, just hide the form modal
+        self.show_form_edit_modal = false;
+        self.show_label_picker = true;
+        self.label_picker_input.clear();
+        self.selected_label_picker_index = 0;
+        // Pre-select labels already in the form state
+        if let Some(ref form) = self.form_edit_state {
+            self.selected_label_ids = form.label_ids.clone();
+        }
+        self.update_filtered_labels();
+        self.picker_context = PickerContext::FormEditLabel;
+    }
+
+    /// Open the project picker from the form editor, preserving form state and context
+    pub fn open_project_picker_from_form(&mut self) {
+        // Do not close all modals, just hide the form modal
+        self.show_form_edit_modal = false;
+        self.show_project_picker = true;
+        self.project_picker_input.clear();
+        self.selected_project_picker_index = 0;
+        // Pre-select project already in the form state
+        if let Some(ref form) = self.form_edit_state {
+            self.current_project_id = Some(form.project_id);
+        }
+        self.update_filtered_projects();
+        self.picker_context = PickerContext::FormEditProject;
+    }
+    // ...existing code...
+    // ...existing code...
     pub fn new_with_config(config: CriaConfig, default_project_name: String) -> Self {
         let current_layout_name = config.get_active_layout_name();
         Self {
@@ -416,19 +304,31 @@ impl App {
         
         if let Some(labels) = &task.labels {
             for label in labels {
-                result.push_str(&format!(" *{}", label.title));
+                if label.title.contains(' ') {
+                    result.push_str(&format!(" *[{}]", label.title));
+                } else {
+                    result.push_str(&format!(" *{}", label.title));
+                }
             }
         }
         
         if let Some(assignees) = &task.assignees {
             for assignee in assignees {
-                result.push_str(&format!(" @{}", assignee.username));
+                if assignee.username.contains(' ') {
+                    result.push_str(&format!(" @[{}]", assignee.username));
+                } else {
+                    result.push_str(&format!(" @{}", assignee.username));
+                }
             }
         }
         
         if let Some(project_name) = self.project_map.get(&task.project_id) {
             if project_name != "Inbox" && task.project_id != 1 {
-                result.push_str(&format!(" +{}", project_name));
+                if project_name.contains(' ') {
+                    result.push_str(&format!(" +[{}]", project_name));
+                } else {
+                    result.push_str(&format!(" +{}", project_name));
+                }
             }
         }
         
@@ -663,6 +563,9 @@ impl App {
         self.show_quick_add_modal = false;
         self.show_edit_modal = false;
         self.show_form_edit_modal = false;
+        self.show_project_picker = false;
+        self.show_filter_picker = false;
+        self.show_confirmation_dialog = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
         // Reset modal state
@@ -1019,5 +922,40 @@ impl App {
         }
         
         result
+    }
+
+    pub fn cycle_filter_backward(&mut self) {
+        if self.filters.is_empty() { return; }
+        let idx = match self.current_filter_id {
+            Some(id) => self.filters.iter().position(|(fid, _)| *fid == id).unwrap_or(0),
+            None => 0,
+        };
+        let new_idx = if idx == 0 { self.filters.len() - 1 } else { idx - 1 };
+        self.current_filter_id = Some(self.filters[new_idx].0);
+        self.selected_filter_picker_index = new_idx;
+    }
+    pub fn cycle_filter_forward(&mut self) {
+        if self.filters.is_empty() { return; }
+        let idx = match self.current_filter_id {
+            Some(id) => self.filters.iter().position(|(fid, _)| *fid == id).unwrap_or(0),
+            None => 0,
+        };
+        let new_idx = if idx + 1 >= self.filters.len() { 0 } else { idx + 1 };
+        self.current_filter_id = Some(self.filters[new_idx].0);
+        self.selected_filter_picker_index = new_idx;
+    }
+    pub fn refresh_all(&mut self) {
+        self.refreshing = true;
+        // This should trigger a reload of tasks, projects, filters, etc. in the main event loop
+        self.add_debug_message("Refreshing all data (tasks, projects, filters)".to_string());
+    }
+
+    /// Applies the edit modal's input to the selected task (simple title update for demonstration)
+    pub fn apply_edit_modal(&mut self) {
+        if let Some(idx) = self.tasks.get(self.selected_task_index).map(|_| self.selected_task_index) {
+            // For demonstration, just update the title to the edit_input
+            // In a real app, you'd parse the magic syntax and update all fields
+            self.tasks[idx].title = self.edit_input.clone();
+        }
     }
 }

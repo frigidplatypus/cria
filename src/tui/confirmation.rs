@@ -1,12 +1,14 @@
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::debug::debug_log;
 use chrono::Local;
+use crate::tui::app::pending_action::PendingAction;
 
 // Confirmation dialog handler
+#[allow(dead_code)]
 pub async fn handle_confirmation_dialog(
     app: &mut App,
     key: &KeyEvent,
@@ -19,7 +21,7 @@ pub async fn handle_confirmation_dialog(
             // Confirm the action
             if let Some(pending_action) = app.pending_action.take() {
                 match pending_action {
-                    crate::tui::app::PendingAction::DeleteTask { task_id } => {
+                    PendingAction::DeleteTask { task_id } => {
                         debug_log(&format!("Confirmed delete for task ID: {}", task_id));
                         // Call delete API and refresh tasks (existing logic)
                         let api_client_guard = api_client.lock().await;
@@ -42,7 +44,7 @@ pub async fn handle_confirmation_dialog(
                         app.flash_cycle_max = 6;
                         app.show_confirmation_dialog = false;
                     }
-                    crate::tui::app::PendingAction::QuitApp => {
+                    PendingAction::QuitApp => {
                         app.quit();
                         app.show_confirmation_dialog = false;
                     }

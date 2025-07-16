@@ -1,5 +1,5 @@
 use cria::config::{CriaConfig, SortDirection};
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 use cria::vikunja::models::Task;
 use chrono::{Utc, TimeZone};
 

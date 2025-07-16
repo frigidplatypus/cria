@@ -1,5 +1,5 @@
 use cria::config::{CriaConfig, QuickAction};
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 
 #[test]
 fn test_quick_actions_modal_colorization() {

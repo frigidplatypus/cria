@@ -2,7 +2,7 @@
 // This tests the actual UI drawing functions
 
 use cria::config::{CriaConfig, QuickAction};
-use cria::tui::app::App;
+use cria::tui::app::state::App;
 use cria::tui::ui::modals::{draw_quick_actions_modal, draw_help_modal, draw_sort_modal};
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;

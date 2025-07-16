@@ -2,7 +2,8 @@
 // Tests all modal functionality without GUI
 
 use cria::config::{CriaConfig, QuickAction};
-use cria::tui::app::App;
+use cria::tui::app::state::App;
+use cria::tui::app::sort_order::SortOrder;
 use cria::vikunja::models::{Task, Label};
 use chrono::{NaiveDate, TimeZone, Utc};
 
@@ -198,12 +199,12 @@ fn test_sort_modal_functionality() {
     // Test applying sort
     app.selected_sort_index = 1; // TitleAZ
     let sort = match app.selected_sort_index {
-        0 => cria::tui::app::SortOrder::Default,
-        1 => cria::tui::app::SortOrder::TitleAZ,
-        2 => cria::tui::app::SortOrder::TitleZA,
-        3 => cria::tui::app::SortOrder::PriorityHighToLow,
-        4 => cria::tui::app::SortOrder::PriorityLowToHigh,
-        _ => cria::tui::app::SortOrder::Default,
+        0 => SortOrder::Default,
+        1 => SortOrder::TitleAZ,
+        2 => SortOrder::TitleZA,
+        3 => SortOrder::PriorityHighToLow,
+        4 => SortOrder::PriorityLowToHigh,
+        _ => SortOrder::Default,
     };
     app.apply_sort(sort);
     

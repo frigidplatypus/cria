@@ -1,45 +1,67 @@
-use crate::tui::app::App;
+use crate::tui::app::state::App;
+use crate::tui::app::suggestion_mode::SuggestionMode;
 use crate::tui::utils::{get_label_color, get_project_color};
 use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Paragraph, Block, Borders, Clear, Wrap};
 use ratatui::text::{Line, Span};
 
-fn colorize_quickadd_input<'a>(input: &'a str, app: &'a crate::tui::app::App) -> Vec<ratatui::text::Span<'a>> {
+fn colorize_quickadd_input<'a>(input: &'a str, app: &'a App) -> Vec<ratatui::text::Span<'a>> {
     let mut spans = Vec::new();
     let mut chars = input.char_indices().peekable();
     let mut last = 0;
+    
     while let Some((i, c)) = chars.next() {
         if c == '*' || c == '+' {
             // Push previous text
             if last < i {
                 spans.push(ratatui::text::Span::raw(&input[last..i]));
             }
+            
             let start = i;
             let mut end = start + 1; // Start after the '*' or '+'
-            // Find end of token (space or end of string)
-            while let Some(&(j, nc)) = chars.peek() {
-                if nc == ' ' || nc == '\n' {
-                    break;
-                }
+            
+            // Check if next character is '[' for bracketed syntax
+            if let Some(&(_, '[')) = chars.peek() {
+                // Skip the '['
                 chars.next();
-                end = j + nc.len_utf8();
+                end += 1;
+                
+                // Find the closing ']'
+                while let Some(&(j, nc)) = chars.peek() {
+                    chars.next();
+                    end = j + nc.len_utf8();
+                    if nc == ']' {
+                        break;
+                    }
+                }
+            } else {
+                // Find end of token (space or end of string)
+                while let Some(&(j, nc)) = chars.peek() {
+                    if nc == ' ' || nc == '\n' {
+                        break;
+                    }
+                    chars.next();
+                    end = j + nc.len_utf8();
+                }
             }
+            
             let token = &input[start..end];
             if c == '*' {
                 // Label
-                let label_name = token.trim_start_matches('*');
+                let label_name = token.trim_start_matches('*').trim_matches(['[', ']'].as_ref());
                 let color = get_label_color(label_name, app);
                 spans.push(ratatui::text::Span::styled(token, Style::default().fg(color)));
             } else if c == '+' {
                 // Project
-                let project_name = token.trim_start_matches('+');
+                let project_name = token.trim_start_matches('+').trim_matches(['[', ']'].as_ref());
                 let color = get_project_color(project_name, app);
                 spans.push(ratatui::text::Span::styled(token, Style::default().fg(color)));
             }
             last = end;
         }
     }
+    
     if last < input.len() {
         spans.push(ratatui::text::Span::raw(&input[last..]));
     }
@@ -93,8 +115,8 @@ pub fn draw_quick_add_modal(f: &mut Frame, app: &App) {
             .take(max_visible)
             .map(|(i, s)| {
                 let (color, prefix) = match app.suggestion_mode {
-                    Some(crate::tui::app::SuggestionMode::Label) => (get_label_color(s, app), "*"),
-                    Some(crate::tui::app::SuggestionMode::Project) => (get_project_color(s, app), "+"),
+                    Some(SuggestionMode::Label) => (get_label_color(s, app), "*"),
+                    Some(SuggestionMode::Project) => (get_project_color(s, app), "+"),
                     _ => (Color::Gray, "")
                 };
                 let styled = Span::styled(format!("{}{}", prefix, s), Style::default().fg(color));
@@ -139,6 +161,8 @@ pub fn draw_quick_add_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::raw("• "), Span::styled("Fix bug +work !3", Style::default().fg(Color::White)), Span::raw(" - sets project & priority")]),
         Line::from(vec![Span::raw("• "), Span::styled("Call mom tomorrow at 2pm", Style::default().fg(Color::White)), Span::raw(" - sets due date")]),
         Line::from(vec![Span::raw("• "), Span::styled("Team meeting every Monday", Style::default().fg(Color::White)), Span::raw(" - recurring task")]),
+        Line::from(vec![Span::raw("• "), Span::styled("new-label:urgent Buy groceries", Style::default().fg(Color::White)), Span::raw(" - creates & applies new label")]),
+        Line::from(vec![Span::raw("• "), Span::styled("new-project:[Work Stuff] Plan meeting", Style::default().fg(Color::White)), Span::raw(" - creates & assigns new project")]),
         Line::from("") ,
         Line::from(vec![
             Span::styled("Syntax: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -213,8 +237,8 @@ pub fn draw_edit_modal(f: &mut Frame, app: &App) {
             .take(max_visible)
             .map(|(i, s)| {
                 let (color, prefix) = match app.suggestion_mode {
-                    Some(crate::tui::app::SuggestionMode::Label) => (get_label_color(s, app), "*"),
-                    Some(crate::tui::app::SuggestionMode::Project) => (get_project_color(s, app), "+"),
+                    Some(SuggestionMode::Label) => (get_label_color(s, app), "*"),
+                    Some(SuggestionMode::Project) => (get_project_color(s, app), "+"),
                     _ => (Color::Gray, "")
                 };
                 let styled = Span::styled(format!("{}{}", prefix, s), Style::default().fg(color));
@@ -257,6 +281,8 @@ pub fn draw_edit_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::raw("• "), Span::styled("Fix bug +work !3", Style::default().fg(Color::White)), Span::raw(" - sets project & priority")]),
         Line::from(vec![Span::raw("• "), Span::styled("Call mom tomorrow at 2pm", Style::default().fg(Color::White)), Span::raw(" - sets due date")]),
         Line::from(vec![Span::raw("• "), Span::styled("Team meeting every Monday", Style::default().fg(Color::White)), Span::raw(" - recurring task")]),
+        Line::from(vec![Span::raw("• "), Span::styled("new-label:urgent Buy groceries", Style::default().fg(Color::White)), Span::raw(" - creates & applies new label")]),
+        Line::from(vec![Span::raw("• "), Span::styled("new-project:[Work Stuff] Plan meeting", Style::default().fg(Color::White)), Span::raw(" - creates & assigns new project")]),
         Line::from(""),
         Line::from(vec![
             Span::styled("Syntax: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),

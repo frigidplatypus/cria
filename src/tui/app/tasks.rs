@@ -1,7 +1,10 @@
-use super::state::{App, UndoableAction, PendingAction};
+use super::state::App;
+use crate::tui::app::undoable_action::UndoableAction;
+use crate::tui::app::pending_action::PendingAction;
 use crate::vikunja::models::Task;
 
 impl App {
+    #[allow(dead_code)]
     pub fn toggle_task_completion(&mut self) -> Option<i64> {
         let (task_id, task_title, new_state, previous_state) = if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
             let previous_state = task.done;
@@ -28,17 +31,43 @@ impl App {
         }
         Some(task_id)
     }
-    pub fn toggle_star_selected_task(&mut self) -> Option<i64> {
+    pub async fn toggle_star_selected_task_async(&mut self, client: &crate::vikunja_client::VikunjaClient) -> Option<i64> {
         let (task_id, task_title, is_favorite) = if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
             task.is_favorite = !task.is_favorite;
             (task.id, task.title.clone(), task.is_favorite)
         } else {
             return None;
         };
-        self.add_debug_message(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
-        self.show_toast(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
+        // Call API to update favorite status
+        match client.set_task_favorite(task_id as u64, is_favorite).await {
+            Ok(_) => {
+                self.add_debug_message(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
+                self.show_toast(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
+            },
+            Err(e) => {
+                self.add_debug_message(format!("Failed to update favorite: {}", e));
+                self.show_toast(format!("Failed to update favorite: {}", e));
+            }
+        }
         Some(task_id)
     }
+
+    /// Test-only synchronous version of toggle_star_selected_task for unit tests
+    #[allow(dead_code)]
+    pub fn toggle_star_selected_task(&mut self) -> Option<i64> {
+        if let Some(task) = self.tasks.get_mut(self.selected_task_index) {
+            task.is_favorite = !task.is_favorite;
+            let task_id = task.id;
+            let task_title = task.title.clone();
+            let is_favorite = task.is_favorite;
+            self.add_debug_message(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
+            self.show_toast(format!("Task {}starred: {}", if is_favorite { "" } else { "un" }, task_title));
+            Some(task_id)
+        } else {
+            None
+        }
+    }
+
     pub fn request_delete_task(&mut self) {
         let (show, message, pending) = if let Some(task) = self.get_selected_task() {
             (true, format!("Delete task '{}'?...", task.title), Some(PendingAction::DeleteTask { task_id: task.id }))
@@ -49,6 +78,26 @@ impl App {
         self.confirmation_message = message;
         self.pending_action = pending;
     }
+    pub async fn confirm_action_async(&mut self, client: &crate::vikunja_client::VikunjaClient) -> Option<i64> {
+        let action = self.pending_action.take();
+        self.show_confirmation_dialog = false;
+        if let Some(action) = action {
+            match action {
+                PendingAction::DeleteTask { task_id } => {
+                    self.execute_delete_task_async(task_id, client).await;
+                    Some(task_id)
+                }
+                PendingAction::QuitApp => {
+                    self.quit();
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
+    /// Test-only synchronous version of confirm_action for unit tests
+    #[allow(dead_code)]
     pub fn confirm_action(&mut self) -> Option<i64> {
         let action = self.pending_action.take();
         self.show_confirmation_dialog = false;
@@ -68,6 +117,24 @@ impl App {
         }
     }
     pub fn cancel_confirmation(&mut self) { self.show_confirmation_dialog = false; self.pending_action = None; }
+    pub async fn execute_delete_task_async(&mut self, task_id: i64, client: &crate::vikunja_client::VikunjaClient) {
+        match client.delete_task(task_id).await {
+            Ok(_) => {
+                if let Some(pos) = self.tasks.iter().position(|t| t.id == task_id) {
+                    let task = self.tasks.remove(pos);
+                    self.add_debug_message(format!("Task deleted: {}", task.title));
+                    self.show_toast(format!("Task deleted: {}", task.title));
+                    self.add_to_undo_stack(UndoableAction::TaskDeletion { task, position: pos });
+                }
+            },
+            Err(e) => {
+                self.add_debug_message(format!("Failed to delete task {}: {}", task_id, e));
+                self.show_toast(format!("Failed to delete task: {}", e));
+            }
+        }
+    }
+    /// Test-only synchronous version of execute_delete_task for unit tests
+    #[allow(dead_code)]
     pub fn execute_delete_task(&mut self, task_id: i64) { 
         if let Some(pos) = self.tasks.iter().position(|t| t.id == task_id) {
             let task = self.tasks.remove(pos);

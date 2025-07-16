@@ -33,7 +33,7 @@ fn test_parse_task_with_labels() {
 fn test_colorize_input_with_labels() {
     // This tests the colorization function that was causing issues
     // We'll create a mock app and test the colorization
-    use cria::tui::app::App;
+    use cria::tui::app::state::App;
     
     let mut app = App::new_with_config(CriaConfig::default(), "Test".to_string());
     

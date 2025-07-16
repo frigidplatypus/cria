@@ -1,10 +1,11 @@
 // Filter Picker event handler split from pickers.rs
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+#[allow(dead_code)]
 pub async fn handle_filter_picker(app: &mut App, key: &KeyEvent, api_client: &Arc<Mutex<VikunjaClient>>) {
     use crossterm::event::KeyCode;
     match key.code {

@@ -1,10 +1,12 @@
-use crate::tui::app::{App, FormEditState};
+use crate::tui::app::state::App;
+use crate::tui::app::form_edit_state::FormEditState;
 use crossterm::event::KeyEvent;
 use crate::vikunja_client::VikunjaClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::debug::debug_log;
 use chrono::Local;
+use crate::tui::app::picker_context::PickerContext;
 
 pub async fn handle_form_edit_modal(
     app: &mut App, 
@@ -56,14 +58,11 @@ pub async fn handle_form_edit_modal(
                 match form.field_index {
                     5 => {
                         // Project picker - show project picker modal
-                        app.picker_context = crate::tui::app::PickerContext::FormEditProject;
-                        app.show_project_picker();
+                        app.open_project_picker_from_form();
                     }
                     6 => {
-                        // Label picker - show label picker modal
-                        app.selected_label_ids = form.label_ids.clone();
-                        app.picker_context = crate::tui::app::PickerContext::FormEditLabel;
-                        app.show_label_picker();
+                        // Label picker - always wire up: use App method to open label picker from form
+                        app.open_label_picker_from_form();
                     }
                     8 => {
                         // Toggle favorite

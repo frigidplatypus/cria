@@ -1,6 +1,6 @@
 // Main layout and entry point for TUI drawing
 
-use crate::tui::app::App;
+use crate::tui::app::state::App;
 use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Paragraph, Block, Borders, Clear};
@@ -60,6 +60,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         draw_tasks_table(f, app, chunks[0]);
         draw_task_details(f, app, chunks[1]);
     } else {
+        // Info pane is toggled off: always draw the task list in the full area.
+        // This ensures a valid view is always rendered and prevents empty or broken UI states.
         draw_tasks_table(f, app, body_area);
     };
 
