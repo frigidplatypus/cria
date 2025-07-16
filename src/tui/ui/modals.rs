@@ -10,37 +10,58 @@ fn colorize_quickadd_input<'a>(input: &'a str, app: &'a App) -> Vec<ratatui::tex
     let mut spans = Vec::new();
     let mut chars = input.char_indices().peekable();
     let mut last = 0;
+    
     while let Some((i, c)) = chars.next() {
         if c == '*' || c == '+' {
             // Push previous text
             if last < i {
                 spans.push(ratatui::text::Span::raw(&input[last..i]));
             }
+            
             let start = i;
             let mut end = start + 1; // Start after the '*' or '+'
-            // Find end of token (space or end of string)
-            while let Some(&(j, nc)) = chars.peek() {
-                if nc == ' ' || nc == '\n' {
-                    break;
-                }
+            
+            // Check if next character is '[' for bracketed syntax
+            if let Some(&(_, '[')) = chars.peek() {
+                // Skip the '['
                 chars.next();
-                end = j + nc.len_utf8();
+                end += 1;
+                
+                // Find the closing ']'
+                while let Some(&(j, nc)) = chars.peek() {
+                    chars.next();
+                    end = j + nc.len_utf8();
+                    if nc == ']' {
+                        break;
+                    }
+                }
+            } else {
+                // Find end of token (space or end of string)
+                while let Some(&(j, nc)) = chars.peek() {
+                    if nc == ' ' || nc == '\n' {
+                        break;
+                    }
+                    chars.next();
+                    end = j + nc.len_utf8();
+                }
             }
+            
             let token = &input[start..end];
             if c == '*' {
                 // Label
-                let label_name = token.trim_start_matches('*');
+                let label_name = token.trim_start_matches('*').trim_matches(['[', ']'].as_ref());
                 let color = get_label_color(label_name, app);
                 spans.push(ratatui::text::Span::styled(token, Style::default().fg(color)));
             } else if c == '+' {
                 // Project
-                let project_name = token.trim_start_matches('+');
+                let project_name = token.trim_start_matches('+').trim_matches(['[', ']'].as_ref());
                 let color = get_project_color(project_name, app);
                 spans.push(ratatui::text::Span::styled(token, Style::default().fg(color)));
             }
             last = end;
         }
     }
+    
     if last < input.len() {
         spans.push(ratatui::text::Span::raw(&input[last..]));
     }

@@ -304,19 +304,31 @@ impl App {
         
         if let Some(labels) = &task.labels {
             for label in labels {
-                result.push_str(&format!(" *{}", label.title));
+                if label.title.contains(' ') {
+                    result.push_str(&format!(" *[{}]", label.title));
+                } else {
+                    result.push_str(&format!(" *{}", label.title));
+                }
             }
         }
         
         if let Some(assignees) = &task.assignees {
             for assignee in assignees {
-                result.push_str(&format!(" @{}", assignee.username));
+                if assignee.username.contains(' ') {
+                    result.push_str(&format!(" @[{}]", assignee.username));
+                } else {
+                    result.push_str(&format!(" @{}", assignee.username));
+                }
             }
         }
         
         if let Some(project_name) = self.project_map.get(&task.project_id) {
             if project_name != "Inbox" && task.project_id != 1 {
-                result.push_str(&format!(" +{}", project_name));
+                if project_name.contains(' ') {
+                    result.push_str(&format!(" +[{}]", project_name));
+                } else {
+                    result.push_str(&format!(" +{}", project_name));
+                }
             }
         }
         
