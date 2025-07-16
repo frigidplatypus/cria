@@ -902,10 +902,43 @@ impl super::VikunjaClient {
             Ok(())
         }
 
-        pub async fn set_task_favorite(&self, _task_id: u64, _is_favorite: bool) -> ReqwestResult<()> {
-            // This would typically be part of the update_task call
-            // For now, we can include it in the main task update
-            Ok(())
+        pub async fn set_task_favorite(&self, task_id: u64, is_favorite: bool) -> ReqwestResult<()> {
+            // Update just the favorite status by making a task update with minimal data
+            let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
+            
+            // Create a minimal task update that only changes the favorite status
+            let task_update = serde_json::json!({
+                "is_favorite": is_favorite
+            });
+            
+            debug_log(&format!("Setting task {} favorite status to: {}", task_id, is_favorite));
+            
+            let response = self.client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", self.auth_token))
+                .json(&task_update)
+                .send()
+                .await;
+                
+            match response {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if status.is_success() {
+                        debug_log(&format!("Successfully updated favorite status for task {}", task_id));
+                        Ok(())
+                    } else {
+                        let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
+                        debug_log(&format!("API error updating favorite status ({}): {}", status, error_text));
+                        // Create an error similar to how other methods do it
+                        let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
+                        Err(fake_response.unwrap_err())
+                    }
+                }
+                Err(e) => {
+                    debug_log(&format!("Request error updating favorite status: {}", e));
+                    Err(e)
+                }
+            }
         }
 
         pub async fn add_comment_to_task(&self, task_id: u64, comment: &str) -> ReqwestResult<()> {
