@@ -368,7 +368,8 @@ pub fn draw_help_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::styled("r", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Refresh tasks/projects/filters")]),
         Line::from(vec![Span::styled("s", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Star/unstar task")]),
         Line::from(vec![Span::styled("i", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle info pane")]),
-        Line::from(vec![Span::styled("h / l", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Cycle filters backward/forward")]),
+        Line::from(vec![Span::styled("h / l", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Switch layouts backward/forward")]),
+        Line::from(vec![Span::styled("H / L", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Cycle task filters (active/all/etc)")]),
         Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quick actions modal")]),
         Line::from(vec![Span::styled(".", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quick action mode (press key directly)")]),
         Line::raw("")

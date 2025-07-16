@@ -293,9 +293,12 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         // Navigation: move selection down/up
         Char('j') | Down => { app.next_task(); true }
         Char('k') | Up => { app.previous_task(); true }
+        // Switch layouts backward/forward
+        Char('h') => { app.switch_to_previous_layout(); true }
+        Char('l') => { app.switch_to_next_layout(); true }
         // Cycle filters backward/forward
-        Char('h') => { app.cycle_task_filter(); true }
-        Char('l') => { app.cycle_task_filter(); true }
+        Char('H') => { app.cycle_task_filter(); true }
+        Char('L') => { app.cycle_task_filter(); true }
         // Quick action mode via dot
         Char('.') => { app.enter_quick_action_mode(); true }
         Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
