@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer};
+use serde::{Serialize, Deserialize, Deserializer};
 use chrono::{DateTime, Utc, Datelike};
 
 fn deserialize_optional_datetime<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
@@ -45,7 +45,7 @@ pub struct Label {
     pub created_by: Option<User>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[allow(dead_code)] // API response fields may not all be used
 pub struct User {
     pub id: i64,

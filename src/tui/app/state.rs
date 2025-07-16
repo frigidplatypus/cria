@@ -100,6 +100,14 @@ pub struct App {
     pub toast_notification: Option<String>,
     pub toast_notification_start: Option<DateTime<Local>>,
     pub picker_context: PickerContext,
+    // Task relations modal state
+    pub show_relations_modal: bool,
+    pub relations_task_id: Option<i64>,
+    pub show_add_relation_modal: bool,
+    pub add_relation_input: String,
+    pub add_relation_cursor_position: usize,
+    pub selected_relation_kind: usize,
+    pub relation_kinds: Vec<crate::vikunja_client::RelationKind>,
 }
 
 #[allow(dead_code)]
@@ -218,6 +226,23 @@ impl App {
             toast_notification: None,
             toast_notification_start: None,
             picker_context: PickerContext::None,
+            show_relations_modal: false,
+            relations_task_id: None,
+            show_add_relation_modal: false,
+            add_relation_input: String::new(),
+            add_relation_cursor_position: 0,
+            selected_relation_kind: 0,
+            relation_kinds: vec![
+                crate::vikunja_client::RelationKind::Blocking,
+                crate::vikunja_client::RelationKind::Blocked,
+                crate::vikunja_client::RelationKind::Subtask,
+                crate::vikunja_client::RelationKind::Parenttask,
+                crate::vikunja_client::RelationKind::Related,
+                crate::vikunja_client::RelationKind::Precedes,
+                crate::vikunja_client::RelationKind::Follows,
+                crate::vikunja_client::RelationKind::Duplicateof,
+                crate::vikunja_client::RelationKind::Duplicates,
+            ],
         }
     }
 
@@ -566,6 +591,8 @@ impl App {
         self.show_project_picker = false;
         self.show_filter_picker = false;
         self.show_confirmation_dialog = false;
+        self.show_relations_modal = false;
+        self.show_add_relation_modal = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
         // Reset modal state
@@ -576,6 +603,116 @@ impl App {
         self.editing_task_id = None;
         self.form_edit_state = None;
         self.selected_quick_action_index = 0;
+        self.add_relation_input.clear();
+        self.add_relation_cursor_position = 0;
+        self.relations_task_id = None;
+    }
+
+    // Task relations methods
+    pub fn show_relations_modal(&mut self) {
+        if let Some(task) = self.get_selected_task() {
+            let task_id = task.id;
+            self.close_all_modals();
+            self.show_relations_modal = true;
+            self.relations_task_id = Some(task_id);
+        }
+    }
+
+    pub fn hide_relations_modal(&mut self) {
+        self.show_relations_modal = false;
+        self.relations_task_id = None;
+    }
+
+    pub fn show_add_relation_modal(&mut self) {
+        self.show_add_relation_modal = true;
+        self.add_relation_input.clear();
+        self.add_relation_cursor_position = 0;
+        self.selected_relation_kind = 0;
+    }
+
+    pub fn hide_add_relation_modal(&mut self) {
+        self.show_add_relation_modal = false;
+        self.add_relation_input.clear();
+        self.add_relation_cursor_position = 0;
+    }
+
+    pub fn add_char_to_relation_input(&mut self, c: char) {
+        self.add_relation_input.insert(self.add_relation_cursor_position, c);
+        self.add_relation_cursor_position += 1;
+    }
+
+    pub fn delete_char_from_relation_input(&mut self) {
+        if self.add_relation_cursor_position > 0 {
+            self.add_relation_cursor_position -= 1;
+            self.add_relation_input.remove(self.add_relation_cursor_position);
+        }
+    }
+
+    pub fn move_relation_cursor_left(&mut self) {
+        if self.add_relation_cursor_position > 0 {
+            self.add_relation_cursor_position -= 1;
+        }
+    }
+
+    pub fn move_relation_cursor_right(&mut self) {
+        if self.add_relation_cursor_position < self.add_relation_input.len() {
+            self.add_relation_cursor_position += 1;
+        }
+    }
+
+    pub fn next_relation_kind(&mut self) {
+        if !self.relation_kinds.is_empty() {
+            self.selected_relation_kind = (self.selected_relation_kind + 1) % self.relation_kinds.len();
+        }
+    }
+
+    pub fn previous_relation_kind(&mut self) {
+        if !self.relation_kinds.is_empty() {
+            self.selected_relation_kind = if self.selected_relation_kind == 0 {
+                self.relation_kinds.len() - 1
+            } else {
+                self.selected_relation_kind - 1
+            };
+        }
+    }
+
+    pub fn get_selected_relation_kind(&self) -> Option<&crate::vikunja_client::RelationKind> {
+        self.relation_kinds.get(self.selected_relation_kind)
+    }
+
+    /// Check if a task is blocked by incomplete dependencies
+    pub fn is_task_blocked(&self, task: &Task) -> bool {
+        if let Some(related_tasks) = &task.related_tasks {
+            if let Some(blocking_tasks) = related_tasks.get("blocked") {
+                return blocking_tasks.iter().any(|t| !t.done);
+            }
+        }
+        false
+    }
+
+    /// Get visual indicator for task relations
+    pub fn get_task_relation_indicator(&self, task: &Task) -> Option<String> {
+        if let Some(related_tasks) = &task.related_tasks {
+            let mut indicators = Vec::new();
+            
+            if related_tasks.contains_key("blocked") {
+                indicators.push("🚫");
+            }
+            if related_tasks.contains_key("blocking") {
+                indicators.push("⛔");
+            }
+            if related_tasks.contains_key("subtask") {
+                indicators.push("📋");
+            }
+            if related_tasks.contains_key("parenttask") {
+                indicators.push("📁");
+            }
+            
+            if !indicators.is_empty() {
+                return Some(indicators.join(""));
+            }
+        }
+        None
     }
 
     // Column layout methods

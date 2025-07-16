@@ -19,6 +19,10 @@ pub use users::*;
 // --- Label-related types and functions ---
 pub mod labels;
 
+// --- Relation-related types and functions ---
+pub mod relations;
+pub use relations::*;
+
 pub struct VikunjaClient {
     client: Client,
     base_url: String,
