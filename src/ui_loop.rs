@@ -62,6 +62,11 @@ pub async fn run_ui(
                     let mut app_guard = app.lock().await;
                     crate::tui::pickers::project::handle_project_picker(&mut *app_guard, &key);
                     continue;
+                } else if app_guard.show_filter_picker {
+                    drop(app_guard);
+                    let mut app_guard = app.lock().await;
+                    crate::tui::pickers::filter::handle_filter_picker(&mut *app_guard, &key, &client_clone).await;
+                    continue;
                 } else if app_guard.show_quick_actions_modal {
                     // Handle quick actions modal input
                     match key.code {
@@ -194,6 +199,40 @@ pub async fn run_ui(
                     app_guard.toggle_star_selected_task_async(&*client).await;
                     continue;
                 }
+                // handle async task completion toggle
+                if key.code == KeyCode::Char('d') {
+                    drop(app_guard);
+                    let mut app_guard = app.lock().await;
+                    if let Some(task_id) = app_guard.toggle_task_completion() {
+                        // Sync with API
+                        let client = client_clone.lock().await;
+                        if let Some(task) = app_guard.tasks.iter().find(|t| t.id == task_id) {
+                            let api_task = crate::vikunja_client::VikunjaTask {
+                                id: Some(task.id as u64),
+                                title: task.title.clone(),
+                                description: task.description.clone(),
+                                done: Some(task.done),
+                                priority: task.priority.map(|p| p as u8),
+                                due_date: task.due_date,
+                                project_id: task.project_id as u64,
+                                labels: None,
+                                assignees: None,
+                                is_favorite: Some(task.is_favorite),
+                                start_date: task.start_date,
+                            };
+                            match client.update_task(&api_task).await {
+                                Ok(_) => {
+                                    app_guard.add_debug_message(format!("Task completion synced to API for task {}", task_id));
+                                },
+                                Err(e) => {
+                                    app_guard.add_debug_message(format!("Failed to sync task completion to API: {}", e));
+                                    app_guard.show_toast(format!("Sync failed: {}", e));
+                                }
+                            }
+                        }
+                    }
+                    continue;
+                }
                 // handle dispatch_key and refresh
                 if dispatch_key(&mut *app_guard, key) {
                     continue;
@@ -251,6 +290,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
         Char('e') => { app.show_edit_modal(); true }
         Char('p') => { app.show_project_picker(); true }
+        Char('f') => { app.show_filter_picker(); true }
         Char(' ') => { app.show_quick_actions_modal(); true }
         Char('a') => { app.show_quick_add_modal(); true }
         Enter => {
