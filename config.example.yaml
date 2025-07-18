@@ -14,6 +14,10 @@ api_key: "your-api-key-here"
 
 default_project: "Inbox"
 
+# Optional: Automatically load a specific filter when starting cria
+# The filter name must match exactly (case insensitive)
+# default_filter: "Daily Tasks"
+
 # Auto-refresh configuration
 # Automatically refresh task data from the server
 auto_refresh: true                     # Enable/disable auto-refresh (default: true)

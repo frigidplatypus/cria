@@ -217,4 +217,41 @@ impl App {
             self.show_toast("Default project restored".to_string());
         }
     }
+
+    /// Find filter by name
+    pub fn find_filter_by_name(&self, name: &str) -> Option<i64> {
+        self.filters.iter()
+            .find(|(_, title)| title.eq_ignore_ascii_case(name))
+            .map(|(id, _)| *id)
+    }
+
+    /// Apply default filter from config if specified
+    pub async fn apply_default_filter_from_config(&mut self, config: &crate::config::CriaConfig, api_client: &std::sync::Arc<tokio::sync::Mutex<crate::vikunja_client::VikunjaClient>>) {
+        if let Some(ref default_filter_name) = config.default_filter {
+            crate::debug::debug_log(&format!("Attempting to apply default filter: '{}'", default_filter_name));
+            
+            if let Some(filter_id) = self.find_filter_by_name(default_filter_name) {
+                crate::debug::debug_log(&format!("Found default filter '{}' with ID: {}", default_filter_name, filter_id));
+                
+                // Apply the filter with override (similar to filter picker logic)
+                self.apply_filter_with_override(filter_id);
+                
+                // Fetch tasks for the filter
+                match api_client.lock().await.get_tasks_for_filter(filter_id).await {
+                    Ok(tasks) => {
+                        crate::debug::debug_log(&format!("Default filter: Got {} tasks for filter '{}'", tasks.len(), default_filter_name));
+                        self.apply_filter_tasks(tasks);
+                        self.show_toast(format!("Applied default filter: {}", default_filter_name));
+                    },
+                    Err(e) => {
+                        crate::debug::debug_log(&format!("Default filter: Failed to fetch tasks for filter '{}': {}", default_filter_name, e));
+                        self.show_toast(format!("Failed to load default filter: {}", default_filter_name));
+                    }
+                }
+            } else {
+                crate::debug::debug_log(&format!("Default filter '{}' not found in available filters", default_filter_name));
+                self.show_toast(format!("Default filter '{}' not found", default_filter_name));
+            }
+        }
+    }
 }

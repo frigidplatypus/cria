@@ -108,3 +108,51 @@ fn test_filter_picker_clear_option() {
     assert_eq!(app.filtered_filters[0], (1, "Work Filter".to_string()));
     assert_eq!(app.filtered_filters[1], (2, "Personal Filter".to_string()));
 }
+
+#[test]
+fn test_default_filter_functionality() {
+    let config = CriaConfig::default();
+    let mut app = App::new_with_config(config, "Default Project".to_string());
+    
+    // Set up filters
+    let filters = vec![
+        (1, "Work Filter".to_string(), Some("cria_project: WorkProject".to_string())),
+        (2, "Daily Tasks".to_string(), Some("Tasks for daily review".to_string())),
+        (3, "Weekly Review".to_string(), Some("Weekly planning filter".to_string())),
+    ];
+    app.set_filters(filters);
+    
+    // Test finding filter by name (case insensitive)
+    assert_eq!(app.find_filter_by_name("Work Filter"), Some(1));
+    assert_eq!(app.find_filter_by_name("work filter"), Some(1));
+    assert_eq!(app.find_filter_by_name("WORK FILTER"), Some(1));
+    assert_eq!(app.find_filter_by_name("Daily Tasks"), Some(2));
+    assert_eq!(app.find_filter_by_name("Nonexistent Filter"), None);
+    
+    // Test that initially no filter is applied
+    assert_eq!(app.current_filter_id, None);
+    assert_eq!(app.active_project_override, None);
+}
+
+#[test]
+fn test_config_with_default_filter() {
+    let config = CriaConfig {
+        api_url: "https://example.com/api/v1".to_string(),
+        api_key: Some("test-key".to_string()),
+        api_key_file: None,
+        default_project: Some("Inbox".to_string()),
+        default_filter: Some("Daily Tasks".to_string()),
+        quick_actions: None,
+        table_columns: None,
+        column_layouts: None,
+        active_layout: None,
+        refresh_interval_seconds: Some(300),
+        auto_refresh: Some(true),
+    };
+    
+    assert_eq!(config.default_filter, Some("Daily Tasks".to_string()));
+    
+    // Test default config has no default filter
+    let default_config = CriaConfig::default();
+    assert_eq!(default_config.default_filter, None);
+}
