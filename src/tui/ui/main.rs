@@ -4,7 +4,6 @@ use crate::tui::app::state::App;
 use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Paragraph, Block, Borders, Clear};
-use ratatui::text::{Line, Span};
 
 use super::task_list::draw_tasks_table;
 use super::task_details::draw_task_details;
@@ -29,16 +28,8 @@ pub fn hex_to_color(hex: &str) -> Color {
 }
 
 pub fn draw(f: &mut Frame, app: &App) {
-    // Draw header with current project
-    let header = Paragraph::new(vec![Line::from(vec![
-        Span::styled("Project: ", Style::default().add_modifier(Modifier::BOLD)),
-        Span::styled(app.get_current_project_name(), Style::default().fg(Color::Cyan)),
-    ])])
-    .block(Block::default().borders(Borders::ALL).title("cria"))
-    .alignment(Alignment::Center);
-    let header_area = Rect { x: 0, y: 0, width: f.size().width, height: 3 };
-    f.render_widget(header, header_area);
-    let body_area = Rect { x: 0, y: 3, width: f.size().width, height: f.size().height.saturating_sub(3) };
+    // Use full screen area (no header)
+    let body_area = f.size();
 
     let _main_layout = if app.show_debug_pane {
         let horizontal_chunks = Layout::default()
