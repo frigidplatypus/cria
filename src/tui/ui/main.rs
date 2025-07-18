@@ -8,7 +8,9 @@ use ratatui::text::{Line, Span};
 
 use super::task_list::draw_tasks_table;
 use super::task_details::draw_task_details;
-use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dialog, draw_quick_actions_modal, draw_relations_modal, draw_add_relation_modal};
+use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dialog, draw_quick_actions_modal}; 
+// Relations modals - DISABLED: Incomplete feature
+// use super::modals::{draw_relations_modal, draw_add_relation_modal};
 use super::form_edit::draw_form_edit_modal;
 use super::pickers::{draw_project_picker_modal, draw_filter_picker_modal, draw_label_picker_modal};
 
@@ -90,12 +92,13 @@ pub fn draw(f: &mut Frame, app: &App) {
         draw_confirmation_dialog(f, app);
     } else if app.show_filter_picker {
         draw_filter_picker_modal(f, app);
-    } else if app.show_relations_modal {
-        if app.show_add_relation_modal {
-            draw_add_relation_modal(f, app);
-        } else {
-            draw_relations_modal(f, app);
-        }
+    // Relations modals - DISABLED: Incomplete feature
+    // } else if app.show_relations_modal {
+    //     if app.show_add_relation_modal {
+    //         draw_add_relation_modal(f, app);
+    //     } else {
+    //         draw_relations_modal(f, app);
+    //     }
     } else if app.show_quick_actions_modal {
         draw_quick_actions_modal(f, app);
     }

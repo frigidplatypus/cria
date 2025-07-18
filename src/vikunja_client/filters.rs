@@ -7,10 +7,11 @@ use serde::Deserialize;
 pub struct FilterProject {
     pub id: i64,
     pub title: String,
+    pub description: Option<String>,
 }
 
 impl super::VikunjaClient {
-    pub async fn get_saved_filters(&self) -> reqwest::Result<Vec<(i64, String)>> {
+    pub async fn get_saved_filters(&self) -> reqwest::Result<Vec<(i64, String, Option<String>)>> {
         let url = format!("{}/api/v1/projects", self.base_url);
         let response = self.client
             .get(&url)
@@ -18,14 +19,14 @@ impl super::VikunjaClient {
             .send()
             .await?;
         let text = response.text().await?;
-        crate::debug::debug_log(&format!("Raw /api/v1/projects response: {}", text));
+        crate::debug::debug_log(&format!("Raw /api/v1/projects response: {} characters", text.len()));
         let projects: Result<Vec<FilterProject>, _> = serde_json::from_str(&text);
         match projects {
             Ok(projects) => {
                 let filters: Vec<_> = projects
                     .into_iter()
                     .filter(|p| p.id < 0)
-                    .map(|f| (f.id, f.title))
+                    .map(|f| (f.id, f.title, f.description))
                     .collect();
                 crate::debug::debug_log(&format!("Extracted {} filters from projects", filters.len()));
                 Ok(filters)
@@ -55,7 +56,7 @@ impl super::VikunjaClient {
             response.text().await?
         };
         crate::debug::debug_log(&format!("get_tasks_for_filter: Response status: {}", status));
-        crate::debug::debug_log(&format!("get_tasks_for_filter: Response body: {}", text));
+        crate::debug::debug_log(&format!("get_tasks_for_filter: Response body: {} characters", text.len()));
         match serde_json::from_str::<Vec<crate::vikunja::models::Task>>(&text) {
             Ok(tasks) => Ok(tasks),
             Err(e) => {

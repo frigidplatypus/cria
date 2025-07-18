@@ -156,7 +156,7 @@ impl super::VikunjaClient {
                     result
                 } else {
                     let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                    debug_log(&format!("API error response ({}): {}", status, error_text));
+                    debug_log(&format!("create_task API error response ({}): {} characters", status, error_text.len()));
                     let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
                     Err(fake_response.unwrap_err())
                 }
@@ -297,7 +297,7 @@ impl super::VikunjaClient {
                     result
                 } else {
                     let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                    debug_log(&format!("API error response ({}): {}", status, error_text));
+                    debug_log(&format!("update_task API error response ({}): {} characters", status, error_text.len()));
                     let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
                     Err(fake_response.unwrap_err())
                 }
@@ -651,7 +651,7 @@ impl super::VikunjaClient {
             
             if !status.is_success() {
                 let error_text = tasks_resp.text().await.unwrap_or_default();
-                debug_log(&format!("Page {} failed with error: {}", page, error_text));
+                debug_log(&format!("Page {} failed with error: {} characters", page, error_text.len()));
                 break;
             }
                 
@@ -701,7 +701,7 @@ impl super::VikunjaClient {
         
         if !status.is_success() {
             let error_text = tasks_resp.text().await.unwrap_or_default();
-            debug_log(&format!("Simple fetch failed: {}", error_text));
+            debug_log(&format!("Simple fetch failed: {} characters", error_text.len()));
             // Force a proper reqwest error by making a bad request
             let _bad_response = self.client.get("http://localhost:1/invalid").send().await;
             return Err(_bad_response.unwrap_err());
@@ -928,7 +928,7 @@ impl super::VikunjaClient {
                         Ok(())
                     } else {
                         let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                        debug_log(&format!("API error updating favorite status ({}): {}", status, error_text));
+                        debug_log(&format!("API error updating favorite status ({}): {} characters", status, error_text.len()));
                         // Create an error similar to how other methods do it
                         let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
                         Err(fake_response.unwrap_err())

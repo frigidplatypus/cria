@@ -269,14 +269,17 @@ pub async fn handle_quick_add_modal(
                 debug_log(&format!("QUICK_ADD: Creating task with input: '{}'", input));
                 debug_log(&format!("QUICK_ADD: Input length: {}, trimmed length: {}", input.len(), input.trim().len()));
                 app.hide_quick_add_modal();
-                let default_project_name = app.default_project_name.trim();
+                let default_project_name = app.get_active_default_project();
+                debug_log(&format!("QUICK_ADD: Active default project: '{}'", default_project_name));
+                debug_log(&format!("QUICK_ADD: Project override active: {:?}", app.active_project_override));
+                debug_log(&format!("QUICK_ADD: Current filter ID: {:?}", app.current_filter_id));
                 let api_client_guard = api_client.lock().await;
                 let default_project_id = if let Some(id) = app.project_map.iter().find_map(|(id, name)| {
-                    if name.trim().eq_ignore_ascii_case(default_project_name) { Some(*id) } else { None }
+                    if name.trim().eq_ignore_ascii_case(&default_project_name) { Some(*id) } else { None }
                 }) {
                     id as u64
                 } else {
-                    api_client_guard.find_or_get_project_id(default_project_name).await.ok().flatten().unwrap_or(1) as u64
+                    api_client_guard.find_or_get_project_id(&default_project_name).await.ok().flatten().unwrap_or(1) as u64
                 };
                 debug_log(&format!("QUICK_ADD: Using default project ID: {} (name: '{}')", default_project_id, default_project_name));
                 debug_log("QUICK_ADD: Calling create_task_with_magic...");

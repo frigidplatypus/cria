@@ -55,8 +55,11 @@ impl App {
             .map(|(id, title)| (*id, title.clone()))
             .collect::<Vec<_>>();
     }
-    pub fn set_filters(&mut self, filters: Vec<(i64, String)>) {
-        self.filters = filters;
+    pub fn set_filters(&mut self, filters: Vec<(i64, String, Option<String>)>) {
+        self.filters = filters.iter().map(|(id, title, _)| (*id, title.clone())).collect();
+        self.filter_descriptions = filters.into_iter()
+            .filter_map(|(id, _, desc)| desc.map(|d| (id, d)))
+            .collect();
         self.update_filtered_filters();
     }
     #[allow(dead_code)]
@@ -132,6 +135,81 @@ impl App {
         // Apply layout-specific sort if no manual sort is active
         if self.current_sort.is_none() {
             self.apply_layout_sort();
+        }
+    }
+    /// Extract project override from filter description
+    /// Looks for "cria_project: ProjectName" in description and returns the project name
+    pub fn extract_project_override(&self, filter_id: i64) -> Option<String> {
+        crate::debug::debug_log(&format!("extract_project_override: Checking filter_id={}", filter_id));
+        
+        if let Some(description) = self.filter_descriptions.get(&filter_id) {
+            crate::debug::debug_log(&format!("extract_project_override: Found description: '{}'", description));
+            
+            // Look for pattern "cria_project: ProjectName"
+            if let Some(start) = description.find("cria_project:") {
+                let after_colon = &description[start + "cria_project:".len()..];
+                // Find the project name - everything up to the next space, HTML tag, or end of line
+                let mut project_name = after_colon.trim()
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .trim();
+                
+                // Remove common HTML closing tags if present
+                if let Some(tag_start) = project_name.find('<') {
+                    project_name = &project_name[..tag_start];
+                }
+                
+                project_name = project_name.trim();
+                
+                if !project_name.is_empty() {
+                    crate::debug::debug_log(&format!("extract_project_override: Extracted project name: '{}'", project_name));
+                    return Some(project_name.to_string());
+                }
+            }
+            crate::debug::debug_log("extract_project_override: No 'cria_project:' pattern found in description");
+        } else {
+            crate::debug::debug_log(&format!("extract_project_override: No description found for filter_id={}", filter_id));
+        }
+        None
+    }
+
+    /// Apply filter and handle project override
+    pub fn apply_filter_with_override(&mut self, filter_id: i64) {
+        crate::debug::debug_log(&format!("apply_filter_with_override: Processing filter_id={}", filter_id));
+        
+        self.current_filter_id = Some(filter_id);
+        
+        // Check for project override in filter description
+        if let Some(project_name) = self.extract_project_override(filter_id) {
+            crate::debug::debug_log(&format!("apply_filter_with_override: Project override detected: '{}'", project_name));
+            self.active_project_override = Some(project_name.clone());
+            self.show_toast(format!("Default project overridden to: {}", project_name));
+            crate::debug::debug_log(&format!("apply_filter_with_override: Toast shown for project override: '{}'", project_name));
+        } else {
+            crate::debug::debug_log("apply_filter_with_override: No project override found in filter description");
+            self.active_project_override = None;
+        }
+        
+        crate::debug::debug_log(&format!("apply_filter_with_override: Final state - filter_id={:?}, override={:?}", 
+                                        self.current_filter_id, self.active_project_override));
+    }
+
+    /// Get the currently active default project name (considering override)
+    pub fn get_active_default_project(&self) -> String {
+        if let Some(ref override_project) = self.active_project_override {
+            override_project.clone()
+        } else {
+            self.default_project_name.clone()
+        }
+    }
+
+    /// Clear filter and reset project override
+    pub fn clear_filter(&mut self) {
+        self.current_filter_id = None;
+        if self.active_project_override.is_some() {
+            self.active_project_override = None;
+            self.show_toast("Default project restored".to_string());
         }
     }
 }

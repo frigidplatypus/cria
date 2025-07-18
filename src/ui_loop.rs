@@ -67,17 +67,18 @@ pub async fn run_ui(
                     let mut app_guard = app.lock().await;
                     crate::tui::pickers::filter::handle_filter_picker(&mut *app_guard, &key, &client_clone).await;
                     continue;
-                } else if app_guard.show_relations_modal {
-                    if app_guard.show_add_relation_modal {
-                        drop(app_guard);
-                        let mut app_guard = app.lock().await;
-                        crate::tui::modals::handle_add_relation_modal(&mut *app_guard, &key, &client_clone).await;
-                    } else {
-                        drop(app_guard);
-                        let mut app_guard = app.lock().await;
-                        crate::tui::modals::handle_relations_modal(&mut *app_guard, &key, &client_clone).await;
-                    }
-                    continue;
+                // Relations modals - DISABLED: Incomplete feature
+                // } else if app_guard.show_relations_modal {
+                //     if app_guard.show_add_relation_modal {
+                //         drop(app_guard);
+                //         let mut app_guard = app.lock().await;
+                //         crate::tui::modals::handle_add_relation_modal(&mut *app_guard, &key, &client_clone).await;
+                //     } else {
+                //         drop(app_guard);
+                //         let mut app_guard = app.lock().await;
+                //         crate::tui::modals::handle_relations_modal(&mut *app_guard, &key, &client_clone).await;
+                //     }
+                //     continue;
                 } else if app_guard.show_quick_actions_modal {
                     // Handle quick actions modal input
                     match key.code {
@@ -305,7 +306,8 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         Char('e') => { app.show_edit_modal(); true }
         Char('p') => { app.show_project_picker(); true }
         Char('f') => { app.show_filter_picker(); true }
-        Char('R') => { app.show_relations_modal(); true }
+        // Relations - DISABLED: Incomplete feature
+        // Char('R') => { app.show_relations_modal(); true }
         Char(' ') => { app.show_quick_actions_modal(); true }
         Char('a') => { app.show_quick_add_modal(); true }
         Enter => {

@@ -171,11 +171,11 @@ fn create_wrapped_cell_for_column<'a>(
                     title_text.push_str("\u{f005} ");
                 }
                 
-                // Add relation indicators
-                if let Some(indicator) = app.get_task_relation_indicator(task) {
-                    title_text.push_str(&indicator);
-                    title_text.push(' ');
-                }
+                // Add relation indicators - DISABLED: Incomplete feature
+                // if let Some(indicator) = app.get_task_relation_indicator(task) {
+                //     title_text.push_str(&indicator);
+                //     title_text.push(' ');
+                // }
                 
                 title_text.push_str(&task.title);
                 
@@ -197,11 +197,11 @@ fn create_wrapped_cell_for_column<'a>(
                     title_text.push_str("\u{f005} ");
                 }
                 
-                // Add relation indicators
-                if let Some(indicator) = app.get_task_relation_indicator(task) {
-                    title_text.push_str(&indicator);
-                    title_text.push(' ');
-                }
+                // Add relation indicators - DISABLED: Incomplete feature
+                // if let Some(indicator) = app.get_task_relation_indicator(task) {
+                //     title_text.push_str(&indicator);
+                //     title_text.push(' ');
+                // }
                 
                 title_text.push_str(&task.title);
                 

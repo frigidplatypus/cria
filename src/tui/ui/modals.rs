@@ -613,6 +613,8 @@ pub fn draw_quick_actions_modal(f: &mut Frame, app: &App) {
     f.render_widget(paragraph, modal_area);
 }
 
+// Relations modals - DISABLED: Incomplete feature
+/*
 pub fn draw_relations_modal(f: &mut Frame, app: &App) {
     let area = f.size();
     let modal_width = (area.width as f32 * 0.8) as u16;
@@ -712,7 +714,9 @@ pub fn draw_relations_modal(f: &mut Frame, app: &App) {
     
     f.render_widget(paragraph, modal_area);
 }
+*/
 
+/*
 pub fn draw_add_relation_modal(f: &mut Frame, app: &App) {
     let area = f.size();
     let modal_width = (area.width as f32 * 0.6) as u16;
@@ -807,3 +811,4 @@ pub fn draw_add_relation_modal(f: &mut Frame, app: &App) {
     
     f.render_widget(help_paragraph, modal_chunks[2]);
 }
+*/

@@ -70,7 +70,7 @@ mod tests {
         let task = mock_task();
         let mut form = FormEditState::new(&task);
         // There are 10 fields (see get_field_count)
-        let field_names = [
+        let _field_names = [
             "title", "description", "due_date", "start_date", "priority", "", "", "", "", "comment"
         ];
         // Tab through all fields and set a value for each editable one

@@ -6,7 +6,6 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::debug::debug_log;
 use chrono::Local;
-use crate::tui::app::picker_context::PickerContext;
 
 pub async fn handle_form_edit_modal(
     app: &mut App, 

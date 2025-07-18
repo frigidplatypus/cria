@@ -20,8 +20,9 @@ pub use users::*;
 pub mod labels;
 
 // --- Relation-related types and functions ---
-pub mod relations;
-pub use relations::*;
+// DISABLED: Incomplete feature
+// pub mod relations;
+// pub use relations::*;
 
 pub struct VikunjaClient {
     client: Client,
