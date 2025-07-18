@@ -64,3 +64,47 @@ fn test_filter_project_override_edge_cases() {
     assert_eq!(app.extract_project_override(4), Some("MultiWord".to_string())); // Only first word
     assert_eq!(app.extract_project_override(5), Some("MidText".to_string())); // From middle of text
 }
+
+#[test]
+fn test_filter_picker_clear_option() {
+    let config = CriaConfig::default();
+    let mut app = App::new_with_config(config, "Default Project".to_string());
+    
+    // Set up filters
+    let filters = vec![
+        (1, "Work Filter".to_string(), Some("cria_project: WorkProject".to_string())),
+        (2, "Personal Filter".to_string(), Some("Personal tasks only".to_string())),
+    ];
+    app.set_filters(filters);
+    
+    // Apply a filter first
+    app.apply_filter_with_override(1);
+    assert_eq!(app.current_filter_id, Some(1));
+    assert_eq!(app.active_project_override, Some("WorkProject".to_string()));
+    
+    // Open filter picker and check that "Clear Filter" option is added
+    app.show_filter_picker();
+    app.update_filtered_filters();
+    
+    // Should have 3 items: "Clear Filter" + 2 original filters
+    assert_eq!(app.filtered_filters.len(), 3);
+    assert_eq!(app.filtered_filters[0], (-1, "Clear Filter".to_string()));
+    assert_eq!(app.filtered_filters[1], (1, "Work Filter".to_string()));
+    assert_eq!(app.filtered_filters[2], (2, "Personal Filter".to_string()));
+    
+    // Test that selecting "Clear Filter" clears the current filter
+    app.selected_filter_picker_index = 0; // Select "Clear Filter"
+    // Simulate what happens when "Clear Filter" is selected
+    app.clear_filter();
+    app.apply_task_filter();
+    
+    assert_eq!(app.current_filter_id, None);
+    assert_eq!(app.active_project_override, None);
+    assert_eq!(app.get_active_default_project(), "Default Project");
+    
+    // After clearing, filter picker should not show "Clear Filter" option
+    app.update_filtered_filters();
+    assert_eq!(app.filtered_filters.len(), 2);
+    assert_eq!(app.filtered_filters[0], (1, "Work Filter".to_string()));
+    assert_eq!(app.filtered_filters[1], (2, "Personal Filter".to_string()));
+}

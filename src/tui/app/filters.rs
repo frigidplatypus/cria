@@ -54,6 +54,11 @@ impl App {
             .filter(|(_, title)| contains_ignore_case(title, query))
             .map(|(id, title)| (*id, title.clone()))
             .collect::<Vec<_>>();
+        
+        // Add "Clear Filter" option if a filter is currently active
+        if self.current_filter_id.is_some() {
+            self.filtered_filters.insert(0, (-1, "Clear Filter".to_string()));
+        }
     }
     pub fn set_filters(&mut self, filters: Vec<(i64, String, Option<String>)>) {
         self.filters = filters.iter().map(|(id, title, _)| (*id, title.clone())).collect();

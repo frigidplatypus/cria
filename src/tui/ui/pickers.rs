@@ -167,17 +167,30 @@ pub fn draw_filter_picker_modal(f: &mut Frame, app: &App) {
     f.render_widget(input_paragraph, modal_chunks[0]);
     // Filter list
     let mut filter_lines = Vec::new();
-    for (i, (_, title)) in app.filtered_filters.iter().enumerate() {
+    for (i, (id, title)) in app.filtered_filters.iter().enumerate() {
         let is_selected = i == app.selected_filter_picker_index;
-        let mut style = Style::default().fg(Color::Cyan);
+        let mut style = if *id == -1 {
+            // Style "Clear Filter" option differently
+            Style::default().fg(Color::Red)
+        } else {
+            Style::default().fg(Color::Cyan)
+        };
         if is_selected {
             style = style.add_modifier(Modifier::REVERSED | Modifier::BOLD);
         }
         filter_lines.push(Line::from(vec![Span::styled(title, style)]));
     }
+    
+    // Update title based on whether a filter is active
+    let title = if app.current_filter_id.is_some() {
+        "Select Saved Filter (Enter to confirm, Delete to clear current filter, Esc to cancel)"
+    } else {
+        "Select Saved Filter (Enter to confirm, Esc to cancel)"
+    };
+    
     let list_block = Block::default()
         .borders(Borders::ALL)
-        .title("Select Saved Filter (Enter to confirm, Esc to cancel)")
+        .title(title)
         .title_alignment(Alignment::Center);
     let list_paragraph = Paragraph::new(filter_lines)
         .block(list_block)
