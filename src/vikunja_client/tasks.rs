@@ -156,7 +156,7 @@ impl super::VikunjaClient {
                     result
                 } else {
                     let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                    debug_log(&format!("API error response ({}): {}", status, error_text));
+                    debug_log(&format!("create_task API error response ({}): {} characters", status, error_text.len()));
                     let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
                     Err(fake_response.unwrap_err())
                 }
@@ -297,7 +297,7 @@ impl super::VikunjaClient {
                     result
                 } else {
                     let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                    debug_log(&format!("API error response ({}): {}", status, error_text));
+                    debug_log(&format!("update_task API error response ({}): {} characters", status, error_text.len()));
                     let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
                     Err(fake_response.unwrap_err())
                 }
@@ -651,7 +651,7 @@ impl super::VikunjaClient {
             
             if !status.is_success() {
                 let error_text = tasks_resp.text().await.unwrap_or_default();
-                debug_log(&format!("Page {} failed with error: {}", page, error_text));
+                debug_log(&format!("Page {} failed with error: {} characters", page, error_text.len()));
                 break;
             }
                 
@@ -701,7 +701,7 @@ impl super::VikunjaClient {
         
         if !status.is_success() {
             let error_text = tasks_resp.text().await.unwrap_or_default();
-            debug_log(&format!("Simple fetch failed: {}", error_text));
+            debug_log(&format!("Simple fetch failed: {} characters", error_text.len()));
             // Force a proper reqwest error by making a bad request
             let _bad_response = self.client.get("http://localhost:1/invalid").send().await;
             return Err(_bad_response.unwrap_err());
@@ -902,10 +902,43 @@ impl super::VikunjaClient {
             Ok(())
         }
 
-        pub async fn set_task_favorite(&self, _task_id: u64, _is_favorite: bool) -> ReqwestResult<()> {
-            // This would typically be part of the update_task call
-            // For now, we can include it in the main task update
-            Ok(())
+        pub async fn set_task_favorite(&self, task_id: u64, is_favorite: bool) -> ReqwestResult<()> {
+            // Update just the favorite status by making a task update with minimal data
+            let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
+            
+            // Create a minimal task update that only changes the favorite status
+            let task_update = serde_json::json!({
+                "is_favorite": is_favorite
+            });
+            
+            debug_log(&format!("Setting task {} favorite status to: {}", task_id, is_favorite));
+            
+            let response = self.client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", self.auth_token))
+                .json(&task_update)
+                .send()
+                .await;
+                
+            match response {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if status.is_success() {
+                        debug_log(&format!("Successfully updated favorite status for task {}", task_id));
+                        Ok(())
+                    } else {
+                        let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
+                        debug_log(&format!("API error updating favorite status ({}): {} characters", status, error_text.len()));
+                        // Create an error similar to how other methods do it
+                        let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
+                        Err(fake_response.unwrap_err())
+                    }
+                }
+                Err(e) => {
+                    debug_log(&format!("Request error updating favorite status: {}", e));
+                    Err(e)
+                }
+            }
         }
 
         pub async fn add_comment_to_task(&self, task_id: u64, comment: &str) -> ReqwestResult<()> {

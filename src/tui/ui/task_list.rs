@@ -165,11 +165,18 @@ fn create_wrapped_cell_for_column<'a>(
     match &column.column_type {
         TaskColumn::Title => {
             if task.done {
-                // For completed tasks, show checkmark and star if favorite
+                // For completed tasks, show checkmark, star if favorite, and relation indicators
                 let mut title_text = "✓ ".to_string();
                 if task.is_favorite {
                     title_text.push_str("\u{f005} ");
                 }
+                
+                // Add relation indicators - DISABLED: Incomplete feature
+                // if let Some(indicator) = app.get_task_relation_indicator(task) {
+                //     title_text.push_str(&indicator);
+                //     title_text.push(' ');
+                // }
+                
                 title_text.push_str(&task.title);
                 
                 if should_wrap {
@@ -184,11 +191,18 @@ fn create_wrapped_cell_for_column<'a>(
                     Cell::from(truncated).style(Style::default().add_modifier(Modifier::CROSSED_OUT).fg(Color::DarkGray))
                 }
             } else {
-                // For active tasks, show star if favorite
+                // For active tasks, show star if favorite and relation indicators
                 let mut title_text = String::new();
                 if task.is_favorite {
                     title_text.push_str("\u{f005} ");
                 }
+                
+                // Add relation indicators - DISABLED: Incomplete feature
+                // if let Some(indicator) = app.get_task_relation_indicator(task) {
+                //     title_text.push_str(&indicator);
+                //     title_text.push(' ');
+                // }
+                
                 title_text.push_str(&task.title);
                 
                 if should_wrap {

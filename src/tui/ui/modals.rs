@@ -364,10 +364,12 @@ pub fn draw_help_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::styled("E", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Edit task (form mode)")]),
         Line::from(vec![Span::styled("f", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Show filter picker")]),
         Line::from(vec![Span::styled("p", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Project picker")]),
+        Line::from(vec![Span::styled("R", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Task relations")]),
         Line::from(vec![Span::styled("r", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Refresh tasks/projects/filters")]),
         Line::from(vec![Span::styled("s", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Star/unstar task")]),
         Line::from(vec![Span::styled("i", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle info pane")]),
-        Line::from(vec![Span::styled("h / l", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Cycle filters backward/forward")]),
+        Line::from(vec![Span::styled("h / l", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Switch layouts backward/forward")]),
+        Line::from(vec![Span::styled("H / L", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Cycle task filters (active/all/etc)")]),
         Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quick actions modal")]),
         Line::from(vec![Span::styled(".", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quick action mode (press key directly)")]),
         Line::raw("")
@@ -610,3 +612,203 @@ pub fn draw_quick_actions_modal(f: &mut Frame, app: &App) {
     
     f.render_widget(paragraph, modal_area);
 }
+
+// Relations modals - DISABLED: Incomplete feature
+/*
+pub fn draw_relations_modal(f: &mut Frame, app: &App) {
+    let area = f.size();
+    let modal_width = (area.width as f32 * 0.8) as u16;
+    let modal_height = 20;
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    let modal_area = Rect { x, y, width: modal_width, height: modal_height };
+    
+    f.render_widget(Clear, modal_area);
+    
+    let block = Block::default()
+        .title(" Task Relations ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    
+    let mut lines = vec![];
+    
+    if let Some(task_id) = app.relations_task_id {
+        if let Some(task) = app.all_tasks.iter().find(|t| t.id == task_id) {
+            lines.push(Line::from(vec![
+                Span::styled("Task: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(&task.title, Style::default().fg(Color::White))
+            ]));
+            lines.push(Line::raw(""));
+            
+            if let Some(related_tasks) = &task.related_tasks {
+                if related_tasks.is_empty() {
+                    lines.push(Line::from(vec![
+                        Span::styled("No relations found.", Style::default().fg(Color::Gray))
+                    ]));
+                } else {
+                    for (relation_type, tasks) in related_tasks {
+                        if !tasks.is_empty() {
+                            let relation_kind = match relation_type.as_str() {
+                                "blocking" => "🚫 Blocking",
+                                "blocked" => "⛔ Blocked by",
+                                "subtask" => "📋 Subtask of",
+                                "parenttask" => "📁 Parent of",
+                                "related" => "🔗 Related to",
+                                "precedes" => "⏭️ Precedes",
+                                "follows" => "⏮️ Follows",
+                                "duplicateof" => "📄 Duplicate of",
+                                "duplicates" => "📄 Duplicates",
+                                _ => relation_type,
+                            };
+                            
+                            lines.push(Line::from(vec![
+                                Span::styled(format!("{}: ", relation_kind), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+                            ]));
+                            
+                            for related_task in tasks {
+                                let status_indicator = if related_task.done { "✓" } else { "○" };
+                                let task_style = if related_task.done {
+                                    Style::default().fg(Color::Green)
+                                } else if relation_type == "blocked" && !related_task.done {
+                                    Style::default().fg(Color::Red) // Highlight blocking tasks
+                                } else {
+                                    Style::default().fg(Color::White)
+                                };
+                                
+                                lines.push(Line::from(vec![
+                                    Span::raw("  "),
+                                    Span::styled(status_indicator, task_style),
+                                    Span::raw(" "),
+                                    Span::styled(format!("#{} ", related_task.id), Style::default().fg(Color::Gray)),
+                                    Span::styled(&related_task.title, task_style)
+                                ]));
+                            }
+                            lines.push(Line::raw(""));
+                        }
+                    }
+                }
+            } else {
+                lines.push(Line::from(vec![
+                    Span::styled("No relations found.", Style::default().fg(Color::Gray))
+                ]));
+            }
+        }
+    }
+    
+    lines.push(Line::raw(""));
+    lines.push(Line::from(vec![
+        Span::styled("a", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Span::raw(" Add relation • "),
+        Span::styled("d", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::raw(" Delete • "),
+        Span::styled("r", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+        Span::raw(" Refresh • "),
+        Span::styled("Esc", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::raw(" Close")
+    ]));
+    
+    let paragraph = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: true })
+        .alignment(Alignment::Left);
+    
+    f.render_widget(paragraph, modal_area);
+}
+*/
+
+/*
+pub fn draw_add_relation_modal(f: &mut Frame, app: &App) {
+    let area = f.size();
+    let modal_width = (area.width as f32 * 0.6) as u16;
+    let modal_height = 15;
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    let modal_area = Rect { x, y, width: modal_width, height: modal_height };
+    
+    f.render_widget(Clear, modal_area);
+    
+    // Split modal into sections
+    let modal_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // Input field
+            Constraint::Length(3), // Relation type selector
+            Constraint::Min(6),    // Help text
+        ])
+        .split(modal_area);
+    
+    // Input field
+    let input_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Task ID or Title")
+        .title_alignment(Alignment::Center)
+        .style(Style::default().fg(Color::Green));
+    
+    let input_paragraph = Paragraph::new(app.add_relation_input.as_str())
+        .block(input_block)
+        .style(Style::default().fg(Color::Yellow));
+    
+    f.render_widget(input_paragraph, modal_chunks[0]);
+    
+    // Set cursor position
+    let cursor_x = modal_chunks[0].x + 1 + app.add_relation_cursor_position as u16;
+    let cursor_y = modal_chunks[0].y + 1;
+    if cursor_x < modal_chunks[0].x + modal_chunks[0].width - 1 {
+        f.set_cursor(cursor_x, cursor_y);
+    }
+    
+    // Relation type selector
+    let relation_text = if let Some(kind) = app.get_selected_relation_kind() {
+        format!("Relation: {}", kind.display_name())
+    } else {
+        "Relation: None selected".to_string()
+    };
+    
+    let relation_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Relation Type (↑/↓ to change)")
+        .title_alignment(Alignment::Center)
+        .style(Style::default().fg(Color::Blue));
+    
+    let relation_paragraph = Paragraph::new(relation_text)
+        .block(relation_block)
+        .style(Style::default().fg(Color::Cyan))
+        .alignment(Alignment::Center);
+    
+    f.render_widget(relation_paragraph, modal_chunks[1]);
+    
+    // Help text
+    let help_text = vec![
+        Line::from(vec![
+            Span::styled("Add Task Relation", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+        ]),
+        Line::raw(""),
+        Line::from("Enter a task ID (e.g., 123) or task title to search"),
+        Line::from("Use ↑/↓ or Tab to change relation type"),
+        Line::raw(""),
+        Line::from("Available relation types:"),
+        Line::from("• Blocking/Blocked - Task dependencies"),
+        Line::from("• Subtask/Parent - Hierarchical relationships"),
+        Line::from("• Related - General associations"),
+        Line::from("• Precedes/Follows - Sequential ordering"),
+        Line::raw(""),
+        Line::from(vec![
+            Span::styled("Enter", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw(" Create • "),
+            Span::styled("Esc", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::raw(" Cancel")
+        ]),
+    ];
+    
+    let help_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Help")
+        .style(Style::default().fg(Color::Gray));
+    
+    let help_paragraph = Paragraph::new(help_text)
+        .block(help_block)
+        .wrap(Wrap { trim: true });
+    
+    f.render_widget(help_paragraph, modal_chunks[2]);
+}
+*/

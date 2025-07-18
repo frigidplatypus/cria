@@ -54,9 +54,17 @@ impl App {
             .filter(|(_, title)| contains_ignore_case(title, query))
             .map(|(id, title)| (*id, title.clone()))
             .collect::<Vec<_>>();
+        
+        // Add "Clear Filter" option if a filter is currently active
+        if self.current_filter_id.is_some() {
+            self.filtered_filters.insert(0, (-1, "Clear Filter".to_string()));
+        }
     }
-    pub fn set_filters(&mut self, filters: Vec<(i64, String)>) {
-        self.filters = filters;
+    pub fn set_filters(&mut self, filters: Vec<(i64, String, Option<String>)>) {
+        self.filters = filters.iter().map(|(id, title, _)| (*id, title.clone())).collect();
+        self.filter_descriptions = filters.into_iter()
+            .filter_map(|(id, _, desc)| desc.map(|d| (id, d)))
+            .collect();
         self.update_filtered_filters();
     }
     #[allow(dead_code)]
@@ -132,6 +140,118 @@ impl App {
         // Apply layout-specific sort if no manual sort is active
         if self.current_sort.is_none() {
             self.apply_layout_sort();
+        }
+    }
+    /// Extract project override from filter description
+    /// Looks for "cria_project: ProjectName" in description and returns the project name
+    pub fn extract_project_override(&self, filter_id: i64) -> Option<String> {
+        crate::debug::debug_log(&format!("extract_project_override: Checking filter_id={}", filter_id));
+        
+        if let Some(description) = self.filter_descriptions.get(&filter_id) {
+            crate::debug::debug_log(&format!("extract_project_override: Found description: '{}'", description));
+            
+            // Look for pattern "cria_project: ProjectName"
+            if let Some(start) = description.find("cria_project:") {
+                let after_colon = &description[start + "cria_project:".len()..];
+                // Find the project name - everything up to the next space, HTML tag, or end of line
+                let mut project_name = after_colon.trim()
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .trim();
+                
+                // Remove common HTML closing tags if present
+                if let Some(tag_start) = project_name.find('<') {
+                    project_name = &project_name[..tag_start];
+                }
+                
+                project_name = project_name.trim();
+                
+                if !project_name.is_empty() {
+                    crate::debug::debug_log(&format!("extract_project_override: Extracted project name: '{}'", project_name));
+                    return Some(project_name.to_string());
+                }
+            }
+            crate::debug::debug_log("extract_project_override: No 'cria_project:' pattern found in description");
+        } else {
+            crate::debug::debug_log(&format!("extract_project_override: No description found for filter_id={}", filter_id));
+        }
+        None
+    }
+
+    /// Apply filter and handle project override
+    pub fn apply_filter_with_override(&mut self, filter_id: i64) {
+        crate::debug::debug_log(&format!("apply_filter_with_override: Processing filter_id={}", filter_id));
+        
+        self.current_filter_id = Some(filter_id);
+        
+        // Check for project override in filter description
+        if let Some(project_name) = self.extract_project_override(filter_id) {
+            crate::debug::debug_log(&format!("apply_filter_with_override: Project override detected: '{}'", project_name));
+            self.active_project_override = Some(project_name.clone());
+            self.show_toast(format!("Default project overridden to: {}", project_name));
+            crate::debug::debug_log(&format!("apply_filter_with_override: Toast shown for project override: '{}'", project_name));
+        } else {
+            crate::debug::debug_log("apply_filter_with_override: No project override found in filter description");
+            self.active_project_override = None;
+        }
+        
+        crate::debug::debug_log(&format!("apply_filter_with_override: Final state - filter_id={:?}, override={:?}", 
+                                        self.current_filter_id, self.active_project_override));
+    }
+
+    /// Get the currently active default project name (considering override)
+    pub fn get_active_default_project(&self) -> String {
+        if let Some(ref override_project) = self.active_project_override {
+            override_project.clone()
+        } else {
+            self.default_project_name.clone()
+        }
+    }
+
+    /// Clear filter and reset project override
+    pub fn clear_filter(&mut self) {
+        self.current_filter_id = None;
+        if self.active_project_override.is_some() {
+            self.active_project_override = None;
+            self.show_toast("Default project restored".to_string());
+        }
+    }
+
+    /// Find filter by name
+    pub fn find_filter_by_name(&self, name: &str) -> Option<i64> {
+        self.filters.iter()
+            .find(|(_, title)| title.eq_ignore_ascii_case(name))
+            .map(|(id, _)| *id)
+    }
+
+    /// Apply default filter from config if specified
+    pub async fn apply_default_filter_from_config(&mut self, config: &crate::config::CriaConfig, api_client: &std::sync::Arc<tokio::sync::Mutex<crate::vikunja_client::VikunjaClient>>) {
+        if let Some(ref default_filter_name) = config.default_filter {
+            crate::debug::debug_log(&format!("Attempting to apply default filter: '{}'", default_filter_name));
+            
+            if let Some(filter_id) = self.find_filter_by_name(default_filter_name) {
+                crate::debug::debug_log(&format!("Found default filter '{}' with ID: {}", default_filter_name, filter_id));
+                
+                // Apply the filter with override (similar to filter picker logic)
+                self.apply_filter_with_override(filter_id);
+                
+                // Fetch tasks for the filter
+                match api_client.lock().await.get_tasks_for_filter(filter_id).await {
+                    Ok(tasks) => {
+                        crate::debug::debug_log(&format!("Default filter: Got {} tasks for filter '{}'", tasks.len(), default_filter_name));
+                        self.apply_filter_tasks(tasks);
+                        self.show_toast(format!("Applied default filter: {}", default_filter_name));
+                    },
+                    Err(e) => {
+                        crate::debug::debug_log(&format!("Default filter: Failed to fetch tasks for filter '{}': {}", default_filter_name, e));
+                        self.show_toast(format!("Failed to load default filter: {}", default_filter_name));
+                    }
+                }
+            } else {
+                crate::debug::debug_log(&format!("Default filter '{}' not found in available filters", default_filter_name));
+                self.show_toast(format!("Default filter '{}' not found", default_filter_name));
+            }
         }
     }
 }

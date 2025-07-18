@@ -165,6 +165,9 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
     use crate::debug::debug_log;
 
     let api_client = Arc::new(Mutex::new(ApiClient::new(api_url, api_key)));
+    
+    // Clone config for later use before moving it
+    let config_clone = config.clone();
     let app = Arc::new(Mutex::new(App::new_with_config(config.expect("Config required"), default_project.clone())));
     
     // Test API connection
@@ -214,6 +217,15 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
                 app_guard.label_colors.insert(id as i64, label.hex_color.unwrap_or_default());
             }
         }
+        
+        // Apply default filter if specified in config
+        if let Some(ref config) = config_clone {
+            drop(app_guard); // Release the lock before async call
+            let mut app_guard = app.lock().await;
+            app_guard.apply_default_filter_from_config(config, &client_clone).await;
+        }
+        
+        let app_guard = app.lock().await;
         debug_log(&format!("App all_tasks count: {}", app_guard.all_tasks.len()));
         debug_log(&format!("App tasks count after filter: {}", app_guard.tasks.len()));
         debug_log(&format!("App project_map: {:?}", app_guard.project_map));

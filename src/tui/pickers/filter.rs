@@ -13,14 +13,14 @@ pub async fn handle_filter_picker(app: &mut App, key: &KeyEvent, api_client: &Ar
             app.hide_filter_picker();
         },
         KeyCode::Enter => {
-            let (id, name) = app.filtered_filters.get(app.selected_filter_picker_index).cloned().unwrap_or((-1, "No Filter".to_string()));
+            let (id, name) = app.filtered_filters.get(app.selected_filter_picker_index).cloned().unwrap_or((-1, "Clear Filter".to_string()));
             app.add_debug_message(format!("Filter picker: Enter pressed, id={}, name={}", id, name));
             if id == -1 {
-                app.current_filter_id = None;
-                app.add_debug_message("Filter picker: No Filter selected, applying all tasks".to_string());
+                app.clear_filter();
+                app.add_debug_message("Filter picker: Clear Filter selected, clearing current filter".to_string());
                 app.apply_task_filter();
             } else {
-                app.current_filter_id = Some(id);
+                app.apply_filter_with_override(id);
                 app.add_debug_message(format!("Filter picker: Fetching tasks for filter id={}", id));
                 match api_client.lock().await.get_tasks_for_filter(id).await {
                     Ok(tasks) => {
@@ -36,6 +36,15 @@ pub async fn handle_filter_picker(app: &mut App, key: &KeyEvent, api_client: &Ar
         },
         KeyCode::Backspace => {
             app.delete_char_from_filter_picker();
+        },
+        KeyCode::Delete => {
+            // Quick clear filter if a filter is currently active
+            if app.current_filter_id.is_some() {
+                app.clear_filter();
+                app.add_debug_message("Filter picker: Delete key pressed, clearing current filter".to_string());
+                app.apply_task_filter();
+                app.hide_filter_picker();
+            }
         },
         KeyCode::Up => {
             app.move_filter_picker_up();

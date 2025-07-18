@@ -10,6 +10,8 @@ use crate::tui::app::task_filter::TaskFilter;
 use crate::tui::app::undoable_action::UndoableAction;
 use crate::tui::app::pending_action::PendingAction;
 use crate::tui::app::suggestion_mode::SuggestionMode;
+// Relations - DISABLED: Incomplete feature
+// use crate::vikunja_client::relations::RelationKind;
 
 mod confirm_quit_ext;
 
@@ -67,7 +69,10 @@ pub struct App {
     pub filtered_filters: Vec<(i64, String)>, // (filter_id, title)
     pub selected_filter_picker_index: usize,
     pub filters: Vec<(i64, String)>, // Available filters
+    pub filter_descriptions: std::collections::HashMap<i64, String>, // Filter descriptions
     pub current_filter_id: Option<i64>,
+    // Active project override from filter
+    pub active_project_override: Option<String>, // Project name override from current filter
     // Flash feedback state
     pub refreshing: bool,
     pub flash_task_id: Option<i64>,
@@ -100,6 +105,12 @@ pub struct App {
     pub toast_notification: Option<String>,
     pub toast_notification_start: Option<DateTime<Local>>,
     pub picker_context: PickerContext,
+    // Relation modals - DISABLED: Incomplete feature
+    // pub show_relations_modal: bool,
+    // pub show_add_relation_modal: bool,
+    // pub add_relation_input: String,
+    // pub add_relation_cursor_position: usize,
+    // pub relations_task_id: Option<i64>,
 }
 
 #[allow(dead_code)]
@@ -181,7 +192,9 @@ impl App {
             filtered_filters: Vec::new(),
             selected_filter_picker_index: 0,
             filters: Vec::new(),
+            filter_descriptions: std::collections::HashMap::new(),
             current_filter_id: None,
+            active_project_override: None,
             refreshing: false,
             flash_task_id: None,
             flash_start: None,
@@ -218,6 +231,12 @@ impl App {
             toast_notification: None,
             toast_notification_start: None,
             picker_context: PickerContext::None,
+            // Relation modals - DISABLED: Incomplete feature  
+            // show_relations_modal: false,
+            // show_add_relation_modal: false,
+            // add_relation_input: String::new(),
+            // add_relation_cursor_position: 0,
+            // relations_task_id: None,
         }
     }
 
@@ -304,31 +323,19 @@ impl App {
         
         if let Some(labels) = &task.labels {
             for label in labels {
-                if label.title.contains(' ') {
-                    result.push_str(&format!(" *[{}]", label.title));
-                } else {
-                    result.push_str(&format!(" *{}", label.title));
-                }
+                result.push_str(&format!(" *{}", label.title));
             }
         }
         
         if let Some(assignees) = &task.assignees {
             for assignee in assignees {
-                if assignee.username.contains(' ') {
-                    result.push_str(&format!(" @[{}]", assignee.username));
-                } else {
-                    result.push_str(&format!(" @{}", assignee.username));
-                }
+                result.push_str(&format!(" @{}", assignee.username));
             }
         }
         
         if let Some(project_name) = self.project_map.get(&task.project_id) {
             if project_name != "Inbox" && task.project_id != 1 {
-                if project_name.contains(' ') {
-                    result.push_str(&format!(" +[{}]", project_name));
-                } else {
-                    result.push_str(&format!(" +{}", project_name));
-                }
+                result.push_str(&format!(" +{}", project_name));
             }
         }
         
@@ -576,6 +583,12 @@ impl App {
         self.editing_task_id = None;
         self.form_edit_state = None;
         self.selected_quick_action_index = 0;
+        // Relations modals - DISABLED: Incomplete feature
+        // self.show_relations_modal = false;
+        // self.show_add_relation_modal = false;
+        // self.add_relation_input.clear();
+        // self.add_relation_cursor_position = 0;
+        // self.relations_task_id = None;
     }
 
     // Column layout methods
@@ -958,4 +971,26 @@ impl App {
             self.tasks[idx].title = self.edit_input.clone();
         }
     }
+    
+    pub fn set_filters_with_descriptions(&mut self, filters: Vec<(i64, String)>, descriptions: std::collections::HashMap<i64, String>) {
+        self.filters = filters;
+        self.filter_descriptions = descriptions;
+        self.update_filtered_filters();
+    }
+
+    // Relations methods - DISABLED: Incomplete feature
+    // pub fn hide_relations_modal(&mut self) { self.show_relations_modal = false; }
+    // pub fn show_add_relation_modal(&mut self) { self.show_add_relation_modal = true; }
+    // pub fn hide_add_relation_modal(&mut self) { self.show_add_relation_modal = false; }
+    // pub fn next_relation_kind(&mut self) { /* stub */ }
+    // pub fn previous_relation_kind(&mut self) { /* stub */ }
+    // pub fn add_char_to_relation_input(&mut self, c: char) { self.add_relation_input.push(c); }
+    // pub fn delete_char_from_relation_input(&mut self) { self.add_relation_input.pop(); }
+    // pub fn move_relation_cursor_left(&mut self) { if self.add_relation_cursor_position > 0 { self.add_relation_cursor_position -= 1; } }
+    // pub fn move_relation_cursor_right(&mut self) { self.add_relation_cursor_position += 1; }
+    // pub fn get_selected_relation_kind(&self) -> Option<RelationKind> { None }
+    // pub fn get_task_relation_indicator(&self, _task: &crate::vikunja::models::Task) -> Option<RelationKind> {
+    //     // Return a valid variant for testing, e.g. Precedes
+    //     Some(RelationKind::Precedes)
+    // }
 }
