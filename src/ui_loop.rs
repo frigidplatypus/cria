@@ -334,15 +334,51 @@ async fn refresh_from_api(
     client: &Arc<Mutex<VikunjaClient>>,
 ) {
     app.refreshing = true;
+    
+    // Save current filter state before refresh
+    let current_filter_id = app.current_filter_id;
+    let current_project_id = app.current_project_id;
+    let current_task_filter = app.task_filter.clone();
+    let active_project_override = app.active_project_override.clone();
+    
     let client = client.lock().await;
     match client.get_tasks_with_projects().await {
         Ok((tasks, project_map, project_colors)) => {
             app.all_tasks = tasks;
             app.project_map = project_map;
             app.project_colors = project_colors;
-            // Only show active tasks after refresh
-            app.tasks = app.all_tasks.iter().filter(|t| !t.done).cloned().collect();
-            app.show_toast("Refreshed!".to_string());
+            
+            // Reapply the current filter state after refresh
+            if let Some(filter_id) = current_filter_id {
+                // If a saved filter was active, reapply it
+                app.current_filter_id = Some(filter_id);
+                app.active_project_override = active_project_override;
+                
+                // Fetch tasks for the filter
+                match client.get_tasks_for_filter(filter_id).await {
+                    Ok(filter_tasks) => {
+                        app.apply_filter_tasks(filter_tasks);
+                        app.show_toast("Refreshed with filter applied!".to_string());
+                    },
+                    Err(e) => {
+                        app.add_debug_message(format!("Failed to fetch filter tasks after refresh: {}", e));
+                        // Fall back to applying task filter to all tasks
+                        app.apply_task_filter();
+                        app.show_toast("Refreshed! (Filter fetch failed)".to_string());
+                    }
+                }
+            } else if current_project_id.is_some() {
+                // If a project was selected, reapply project filter
+                app.current_project_id = current_project_id;
+                app.task_filter = current_task_filter;
+                app.apply_project_filter();
+                app.show_toast("Refreshed with project filter applied!".to_string());
+            } else {
+                // If no special filter was active, just apply the task filter
+                app.task_filter = current_task_filter;
+                app.apply_task_filter();
+                app.show_toast("Refreshed!".to_string());
+            }
         }
         Err(e) => {
             app.show_toast(format!("Refresh failed: {}", e));

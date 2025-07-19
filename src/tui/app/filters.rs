@@ -131,15 +131,22 @@ impl App {
     }
     pub fn update_all_tasks(&mut self, tasks: Vec<crate::vikunja::models::Task>) {
         self.all_tasks = tasks.clone();
-        self.tasks = tasks.into_iter().filter(|task| match self.task_filter {
-            crate::tui::app::task_filter::TaskFilter::ActiveOnly => !task.done,
-            crate::tui::app::task_filter::TaskFilter::All => true,
-            crate::tui::app::task_filter::TaskFilter::CompletedOnly => task.done,
-        }).collect();
-        
-        // Apply layout-specific sort if no manual sort is active
-        if self.current_sort.is_none() {
-            self.apply_layout_sort();
+        self.reapply_current_filters();
+    }
+
+    /// Reapply all current filters after data updates
+    pub fn reapply_current_filters(&mut self) {
+        if let Some(filter_id) = self.current_filter_id {
+            // If a saved filter is active, we need to fetch tasks for that filter
+            // This should be handled by the calling code that has access to the API client
+            // For now, fall back to task filter
+            self.apply_task_filter();
+        } else if self.current_project_id.is_some() {
+            // If a project is selected, apply project filter
+            self.apply_project_filter();
+        } else {
+            // If no special filter is active, just apply the task filter
+            self.apply_task_filter();
         }
     }
     /// Extract project override from filter description

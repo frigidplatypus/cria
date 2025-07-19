@@ -437,9 +437,23 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
             row
         });
     
+    // Build comprehensive title with filter and project information
+    let mut title = format!("Tasks ({})", app.get_filter_display_name());
+    
+    // Add project information if a specific project is selected
+    if app.current_project_id.is_some() {
+        let project_name = app.get_current_project_name();
+        title = format!("Tasks ({}) - Project: {}", app.get_filter_display_name(), project_name);
+    }
+    // Add project override information if a filter has overridden the default project
+    else if app.active_project_override.is_some() {
+        let active_project = app.get_active_default_project();
+        title = format!("Tasks ({}) - Default Project: {}", app.get_filter_display_name(), active_project);
+    }
+    
     let table = Table::new(rows, constraints)
         .header(header)
-        .block(Block::default().borders(Borders::ALL).title(format!("Tasks ({})", app.get_filter_display_name())));
+        .block(Block::default().borders(Borders::ALL).title(title));
     
     f.render_widget(table, area);
 }

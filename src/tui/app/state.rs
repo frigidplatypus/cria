@@ -961,6 +961,8 @@ impl App {
         self.refreshing = true;
         // This should trigger a reload of tasks, projects, filters, etc. in the main event loop
         self.add_debug_message("Refreshing all data (tasks, projects, filters)".to_string());
+        // Note: The actual refresh logic is handled in ui_loop.rs when the 'r' key is pressed
+        // This method just sets the flag to indicate a refresh is needed
     }
 
     /// Applies the edit modal's input to the selected task (simple title update for demonstration)
