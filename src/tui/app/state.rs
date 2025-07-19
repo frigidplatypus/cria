@@ -103,6 +103,10 @@ pub struct App {
     // Attachment modal state
     pub show_attachment_modal: bool,
     pub attachment_modal: Option<crate::tui::modals::AttachmentModal>,
+    
+    // File picker modal state
+    pub show_file_picker_modal: bool,
+    pub file_picker_modal: Option<crate::tui::modals::FilePickerModal>,
     // Layout system
     pub current_layout_name: String,
     pub layout_notification: Option<String>,
@@ -236,6 +240,8 @@ impl App {
             quick_action_mode_start: None,
             show_attachment_modal: false,
             attachment_modal: None,
+            show_file_picker_modal: false,
+            file_picker_modal: None,
             current_layout_name,
             layout_notification: None,
             layout_notification_start: None,
@@ -560,6 +566,9 @@ impl App {
             let task_title = task.title.clone();
             let task_id = task.id;
             
+            self.add_debug_message(format!("Opening attachment modal for task {} (ID: {}) with {} attachments", 
+                task_title, task_id, attachments.len()));
+            
             self.close_all_modals();
             self.show_attachment_modal = true;
             self.attachment_modal = Some(crate::tui::modals::AttachmentModal::new(
@@ -567,12 +576,26 @@ impl App {
                 task_title,
                 task_id,
             ));
+        } else {
+            self.add_debug_message("No task selected for attachment modal".to_string());
         }
     }
 
     pub fn hide_attachment_modal(&mut self) {
         self.show_attachment_modal = false;
         self.attachment_modal = None;
+        self.show_file_picker_modal = false;
+        self.file_picker_modal = None;
+    }
+
+    pub fn show_file_picker_modal(&mut self) {
+        self.show_file_picker_modal = true;
+        self.file_picker_modal = Some(crate::tui::modals::FilePickerModal::new(None));
+    }
+
+    pub fn hide_file_picker_modal(&mut self) {
+        self.show_file_picker_modal = false;
+        self.file_picker_modal = None;
     }
 
     pub fn show_advanced_help_modal(&mut self) {
