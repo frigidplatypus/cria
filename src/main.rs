@@ -19,7 +19,7 @@ fn main() {
     // Parse command-line arguments
     let matches = Command::new("cria")
         .about("CRIA - Terminal User Interface for Vikunja task management")
-        .version("0.9.2")
+        .version("1.0.0")
         .arg(
             Arg::new("config")
                 .long("config")
