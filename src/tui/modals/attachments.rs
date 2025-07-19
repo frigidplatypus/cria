@@ -8,11 +8,17 @@ use ratatui::{
 use crate::vikunja::models::Attachment;
 use crate::tui::ui::attachment_viewer::AttachmentViewer;
 
+use std::path::PathBuf;
+
 /// Modal for viewing and managing task attachments
 pub struct AttachmentModal {
     pub viewer: AttachmentViewer,
     pub task_title: String,
     pub task_id: i64,
+    pub download_path: Option<PathBuf>,
+    pub upload_path: Option<PathBuf>,
+    pub operation_in_progress: bool,
+    pub operation_message: String,
 }
 
 impl AttachmentModal {
@@ -21,6 +27,10 @@ impl AttachmentModal {
             viewer: AttachmentViewer::new(attachments),
             task_title,
             task_id,
+            download_path: None,
+            upload_path: None,
+            operation_in_progress: false,
+            operation_message: String::new(),
         }
     }
 
@@ -80,6 +90,15 @@ impl AttachmentModal {
             .style(Style::default().fg(Color::Gray));
 
         let mut help_lines = Vec::new();
+        
+        // Show operation status if in progress
+        if self.operation_in_progress {
+            help_lines.push(Line::from(vec![
+                Span::styled("⏳ ", Style::default().fg(Color::Yellow)),
+                Span::styled(&self.operation_message, Style::default().fg(Color::Cyan)),
+            ]));
+            help_lines.push(Line::raw(""));
+        }
         
         if !self.viewer.attachments.is_empty() {
             help_lines.push(Line::from(vec![
@@ -154,4 +173,5 @@ pub enum AttachmentModalAction {
     Download(Attachment),
     Remove(Attachment),
     Upload,
-} 
+}
+ 

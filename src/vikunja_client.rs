@@ -19,6 +19,10 @@ pub use users::*;
 // --- Label-related types and functions ---
 pub mod labels;
 
+// --- Attachment-related types and functions ---
+pub mod attachments;
+pub use attachments::*;
+
 // --- Relation-related types and functions ---
 // DISABLED: Incomplete feature
 // pub mod relations;
@@ -29,6 +33,7 @@ pub struct VikunjaClient {
     base_url: String,
     auth_token: String,
     parser: QuickAddParser,
+    attachment_client: AttachmentClient,
 }
 
 #[allow(dead_code)]
@@ -62,11 +67,18 @@ impl VikunjaClient {
     pub fn new(base_url: String, auth_token: String) -> Self {
         debug_log(&format!("Creating VikunjaClient with URL: {}", base_url));
         debug_log(&format!("Auth token length: {}", auth_token.len()));
+        let client = Client::new();
+        let attachment_client = AttachmentClient::new(
+            client.clone(),
+            base_url.clone(),
+            auth_token.clone(),
+        );
         Self {
-            client: Client::new(),
+            client,
             base_url,
             auth_token,
             parser: QuickAddParser::new(),
+            attachment_client,
         }
     }
 
@@ -112,6 +124,27 @@ impl VikunjaClient {
                 Err(e)
             }
         }
+    }
+
+    // Attachment methods
+    pub async fn get_task_attachments(&self, task_id: i64) -> Result<Vec<crate::vikunja::models::Attachment>, Box<dyn std::error::Error + Send + Sync>> {
+        self.attachment_client.get_task_attachments(task_id).await
+    }
+
+    pub async fn upload_attachment(&self, task_id: i64, file_path: &std::path::Path) -> Result<crate::vikunja::models::Attachment, Box<dyn std::error::Error + Send + Sync>> {
+        self.attachment_client.upload_attachment(task_id, file_path).await
+    }
+
+    pub async fn download_attachment(&self, attachment: &crate::vikunja::models::Attachment, download_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.attachment_client.download_attachment(attachment, download_path).await
+    }
+
+    pub async fn remove_attachment(&self, attachment_id: i64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.attachment_client.remove_attachment(attachment_id).await
+    }
+
+    pub async fn get_attachment(&self, attachment_id: i64) -> Result<crate::vikunja::models::Attachment, Box<dyn std::error::Error + Send + Sync>> {
+        self.attachment_client.get_attachment(attachment_id).await
     }
 }
 

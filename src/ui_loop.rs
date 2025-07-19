@@ -80,16 +80,104 @@ pub async fn run_ui(
                                 app_guard.hide_attachment_modal();
                             }
                             crate::tui::modals::AttachmentModalAction::Download(attachment) => {
-                                app_guard.add_debug_message(format!("Download attachment: {:?}", attachment));
-                                // TODO: Implement download functionality
+                                // Handle download asynchronously
+                                let attachment_clone = attachment.clone();
+                                let client_clone = client_clone.clone();
+                                let app_clone = app.clone();
+                                tokio::spawn(async move {
+                                    // Set operation in progress
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                            modal.operation_in_progress = true;
+                                            modal.operation_message = "Downloading attachment...".to_string();
+                                        }
+                                    }
+                                    
+                                    // Perform download
+                                    let download_result = {
+                                        let client = client_clone.lock().await;
+                                        client.download_attachment(&attachment_clone, std::path::Path::new("downloads")).await
+                                    };
+                                    
+                                    // Update UI with result
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                            modal.operation_in_progress = false;
+                                            match download_result {
+                                                Ok(_) => {
+                                                    modal.operation_message = "Download completed successfully!".to_string();
+                                                    app_guard.show_toast("Attachment downloaded successfully!".to_string());
+                                                }
+                                                Err(e) => {
+                                                    modal.operation_message = format!("Download failed: {}", e);
+                                                    app_guard.show_toast(format!("Download failed: {}", e));
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
                             }
                             crate::tui::modals::AttachmentModalAction::Remove(attachment) => {
-                                app_guard.add_debug_message(format!("Remove attachment: {:?}", attachment));
-                                // TODO: Implement remove functionality
+                                // Handle remove asynchronously
+                                let attachment_clone = attachment.clone();
+                                let client_clone = client_clone.clone();
+                                let app_clone = app.clone();
+                                tokio::spawn(async move {
+                                    // Set operation in progress
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                            modal.operation_in_progress = true;
+                                            modal.operation_message = "Removing attachment...".to_string();
+                                        }
+                                    }
+                                    
+                                    // Perform remove
+                                    let remove_result = {
+                                        let client = client_clone.lock().await;
+                                        client.remove_attachment(attachment_clone.id).await
+                                    };
+                                    
+                                    // Update UI with result
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                            modal.operation_in_progress = false;
+                                            match remove_result {
+                                                Ok(_) => {
+                                                    modal.operation_message = "Attachment removed successfully!".to_string();
+                                                    let task_id = modal.task_id;
+                                                    let _ = modal;
+                                                    app_guard.show_toast("Attachment removed successfully!".to_string());
+                                                    drop(app_guard);
+                                                    
+                                                    // Refresh attachments
+                                                    let refresh_result = {
+                                                        let client = client_clone.lock().await;
+                                                        client.get_task_attachments(task_id).await
+                                                    };
+                                                    if let Ok(attachments) = refresh_result {
+                                                        let mut app_guard = app_clone.lock().await;
+                                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                                            modal.viewer.attachments = attachments;
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    modal.operation_message = format!("Remove failed: {}", e);
+                                                    app_guard.show_toast(format!("Remove failed: {}", e));
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
                             }
                             crate::tui::modals::AttachmentModalAction::Upload => {
                                 app_guard.add_debug_message("Upload attachment requested".to_string());
-                                // TODO: Implement upload functionality
+                                app_guard.hide_attachment_modal();
+                                app_guard.show_file_picker_modal();
                             }
                             crate::tui::modals::AttachmentModalAction::None => {}
                         }
@@ -245,6 +333,120 @@ pub async fn run_ui(
                     }
                     continue;
                 }
+                
+                // Handle file picker modal
+                if app_guard.show_file_picker_modal {
+                    if let Some(ref mut modal) = app_guard.file_picker_modal {
+                        // Refresh entries if needed
+                        if modal.entries.is_empty() {
+                            if let Err(e) = modal.refresh_entries().await {
+                                app_guard.add_debug_message(format!("Failed to refresh file picker: {}", e));
+                                app_guard.hide_file_picker_modal();
+                                continue;
+                            }
+                        }
+                        
+                        // Handle key events
+                        let action = match key.code {
+                            crossterm::event::KeyCode::Char(c) => modal.handle_key(c),
+                            crossterm::event::KeyCode::Enter => modal.handle_enter(),
+                            crossterm::event::KeyCode::Up => {
+                                if modal.selected_index > 0 {
+                                    modal.selected_index -= 1;
+                                }
+                                crate::tui::modals::FilePickerAction::None
+                            }
+                            crossterm::event::KeyCode::Down => {
+                                if modal.selected_index < modal.entries.len().saturating_sub(1) {
+                                    modal.selected_index += 1;
+                                }
+                                crate::tui::modals::FilePickerAction::None
+                            }
+                            _ => crate::tui::modals::FilePickerAction::None,
+                        };
+                        
+                        match action {
+                            crate::tui::modals::FilePickerAction::Select(file_path) => {
+                                // Handle file selection for upload
+                                let file_path_clone = file_path.clone();
+                                let client_clone = client_clone.clone();
+                                let app_clone = app.clone();
+                                // Get task_id from the selected task
+                                let task_id = if let Some(task) = app_guard.get_selected_task() {
+                                    task.id
+                                } else {
+                                    // Fallback - we need a task ID
+                                    app_guard.hide_file_picker_modal();
+                                    app_guard.show_toast("No task selected for upload".to_string());
+                                    continue;
+                                };
+                                
+                                app_guard.hide_file_picker_modal();
+                                app_guard.show_toast(format!("Uploading {}...", file_path.file_name().unwrap_or_default().to_string_lossy()));
+                                
+                                tokio::spawn(async move {
+                                    // Perform upload
+                                    let upload_result = {
+                                        let client = client_clone.lock().await;
+                                        client.upload_attachment(task_id, &file_path_clone).await
+                                    };
+                                    
+                                    // Update UI with result
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        match upload_result {
+                                            Ok(attachment) => {
+                                                app_guard.add_debug_message(format!("Upload successful: attachment ID {}", attachment.id));
+                                                app_guard.show_toast("File uploaded successfully!".to_string());
+                                                // Refresh attachments if attachment modal is open
+                                                if app_guard.show_attachment_modal {
+                                                    if let Some(ref modal) = app_guard.attachment_modal {
+                                                        let task_id = modal.task_id;
+                                                        let refresh_result = {
+                                                            let client = client_clone.lock().await;
+                                                            client.get_task_attachments(task_id).await
+                                                        };
+                                                        match refresh_result {
+                                                            Ok(attachments) => {
+                                                                app_guard.add_debug_message(format!("Refreshed {} attachments", attachments.len()));
+                                                                if let Some(ref mut modal) = app_guard.attachment_modal {
+                                                                    modal.viewer.attachments = attachments;
+                                                                }
+                                                            }
+                                                            Err(e) => {
+                                                                app_guard.add_debug_message(format!("Failed to refresh attachments: {}", e));
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                let error_msg = format!("Upload failed: {}", e);
+                                                app_guard.add_debug_message(error_msg.clone());
+                                                app_guard.show_toast(error_msg);
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            crate::tui::modals::FilePickerAction::Navigate(new_path) => {
+                                modal.current_path = new_path;
+                                modal.selected_index = 0;
+                                modal.entries.clear(); // Will be refreshed on next iteration
+                            }
+                            crate::tui::modals::FilePickerAction::ToggleHidden => {
+                                modal.show_hidden = !modal.show_hidden;
+                                modal.entries.clear(); // Will be refreshed on next iteration
+                            }
+                            crate::tui::modals::FilePickerAction::Cancel => {
+                                app_guard.hide_file_picker_modal();
+                            }
+                            crate::tui::modals::FilePickerAction::None => {}
+                        }
+                    }
+                    continue;
+                }
+                
                 // handle dispatch_key and refresh
                 if dispatch_key(&mut *app_guard, key) {
                     continue;
@@ -294,8 +496,8 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                 true
             }
         }
-        Char('s') => { /* async star toggle handled in event loop */ true }
         Char('i') => { app.toggle_info_pane(); true }
+        Char('x') => { app.toggle_debug_pane(); true }
         // Navigation: move selection down/up
         Char('j') => { 
             if app.show_advanced_features_modal {
@@ -321,7 +523,6 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
             }
         }
         // Switch layouts backward/forward
-        Char('h') => { app.switch_to_previous_layout(); true }
         Char('l') => { app.switch_to_next_layout(); true }
         // Cycle filters backward/forward
         Char('H') => { app.cycle_task_filter(); true }
@@ -335,7 +536,74 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         // Relations - DISABLED: Incomplete feature
         // Char('R') => { app.show_relations_modal(); true }
         Char(' ') => { app.show_quick_actions_modal(); true }
-        Char('a') => { app.show_quick_add_modal(); true }
+        Char('a') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of attachment management
+                app.hide_advanced_features_modal();
+                app.show_attachment_modal();
+                true
+            } else {
+                app.show_quick_add_modal(); 
+                true 
+            }
+        }
+        Char('c') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of comments
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Comments feature requested".to_string());
+                app.show_toast("Comments feature coming soon!".to_string());
+                true
+            } else {
+                false
+            }
+        }
+        Char('r') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of task relations
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Task relations feature requested".to_string());
+                app.show_toast("Task relations feature coming soon!".to_string());
+                true
+            } else {
+                false
+            }
+        }
+        Char('h') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of task history
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Task history feature requested".to_string());
+                app.show_toast("Task history feature coming soon!".to_string());
+                true
+            } else {
+                app.switch_to_previous_layout(); 
+                true 
+            }
+        }
+        Char('s') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of subtasks
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Subtasks feature requested".to_string());
+                app.show_toast("Subtasks feature coming soon!".to_string());
+                true
+            } else {
+                /* async star toggle handled in event loop */ 
+                true 
+            }
+        }
+        Char('t') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of time tracking
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Time tracking feature requested".to_string());
+                app.show_toast("Time tracking feature coming soon!".to_string());
+                true
+            } else {
+                false
+            }
+        }
         Enter => {
             if app.show_confirmation_dialog {
                 // handled async in event loop
