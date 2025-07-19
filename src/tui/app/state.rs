@@ -88,6 +88,9 @@ pub struct App {
     pub default_project_name: String,
     // Modal states
     pub show_help_modal: bool,
+    pub show_advanced_help_modal: bool,
+    pub show_advanced_features_modal: bool,
+    pub selected_advanced_feature_index: usize,
     pub show_sort_modal: bool,
     pub sort_options: Vec<&'static str>,
     pub selected_sort_index: usize,
@@ -97,6 +100,13 @@ pub struct App {
     // Quick action mode - direct key handling after Space
     pub quick_action_mode: bool,
     pub quick_action_mode_start: Option<DateTime<Local>>,
+    // Attachment modal state
+    pub show_attachment_modal: bool,
+    pub attachment_modal: Option<crate::tui::modals::AttachmentModal>,
+    
+    // File picker modal state
+    pub show_file_picker_modal: bool,
+    pub file_picker_modal: Option<crate::tui::modals::FilePickerModal>,
     // Layout system
     pub current_layout_name: String,
     pub layout_notification: Option<String>,
@@ -206,6 +216,9 @@ impl App {
             suggestion_prefix: String::new(),
             default_project_name,
             show_help_modal: false,
+            show_advanced_help_modal: false,
+            show_advanced_features_modal: false,
+            selected_advanced_feature_index: 0,
             show_sort_modal: false,
             sort_options: vec![
                 "Default (API order)",
@@ -225,6 +238,10 @@ impl App {
             selected_quick_action_index: 0,
             quick_action_mode: false,
             quick_action_mode_start: None,
+            show_attachment_modal: false,
+            attachment_modal: None,
+            show_file_picker_modal: false,
+            file_picker_modal: None,
             current_layout_name,
             layout_notification: None,
             layout_notification_start: None,
@@ -543,6 +560,63 @@ impl App {
         self.selected_quick_action_index = 0;
     }
 
+    pub fn show_attachment_modal(&mut self) {
+        if let Some(task) = self.get_selected_task() {
+            let attachments = task.attachments.clone().unwrap_or_default();
+            let task_title = task.title.clone();
+            let task_id = task.id;
+            
+            self.add_debug_message(format!("Opening attachment modal for task {} (ID: {}) with {} attachments", 
+                task_title, task_id, attachments.len()));
+            
+            self.close_all_modals();
+            self.show_attachment_modal = true;
+            self.attachment_modal = Some(crate::tui::modals::AttachmentModal::new(
+                attachments,
+                task_title,
+                task_id,
+            ));
+        } else {
+            self.add_debug_message("No task selected for attachment modal".to_string());
+        }
+    }
+
+    pub fn hide_attachment_modal(&mut self) {
+        self.show_attachment_modal = false;
+        self.attachment_modal = None;
+        self.show_file_picker_modal = false;
+        self.file_picker_modal = None;
+    }
+
+    pub fn show_file_picker_modal(&mut self) {
+        self.show_file_picker_modal = true;
+        self.file_picker_modal = Some(crate::tui::modals::FilePickerModal::new(None));
+    }
+
+    pub fn hide_file_picker_modal(&mut self) {
+        self.show_file_picker_modal = false;
+        self.file_picker_modal = None;
+    }
+
+    pub fn show_advanced_help_modal(&mut self) {
+        self.close_all_modals();
+        self.show_advanced_help_modal = true;
+    }
+
+    pub fn hide_advanced_help_modal(&mut self) {
+        self.show_advanced_help_modal = false;
+    }
+
+    pub fn show_advanced_features_modal(&mut self) {
+        self.close_all_modals();
+        self.show_advanced_features_modal = true;
+        self.selected_advanced_feature_index = 0;
+    }
+
+    pub fn hide_advanced_features_modal(&mut self) {
+        self.show_advanced_features_modal = false;
+    }
+
     pub fn enter_quick_action_mode(&mut self) {
         self.close_all_modals();
         self.quick_action_mode = true;
@@ -565,6 +639,8 @@ impl App {
     // Helper method to close all modals
     pub fn close_all_modals(&mut self) {
         self.show_help_modal = false;
+        self.show_advanced_help_modal = false;
+        self.show_advanced_features_modal = false;
         self.show_sort_modal = false;
         self.show_quick_actions_modal = false;
         self.show_quick_add_modal = false;
@@ -573,6 +649,7 @@ impl App {
         self.show_project_picker = false;
         self.show_filter_picker = false;
         self.show_confirmation_dialog = false;
+        self.show_attachment_modal = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
         // Reset modal state
@@ -583,6 +660,7 @@ impl App {
         self.editing_task_id = None;
         self.form_edit_state = None;
         self.selected_quick_action_index = 0;
+        self.attachment_modal = None;
         // Relations modals - DISABLED: Incomplete feature
         // self.show_relations_modal = false;
         // self.show_add_relation_modal = false;

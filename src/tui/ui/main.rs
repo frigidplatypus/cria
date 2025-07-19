@@ -32,19 +32,28 @@ pub fn draw(f: &mut Frame, app: &App) {
     let body_area = f.size();
 
     let _main_layout = if app.show_debug_pane {
-        let horizontal_chunks = Layout::default()
-            .direction(Direction::Horizontal)
+        let vertical_chunks = Layout::default()
+            .direction(Direction::Vertical)
             .constraints([
-                Constraint::Percentage(40),
-                Constraint::Percentage(30),
-                Constraint::Percentage(30),
+                Constraint::Min(10), // Main content area
+                Constraint::Length(10), // Debug pane height
             ])
             .split(body_area);
-        draw_tasks_table(f, app, horizontal_chunks[0]);
+        
+        // Main content area (horizontal split)
+        let main_horizontal = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(60),
+                Constraint::Percentage(40),
+            ])
+            .split(vertical_chunks[0]);
+        
+        draw_tasks_table(f, app, main_horizontal[0]);
         if app.show_info_pane {
-            draw_task_details(f, app, horizontal_chunks[1]);
+            draw_task_details(f, app, main_horizontal[1]);
         }
-        // draw_debug_pane(f, app, horizontal_chunks[2]);
+        draw_debug_pane(f, app, vertical_chunks[1]);
     } else if app.show_info_pane {
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
@@ -61,6 +70,10 @@ pub fn draw(f: &mut Frame, app: &App) {
     // Draw modal on top if active
     if app.show_help_modal {
         crate::tui::ui::modals::draw_help_modal(f, app);
+    } else if app.show_advanced_help_modal {
+        crate::tui::ui::modals::draw_advanced_help_modal(f, app);
+    } else if app.show_advanced_features_modal {
+        crate::tui::ui::modals::draw_advanced_features_modal(f, app);
     } else if app.show_sort_modal {
         crate::tui::ui::modals::draw_sort_modal(f, app);
     } else if app.show_form_edit_modal {
@@ -92,22 +105,17 @@ pub fn draw(f: &mut Frame, app: &App) {
     //     }
     } else if app.show_quick_actions_modal {
         draw_quick_actions_modal(f, app);
+    } else if app.show_attachment_modal {
+        if let Some(ref modal) = app.attachment_modal {
+            modal.draw(f, f.size());
+        }
+    } else if app.show_file_picker_modal {
+        if let Some(ref modal) = app.file_picker_modal {
+            modal.draw(f, f.size());
+        }
     }
 
-    // Draw quick action mode indicator
-    if app.quick_action_mode {
-        let quick_area = Rect {
-            x: 0,
-            y: f.size().height.saturating_sub(if app.refreshing { 2 } else { 1 }),
-            width: f.size().width,
-            height: 1,
-        };
-        let quick_msg = Paragraph::new("Quick Action Mode: Press a key for quick action or Esc to cancel")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
-            .alignment(Alignment::Center);
-        f.render_widget(Clear, quick_area);
-        f.render_widget(quick_msg, quick_area);
-    }
+
 
     // Draw refreshing indicator if refreshing
     if app.refreshing {
@@ -157,4 +165,31 @@ pub fn draw(f: &mut Frame, app: &App) {
         f.render_widget(Clear, toast_area);
         f.render_widget(toast_msg, toast_area);
     }
+}
+
+fn draw_debug_pane(f: &mut Frame, app: &App, area: Rect) {
+    let debug_block = Block::default()
+        .title("Debug Log")
+        .borders(Borders::ALL)
+        .style(Style::default().fg(Color::Yellow));
+    
+    // Create debug text from messages
+    let debug_text: Vec<String> = app.debug_messages
+        .iter()
+        .rev() // Show newest first
+        .take(area.height.saturating_sub(2) as usize) // Leave room for borders
+        .map(|(timestamp, message)| {
+            let time_str = timestamp.format("%H:%M:%S").to_string();
+            format!("[{}] {}", time_str, message)
+        })
+        .collect();
+    
+    let debug_content = debug_text.join("\n");
+    
+    let debug_widget = Paragraph::new(debug_content)
+        .block(debug_block)
+        .style(Style::default().fg(Color::White))
+        .scroll((0, 0));
+    
+    f.render_widget(debug_widget, area);
 }

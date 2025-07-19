@@ -110,34 +110,6 @@ pub async fn run_ui(
                         _ => {}
                     }
                     continue;
-                } else if app_guard.quick_action_mode {
-                    // Handle quick action mode (activated with '.')
-                    if app_guard.is_quick_action_mode_expired() {
-                        app_guard.exit_quick_action_mode();
-                    } else {
-                        match key.code {
-                            KeyCode::Char(' ') => {
-                                app_guard.exit_quick_action_mode();
-                            }
-                            KeyCode::Esc => {
-                                app_guard.exit_quick_action_mode();
-                            }
-                            KeyCode::Char(c) => {
-                                if let Some(action) = app_guard.config.get_quick_action(&c.to_string()) {
-                                    let action = action.clone();
-                                    app_guard.exit_quick_action_mode();
-                                    apply_quick_action_and_sync(&mut *app_guard, action, &client_clone).await;
-                                } else {
-                                    app_guard.exit_quick_action_mode();
-                                    app_guard.add_debug_message(format!("No quick action configured for key: {}", c));
-                                }
-                            }
-                            _ => {
-                                app_guard.exit_quick_action_mode();
-                            }
-                        }
-                        continue;
-                    }
                 }
 
                 // Handle Ctrl key combinations first
@@ -233,6 +205,120 @@ pub async fn run_ui(
                     }
                     continue;
                 }
+                
+                // Handle file picker modal
+                if app_guard.show_file_picker_modal {
+                    if let Some(ref mut modal) = app_guard.file_picker_modal {
+                        // Refresh entries if needed
+                        if modal.entries.is_empty() {
+                            if let Err(e) = modal.refresh_entries().await {
+                                app_guard.add_debug_message(format!("Failed to refresh file picker: {}", e));
+                                app_guard.hide_file_picker_modal();
+                                continue;
+                            }
+                        }
+                        
+                        // Handle key events
+                        let action = match key.code {
+                            crossterm::event::KeyCode::Char(c) => modal.handle_key(c),
+                            crossterm::event::KeyCode::Enter => modal.handle_enter(),
+                            crossterm::event::KeyCode::Up => {
+                                if modal.selected_index > 0 {
+                                    modal.selected_index -= 1;
+                                }
+                                crate::tui::modals::FilePickerAction::None
+                            }
+                            crossterm::event::KeyCode::Down => {
+                                if modal.selected_index < modal.entries.len().saturating_sub(1) {
+                                    modal.selected_index += 1;
+                                }
+                                crate::tui::modals::FilePickerAction::None
+                            }
+                            _ => crate::tui::modals::FilePickerAction::None,
+                        };
+                        
+                        match action {
+                            crate::tui::modals::FilePickerAction::Select(file_path) => {
+                                // Handle file selection for upload
+                                let file_path_clone = file_path.clone();
+                                let client_clone = client_clone.clone();
+                                let app_clone = app.clone();
+                                // Get task_id from the selected task
+                                let task_id = if let Some(task) = app_guard.get_selected_task() {
+                                    task.id
+                                } else {
+                                    // Fallback - we need a task ID
+                                    app_guard.hide_file_picker_modal();
+                                    app_guard.show_toast("No task selected for upload".to_string());
+                                    continue;
+                                };
+                                
+                                app_guard.hide_file_picker_modal();
+                                app_guard.show_toast(format!("Uploading {}...", file_path.file_name().unwrap_or_default().to_string_lossy()));
+                                
+                                tokio::spawn(async move {
+                                    // Perform upload
+                                    let upload_result = {
+                                        let client = client_clone.lock().await;
+                                        client.upload_attachment(task_id, &file_path_clone).await
+                                    };
+                                    
+                                    // Update UI with result
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        match upload_result {
+                                            Ok(attachment) => {
+                                                app_guard.add_debug_message(format!("Upload successful: attachment ID {}", attachment.id));
+                                                app_guard.show_toast("File uploaded successfully!".to_string());
+                                                // Refresh attachments if attachment modal is open
+                                                if app_guard.show_attachment_modal {
+                                                    if let Some(ref modal) = app_guard.attachment_modal {
+                                                        let task_id = modal.task_id;
+                                                        let refresh_result = {
+                                                            let client = client_clone.lock().await;
+                                                            client.get_task_attachments(task_id).await
+                                                        };
+                                                        match refresh_result {
+                                                            Ok(attachments) => {
+                                                                app_guard.add_debug_message(format!("Refreshed {} attachments", attachments.len()));
+                                                                if let Some(ref mut modal) = app_guard.attachment_modal {
+                                                                    modal.viewer.attachments = attachments;
+                                                                }
+                                                            }
+                                                            Err(e) => {
+                                                                app_guard.add_debug_message(format!("Failed to refresh attachments: {}", e));
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                let error_msg = format!("Upload failed: {}", e);
+                                                app_guard.add_debug_message(error_msg.clone());
+                                                app_guard.show_toast(error_msg);
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            crate::tui::modals::FilePickerAction::Navigate(new_path) => {
+                                modal.current_path = new_path;
+                                modal.selected_index = 0;
+                                modal.entries.clear(); // Will be refreshed on next iteration
+                            }
+                            crate::tui::modals::FilePickerAction::ToggleHidden => {
+                                modal.show_hidden = !modal.show_hidden;
+                                modal.entries.clear(); // Will be refreshed on next iteration
+                            }
+                            crate::tui::modals::FilePickerAction::Cancel => {
+                                app_guard.hide_file_picker_modal();
+                            }
+                            crate::tui::modals::FilePickerAction::None => {}
+                        }
+                    }
+                    continue;
+                }
+                
                 // handle dispatch_key and refresh
                 if dispatch_key(&mut *app_guard, key) {
                     continue;
@@ -273,34 +359,160 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
     match key.code {
         Char('?') => { app.show_help_modal(); true }
         Char('q') => {
-            // Prompt for quit confirmation
-            app.confirm_quit();
-            true
+            if app.show_advanced_features_modal {
+                app.hide_advanced_features_modal();
+                true
+            } else {
+                // Prompt for quit confirmation
+                app.confirm_quit();
+                true
+            }
         }
-        Char('s') => { /* async star toggle handled in event loop */ true }
         Char('i') => { app.toggle_info_pane(); true }
+        Char('x') => { app.toggle_debug_pane(); true }
         // Navigation: move selection down/up
-        Char('j') | Down => { app.next_task(); true }
-        Char('k') | Up => { app.previous_task(); true }
+        Char('j') => { 
+            if app.show_advanced_features_modal {
+                let max_index = 5; // Number of advanced features - 1
+                if app.selected_advanced_feature_index < max_index {
+                    app.selected_advanced_feature_index += 1;
+                }
+                true
+            } else {
+                app.next_task(); 
+                true 
+            }
+        }
+        Char('k') => { 
+            if app.show_advanced_features_modal {
+                if app.selected_advanced_feature_index > 0 {
+                    app.selected_advanced_feature_index -= 1;
+                }
+                true
+            } else {
+                app.previous_task(); 
+                true 
+            }
+        }
         // Switch layouts backward/forward
-        Char('h') => { app.switch_to_previous_layout(); true }
         Char('l') => { app.switch_to_next_layout(); true }
         // Cycle filters backward/forward
         Char('H') => { app.cycle_task_filter(); true }
         Char('L') => { app.cycle_task_filter(); true }
-        // Quick action mode via dot
-        Char('.') => { app.enter_quick_action_mode(); true }
+        // Advanced features modal via dot
+        Char('.') => { app.show_advanced_features_modal(); true }
         Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
         Char('e') => { app.show_edit_modal(); true }
         Char('p') => { app.show_project_picker(); true }
         Char('f') => { app.show_filter_picker(); true }
         Char(' ') => { app.show_quick_actions_modal(); true }
-        Char('a') => { app.show_quick_add_modal(); true }
+        Char('a') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of attachment management
+                app.hide_advanced_features_modal();
+                app.show_attachment_modal();
+                true
+            } else {
+                app.show_quick_add_modal(); 
+                true 
+            }
+        }
+        Char('c') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of comments
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Comments feature requested".to_string());
+                app.show_toast("Comments feature coming soon!".to_string());
+                true
+            } else {
+                false
+            }
+        }
+        Char('r') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of task relations
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Task relations feature requested".to_string());
+                app.show_toast("Task relations feature coming soon!".to_string());
+                true
+            } else {
+                false
+            }
+        }
+        Char('h') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of task history
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Task history feature requested".to_string());
+                app.show_toast("Task history feature coming soon!".to_string());
+                true
+            } else {
+                app.switch_to_previous_layout(); 
+                true 
+            }
+        }
+        Char('s') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of subtasks
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Subtasks feature requested".to_string());
+                app.show_toast("Subtasks feature coming soon!".to_string());
+                true
+            } else {
+                /* async star toggle handled in event loop */ 
+                true 
+            }
+        }
+        Char('t') => { 
+            if app.show_advanced_features_modal {
+                // Direct activation of time tracking
+                app.hide_advanced_features_modal();
+                app.add_debug_message("Time tracking feature requested".to_string());
+                app.show_toast("Time tracking feature coming soon!".to_string());
+                true
+            } else {
+                false
+            }
+        }
         Enter => {
             if app.show_confirmation_dialog {
                 // handled async in event loop
+                true
+            } else if app.show_advanced_features_modal {
+                // Handle advanced feature selection
+                match app.selected_advanced_feature_index {
+                    0 => { // Attachment Management
+                        app.hide_advanced_features_modal();
+                        app.show_attachment_modal();
+                    }
+                    1 => { // Comments
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Comments feature requested".to_string());
+                    }
+                    2 => { // Task Relations
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Task relations feature requested".to_string());
+                    }
+                    3 => { // Task History
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Task history feature requested".to_string());
+                    }
+                    4 => { // Subtasks
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Subtasks feature requested".to_string());
+                    }
+                    5 => { // Time Tracking
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Time tracking feature requested".to_string());
+                    }
+                    _ => {
+                        app.hide_advanced_features_modal();
+                    }
+                }
+                true
+            } else {
+                true
             }
-            true
         }
         Char('n') => {
             if app.show_confirmation_dialog {
@@ -308,9 +520,33 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
             }
             true
         }
+        // Advanced features modal navigation
+        Up => {
+            if app.show_advanced_features_modal {
+                if app.selected_advanced_feature_index > 0 {
+                    app.selected_advanced_feature_index -= 1;
+                }
+                true
+            } else {
+                false
+            }
+        }
+        Down => {
+            if app.show_advanced_features_modal {
+                let max_index = 5; // Number of advanced features - 1
+                if app.selected_advanced_feature_index < max_index {
+                    app.selected_advanced_feature_index += 1;
+                }
+                true
+            } else {
+                false
+            }
+        }
         Esc => {
             if app.show_confirmation_dialog {
                 app.cancel_confirmation();
+            } else if app.show_advanced_features_modal {
+                app.hide_advanced_features_modal();
             } else {
                 // Close any open modal or dialog
                 app.close_all_modals();
