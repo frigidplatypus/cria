@@ -8,6 +8,7 @@ use ratatui::text::{Line, Span};
 use chrono::Datelike;
 use super::hex_to_color;
 
+
 pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
     let selected_task = app.get_selected_task();
     let details = if let Some(task) = selected_task {
@@ -226,37 +227,114 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
         // Attachments
         if let Some(attachments) = &task.attachments {
             if !attachments.is_empty() {
+                let image_count = attachments.iter()
+                    .filter_map(|a| a.file.as_ref())
+                    .filter(|f| {
+                        let filename = f.name.as_deref().unwrap_or("");
+                        let mime = f.mime.as_deref();
+                        let image_extensions = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "ico", "tiff", "tga"];
+                        
+                        // Check file extension
+                        if let Some(ext) = filename.split('.').last() {
+                            if image_extensions.iter().any(|&img_ext| ext.eq_ignore_ascii_case(img_ext)) {
+                                return true;
+                            }
+                        }
+                        
+                        // Check MIME type if available
+                        if let Some(mime) = mime {
+                            if mime.starts_with("image/") {
+                                return true;
+                            }
+                        }
+                        
+                        false
+                    })
+                    .count();
+                
+                let total_size: i64 = attachments.iter()
+                    .filter_map(|a| a.file.as_ref())
+                    .filter_map(|f| f.size)
+                    .sum();
+                
+                let size_text = if total_size > 1024 * 1024 {
+                    format!("{:.1} MB", total_size as f64 / (1024.0 * 1024.0))
+                } else if total_size > 1024 {
+                    format!("{:.1} KB", total_size as f64 / 1024.0)
+                } else {
+                    format!("{} bytes", total_size)
+                };
+                
                 details_lines.push(Line::from(vec![
                     Span::styled("Attachments: ", Style::default().add_modifier(Modifier::BOLD)),
                     Span::styled("📎", Style::default().fg(Color::Yellow)),
                     Span::raw(format!(" {} file(s)", attachments.len()))
                 ]));
                 
-                // Show attachment details if there are few attachments
-                if attachments.len() <= 3 {
-                    for attachment in attachments {
-                        if let Some(file) = &attachment.file {
-                            let size_text = if let Some(size) = file.size {
-                                if size > 1024 * 1024 {
-                                    format!("{:.1} MB", size as f64 / (1024.0 * 1024.0))
-                                } else if size > 1024 {
-                                    format!("{:.1} KB", size as f64 / 1024.0)
+                if image_count > 0 {
+                    details_lines.push(Line::from(vec![
+                        Span::raw("  "),
+                        Span::styled("🖼️", Style::default().fg(Color::Green)),
+                        Span::raw(format!(" {} image(s)", image_count))
+                    ]));
+                }
+                
+                details_lines.push(Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled("💾", Style::default().fg(Color::Cyan)),
+                    Span::raw(format!(" Total size: {}", size_text))
+                ]));
+                
+                // Show first few attachment names
+                let max_show = 2;
+                for (_i, attachment) in attachments.iter().take(max_show).enumerate() {
+                    if let Some(file) = &attachment.file {
+                        let file_name = file.name.as_deref().unwrap_or("Unknown file");
+                        let icon = if {
+                            let image_extensions = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "ico", "tiff", "tga"];
+                            
+                            // Check file extension
+                            if let Some(ext) = file_name.split('.').last() {
+                                if image_extensions.iter().any(|&img_ext| ext.eq_ignore_ascii_case(img_ext)) {
+                                    true
                                 } else {
-                                    format!("{} bytes", size)
+                                    false
                                 }
                             } else {
-                                "Unknown size".to_string()
-                            };
-                            
-                            let file_name = file.name.as_deref().unwrap_or("Unknown file");
-                            details_lines.push(Line::from(vec![
-                                Span::raw("  • "),
-                                Span::styled(file_name, Style::default().fg(Color::Blue)),
-                                Span::raw(format!(" ({})", size_text))
-                            ]));
-                        }
+                                // Check MIME type if available
+                                if let Some(mime) = file.mime.as_deref() {
+                                    mime.starts_with("image/")
+                                } else {
+                                    false
+                                }
+                            }
+                        } {
+                            "🖼️"
+                        } else {
+                            "📎"
+                        };
+                        
+                        details_lines.push(Line::from(vec![
+                            Span::raw("  "),
+                            Span::styled(icon, Style::default().fg(Color::Yellow)),
+                            Span::raw(" "),
+                            Span::styled(file_name, Style::default().fg(Color::Blue))
+                        ]));
                     }
                 }
+                
+                if attachments.len() > max_show {
+                    details_lines.push(Line::from(vec![
+                        Span::raw("  "),
+                        Span::styled("...", Style::default().fg(Color::Gray)),
+                        Span::raw(format!(" and {} more", attachments.len() - max_show))
+                    ]));
+                }
+                
+                details_lines.push(Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled("Press '.a' to view all attachments", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))
+                ]));
                 details_lines.push(Line::from(""));
             }
         }
@@ -463,3 +541,4 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
         .wrap(Wrap { trim: true });
     f.render_widget(paragraph, area);
 }
+

@@ -37,6 +37,12 @@ itertools = "0.12"
 fuzzy-matcher = "0.3"
 dirs = "5.0"
 anyhow = "1.0"
+# For terminal image support
+image = "0.24"
+# For file type detection
+infer = "0.15"
+# For terminal capability detection
+term = "0.7"
 
 [dev-dependencies]
 proptest = "1.0"

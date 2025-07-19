@@ -136,7 +136,7 @@ impl App {
 
     /// Reapply all current filters after data updates
     pub fn reapply_current_filters(&mut self) {
-        if let Some(filter_id) = self.current_filter_id {
+        if let Some(_filter_id) = self.current_filter_id {
             // If a saved filter is active, we need to fetch tasks for that filter
             // This should be handled by the calling code that has access to the API client
             // For now, fall back to task filter

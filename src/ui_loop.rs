@@ -67,6 +67,34 @@ pub async fn run_ui(
                     let mut app_guard = app.lock().await;
                     crate::tui::pickers::filter::handle_filter_picker(&mut *app_guard, &key, &client_clone).await;
                     continue;
+                } else if app_guard.show_attachment_modal {
+                    drop(app_guard);
+                    let mut app_guard = app.lock().await;
+                    if let Some(ref mut modal) = app_guard.attachment_modal {
+                        let action = modal.handle_key(match key.code {
+                            crossterm::event::KeyCode::Char(c) => c,
+                            _ => '\0',
+                        });
+                        match action {
+                            crate::tui::modals::AttachmentModalAction::Close => {
+                                app_guard.hide_attachment_modal();
+                            }
+                            crate::tui::modals::AttachmentModalAction::Download(attachment) => {
+                                app_guard.add_debug_message(format!("Download attachment: {:?}", attachment));
+                                // TODO: Implement download functionality
+                            }
+                            crate::tui::modals::AttachmentModalAction::Remove(attachment) => {
+                                app_guard.add_debug_message(format!("Remove attachment: {:?}", attachment));
+                                // TODO: Implement remove functionality
+                            }
+                            crate::tui::modals::AttachmentModalAction::Upload => {
+                                app_guard.add_debug_message("Upload attachment requested".to_string());
+                                // TODO: Implement upload functionality
+                            }
+                            crate::tui::modals::AttachmentModalAction::None => {}
+                        }
+                    }
+                    continue;
                 // Relations modals - DISABLED: Incomplete feature
                 // } else if app_guard.show_relations_modal {
                 //     if app_guard.show_add_relation_modal {
@@ -122,34 +150,6 @@ pub async fn run_ui(
                         _ => {}
                     }
                     continue;
-                } else if app_guard.quick_action_mode {
-                    // Handle quick action mode (activated with '.')
-                    if app_guard.is_quick_action_mode_expired() {
-                        app_guard.exit_quick_action_mode();
-                    } else {
-                        match key.code {
-                            KeyCode::Char(' ') => {
-                                app_guard.exit_quick_action_mode();
-                            }
-                            KeyCode::Esc => {
-                                app_guard.exit_quick_action_mode();
-                            }
-                            KeyCode::Char(c) => {
-                                if let Some(action) = app_guard.config.get_quick_action(&c.to_string()) {
-                                    let action = action.clone();
-                                    app_guard.exit_quick_action_mode();
-                                    apply_quick_action_and_sync(&mut *app_guard, action, &client_clone).await;
-                                } else {
-                                    app_guard.exit_quick_action_mode();
-                                    app_guard.add_debug_message(format!("No quick action configured for key: {}", c));
-                                }
-                            }
-                            _ => {
-                                app_guard.exit_quick_action_mode();
-                            }
-                        }
-                        continue;
-                    }
                 }
 
                 // Handle Ctrl key combinations first
@@ -285,23 +285,49 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
     match key.code {
         Char('?') => { app.show_help_modal(); true }
         Char('q') => {
-            // Prompt for quit confirmation
-            app.confirm_quit();
-            true
+            if app.show_advanced_features_modal {
+                app.hide_advanced_features_modal();
+                true
+            } else {
+                // Prompt for quit confirmation
+                app.confirm_quit();
+                true
+            }
         }
         Char('s') => { /* async star toggle handled in event loop */ true }
         Char('i') => { app.toggle_info_pane(); true }
         // Navigation: move selection down/up
-        Char('j') | Down => { app.next_task(); true }
-        Char('k') | Up => { app.previous_task(); true }
+        Char('j') => { 
+            if app.show_advanced_features_modal {
+                let max_index = 5; // Number of advanced features - 1
+                if app.selected_advanced_feature_index < max_index {
+                    app.selected_advanced_feature_index += 1;
+                }
+                true
+            } else {
+                app.next_task(); 
+                true 
+            }
+        }
+        Char('k') => { 
+            if app.show_advanced_features_modal {
+                if app.selected_advanced_feature_index > 0 {
+                    app.selected_advanced_feature_index -= 1;
+                }
+                true
+            } else {
+                app.previous_task(); 
+                true 
+            }
+        }
         // Switch layouts backward/forward
         Char('h') => { app.switch_to_previous_layout(); true }
         Char('l') => { app.switch_to_next_layout(); true }
         // Cycle filters backward/forward
         Char('H') => { app.cycle_task_filter(); true }
         Char('L') => { app.cycle_task_filter(); true }
-        // Quick action mode via dot
-        Char('.') => { app.enter_quick_action_mode(); true }
+        // Advanced features modal via dot
+        Char('.') => { app.show_advanced_features_modal(); true }
         Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
         Char('e') => { app.show_edit_modal(); true }
         Char('p') => { app.show_project_picker(); true }
@@ -313,8 +339,42 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         Enter => {
             if app.show_confirmation_dialog {
                 // handled async in event loop
+                true
+            } else if app.show_advanced_features_modal {
+                // Handle advanced feature selection
+                match app.selected_advanced_feature_index {
+                    0 => { // Attachment Management
+                        app.hide_advanced_features_modal();
+                        app.show_attachment_modal();
+                    }
+                    1 => { // Comments
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Comments feature requested".to_string());
+                    }
+                    2 => { // Task Relations
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Task relations feature requested".to_string());
+                    }
+                    3 => { // Task History
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Task history feature requested".to_string());
+                    }
+                    4 => { // Subtasks
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Subtasks feature requested".to_string());
+                    }
+                    5 => { // Time Tracking
+                        app.hide_advanced_features_modal();
+                        app.add_debug_message("Time tracking feature requested".to_string());
+                    }
+                    _ => {
+                        app.hide_advanced_features_modal();
+                    }
+                }
+                true
+            } else {
+                true
             }
-            true
         }
         Char('n') => {
             if app.show_confirmation_dialog {
@@ -322,9 +382,33 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
             }
             true
         }
+        // Advanced features modal navigation
+        Up => {
+            if app.show_advanced_features_modal {
+                if app.selected_advanced_feature_index > 0 {
+                    app.selected_advanced_feature_index -= 1;
+                }
+                true
+            } else {
+                false
+            }
+        }
+        Down => {
+            if app.show_advanced_features_modal {
+                let max_index = 5; // Number of advanced features - 1
+                if app.selected_advanced_feature_index < max_index {
+                    app.selected_advanced_feature_index += 1;
+                }
+                true
+            } else {
+                false
+            }
+        }
         Esc => {
             if app.show_confirmation_dialog {
                 app.cancel_confirmation();
+            } else if app.show_advanced_features_modal {
+                app.hide_advanced_features_modal();
             } else {
                 // Close any open modal or dialog
                 app.close_all_modals();

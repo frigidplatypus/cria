@@ -61,6 +61,10 @@ pub fn draw(f: &mut Frame, app: &App) {
     // Draw modal on top if active
     if app.show_help_modal {
         crate::tui::ui::modals::draw_help_modal(f, app);
+    } else if app.show_advanced_help_modal {
+        crate::tui::ui::modals::draw_advanced_help_modal(f, app);
+    } else if app.show_advanced_features_modal {
+        crate::tui::ui::modals::draw_advanced_features_modal(f, app);
     } else if app.show_sort_modal {
         crate::tui::ui::modals::draw_sort_modal(f, app);
     } else if app.show_form_edit_modal {
@@ -92,22 +96,13 @@ pub fn draw(f: &mut Frame, app: &App) {
     //     }
     } else if app.show_quick_actions_modal {
         draw_quick_actions_modal(f, app);
+    } else if app.show_attachment_modal {
+        if let Some(ref modal) = app.attachment_modal {
+            modal.draw(f, f.size());
+        }
     }
 
-    // Draw quick action mode indicator
-    if app.quick_action_mode {
-        let quick_area = Rect {
-            x: 0,
-            y: f.size().height.saturating_sub(if app.refreshing { 2 } else { 1 }),
-            width: f.size().width,
-            height: 1,
-        };
-        let quick_msg = Paragraph::new("Quick Action Mode: Press a key for quick action or Esc to cancel")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
-            .alignment(Alignment::Center);
-        f.render_widget(Clear, quick_area);
-        f.render_widget(quick_msg, quick_area);
-    }
+
 
     // Draw refreshing indicator if refreshing
     if app.refreshing {
