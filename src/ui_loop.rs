@@ -357,6 +357,31 @@ pub async fn run_ui(
 fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
     use KeyCode::*;
     match key.code {
+        KeyCode::Up => {
+            if app.show_advanced_features_modal {
+                if app.selected_advanced_feature_index > 0 {
+                    app.selected_advanced_feature_index -= 1;
+                }
+                true
+            } else {
+                app.previous_task();
+                true
+            }
+        }
+        KeyCode::Down => {
+            if app.show_advanced_features_modal {
+                let max_index = 5; // Number of advanced features - 1
+                if app.selected_advanced_feature_index < max_index {
+                    app.selected_advanced_feature_index += 1;
+                }
+                true
+            } else {
+                app.next_task();
+                true
+            }
+        }
+        Char('g') => { app.jump_to_top(); true }
+        Char('G') => { app.jump_to_bottom(); true }
         Char('?') => { app.show_help_modal(); true }
         Char('q') => {
             if app.show_advanced_features_modal {
