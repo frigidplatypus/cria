@@ -18,10 +18,15 @@ pub async fn handle_form_edit_modal(
     if let Some(form) = app.form_edit_state.as_mut() {
         match key.code {
             KeyCode::Tab => {
+                // Save current field before moving
+                let current_text = form.get_current_field_text();
+                form.set_current_field_text(current_text);
                 form.field_index = (form.field_index + 1) % FormEditState::get_field_count();
                 update_cursor_position(form);
             }
             KeyCode::BackTab => {
+                let current_text = form.get_current_field_text();
+                form.set_current_field_text(current_text);
                 if form.field_index == 0 {
                     form.field_index = FormEditState::get_field_count() - 1;
                 } else {
@@ -30,6 +35,8 @@ pub async fn handle_form_edit_modal(
                 update_cursor_position(form);
             }
             KeyCode::Up => {
+                let current_text = form.get_current_field_text();
+                form.set_current_field_text(current_text);
                 if form.field_index == 0 {
                     form.field_index = FormEditState::get_field_count() - 1;
                 } else {
@@ -38,6 +45,8 @@ pub async fn handle_form_edit_modal(
                 update_cursor_position(form);
             }
             KeyCode::Down => {
+                let current_text = form.get_current_field_text();
+                form.set_current_field_text(current_text);
                 form.field_index = (form.field_index + 1) % FormEditState::get_field_count();
                 update_cursor_position(form);
             }
@@ -45,9 +54,58 @@ pub async fn handle_form_edit_modal(
                 app.hide_form_edit_modal();
             }
             KeyCode::Enter => {
+                // Save current field before validating and saving
+                let current_text = form.get_current_field_text();
+                form.set_current_field_text(current_text);
+                // Validate the form before saving
+                if let Some(form) = app.form_edit_state.as_ref() {
+                    let mut errors: Vec<String> = Vec::new();
+                    // Title required
+                    if form.title.trim().is_empty() {
+                        errors.push("Title is required.".to_string());
+                    }
+                    // Due date format (optional, but if present, must be valid)
+                    if let Some(due) = &form.due_date {
+                        if !due.trim().is_empty() && chrono::NaiveDate::parse_from_str(due.trim(), "%Y-%m-%d").is_err() {
+                            errors.push("Due date must be in YYYY-MM-DD format.".to_string());
+                        }
+                    }
+                    // Start date format (optional, but if present, must be valid)
+                    if let Some(start) = &form.start_date {
+                        if !start.trim().is_empty() && chrono::NaiveDate::parse_from_str(start.trim(), "%Y-%m-%d").is_err() {
+                            errors.push("Start date must be in YYYY-MM-DD format.".to_string());
+                        }
+                    }
+                    // Priority (optional, but if present, must be 0-5)
+                    if let Some(priority) = form.priority {
+                        if priority < 0 || priority > 5 {
+                            errors.push("Priority must be between 0 and 5.".to_string());
+                        }
+                    }
+                    // Project ID (should be valid if set)
+                    if form.project_id != 0 && !app.project_map.contains_key(&form.project_id) {
+                        errors.push("Selected project does not exist.".to_string());
+                    }
+                    // Label IDs (should be valid if set)
+                    for label_id in &form.label_ids {
+                        if !app.label_map.contains_key(label_id) {
+                            errors.push(format!("Label ID {} does not exist.", label_id));
+                        }
+                    }
+                    // If errors, show notification and do not submit
+                    if !errors.is_empty() {
+                        let msg = errors.join("\n");
+                        debug_log(&format!("FORM VALIDATION ERROR: {}", msg));
+                        app.toast_notification = Some(msg);
+                        app.toast_notification_start = Some(Local::now());
+                        return;
+                    }
+                }
                 // Save the task with updated values
                 if let Err(e) = save_form_task(app, api_client, client_clone).await {
                     debug_log(&format!("Failed to save task from form: {}", e));
+                    app.toast_notification = Some(format!("Failed to save: {}", e));
+                    app.toast_notification_start = Some(Local::now());
                 } else {
                     app.hide_form_edit_modal();
                 }
@@ -208,7 +266,7 @@ async fn save_form_task(
             form.priority,
             form.project_id,
             &form.label_ids,
-            &form.assignee_ids,
+            &[], // Remove assignees from form mode
             form.is_favorite,
             if form.comment.is_empty() { None } else { Some(&form.comment) },
         ).await;
