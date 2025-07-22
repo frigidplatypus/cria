@@ -108,6 +108,11 @@ pub struct App {
     // File picker modal state
     pub show_file_picker_modal: bool,
     pub file_picker_modal: Option<crate::tui::modals::FilePickerModal>,
+    
+    // URL modal state
+    pub show_url_modal: bool,
+    pub url_modal: Option<crate::tui::modals::UrlModal>,
+    
     // Layout system
     pub current_layout_name: String,
     pub layout_notification: Option<String>,
@@ -244,6 +249,8 @@ impl App {
             attachment_modal: None,
             show_file_picker_modal: false,
             file_picker_modal: None,
+            show_url_modal: false,
+            url_modal: None,
             current_layout_name,
             layout_notification: None,
             layout_notification_start: None,
@@ -608,6 +615,20 @@ impl App {
         self.file_picker_modal = None;
     }
 
+    pub fn show_url_modal(&mut self, urls: Vec<crate::url_utils::UrlWithContext>) {
+        if urls.is_empty() {
+            return;
+        }
+        self.close_all_modals();
+        self.show_url_modal = true;
+        self.url_modal = Some(crate::tui::modals::UrlModal::new(urls));
+    }
+
+    pub fn hide_url_modal(&mut self) {
+        self.show_url_modal = false;
+        self.url_modal = None;
+    }
+
     pub fn show_advanced_help_modal(&mut self) {
         self.close_all_modals();
         self.show_advanced_help_modal = true;
@@ -660,6 +681,8 @@ impl App {
         self.show_filter_picker = false;
         self.show_confirmation_dialog = false;
         self.show_attachment_modal = false;
+        self.show_file_picker_modal = false;
+        self.show_url_modal = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
         // Reset modal state
@@ -671,6 +694,8 @@ impl App {
         self.form_edit_state = None;
         self.selected_quick_action_index = 0;
         self.attachment_modal = None;
+        self.file_picker_modal = None;
+        self.url_modal = None;
         // Relations modals - DISABLED: Incomplete feature
         // self.show_relations_modal = false;
         // self.show_add_relation_modal = false;

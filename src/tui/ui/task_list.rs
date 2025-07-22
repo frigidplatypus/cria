@@ -355,7 +355,7 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
     
     // Debug task priorities
     crate::debug::debug_log(&format!("Tasks with priorities:"));
-    for (i, task) in app.tasks.iter().enumerate().take(5) {
+    for (_i, task) in app.tasks.iter().enumerate().take(5) {
         crate::debug::debug_log(&format!("Task {}: '{}' - Priority: {:?}", 
             task.id, task.title, task.priority));
     }

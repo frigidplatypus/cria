@@ -319,6 +319,45 @@ pub async fn run_ui(
                     continue;
                 }
                 
+                // Handle URL modal
+                if app_guard.show_url_modal {
+                    if let Some(ref mut modal) = app_guard.url_modal {
+                        let action = match key.code {
+                            crossterm::event::KeyCode::Char(c) => modal.handle_key(c),
+                            crossterm::event::KeyCode::Enter => modal.handle_enter(),
+                            crossterm::event::KeyCode::Up => {
+                                modal.handle_up();
+                                crate::tui::modals::UrlModalAction::None
+                            }
+                            crossterm::event::KeyCode::Down => {
+                                modal.handle_down();
+                                crate::tui::modals::UrlModalAction::None
+                            }
+                            crossterm::event::KeyCode::Esc => crate::tui::modals::UrlModalAction::Cancel,
+                            _ => crate::tui::modals::UrlModalAction::None,
+                        };
+                        
+                        match action {
+                            crate::tui::modals::UrlModalAction::OpenUrl(url) => {
+                                app_guard.hide_url_modal();
+                                // Open URL in background to avoid blocking UI
+                                let url_clone = url.clone();
+                                tokio::spawn(async move {
+                                    if let Err(e) = crate::url_utils::open_url(&url_clone) {
+                                        eprintln!("Failed to open URL {}: {}", url_clone, e);
+                                    }
+                                });
+                                app_guard.show_toast(format!("Opening: {}", url));
+                            }
+                            crate::tui::modals::UrlModalAction::Cancel => {
+                                app_guard.hide_url_modal();
+                            }
+                            crate::tui::modals::UrlModalAction::None => {}
+                        }
+                    }
+                    continue;
+                }
+                
                 // handle dispatch_key and refresh
                 let key_handled = dispatch_key(&mut *app_guard, key);
                 
@@ -450,6 +489,18 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         Char('.') => { app.show_advanced_features_modal(); true }
         Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
         Char('e') => { app.show_edit_modal(); true }
+        Char('o') => {
+            // Open URLs from the selected task
+            if let Some(task) = app.get_selected_task() {
+                let urls = crate::url_utils::extract_urls_from_task(task);
+                if !urls.is_empty() {
+                    app.show_url_modal(urls);
+                } else {
+                    app.show_toast("No URLs found in this task".to_string());
+                }
+            }
+            true
+        }
         Char('p') => { app.show_project_picker(); true }
         Char('f') => { app.show_filter_picker(); true }
         Char(' ') => { app.show_quick_actions_modal(); true }
