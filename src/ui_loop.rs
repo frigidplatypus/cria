@@ -320,7 +320,29 @@ pub async fn run_ui(
                 }
                 
                 // handle dispatch_key and refresh
-                if dispatch_key(&mut *app_guard, key) {
+                let key_handled = dispatch_key(&mut *app_guard, key);
+                
+                // After any navigation key, check if we need to fetch detailed task data
+                if key_handled && (key.code == KeyCode::Up || key.code == KeyCode::Down || 
+                                  key.code == KeyCode::Char('j') || key.code == KeyCode::Char('k') ||
+                                  key.code == KeyCode::Char('g') || key.code == KeyCode::Char('G')) {
+                    if let Some(task) = app_guard.get_selected_task() {
+                        let task_id = task.id;
+                        if !app_guard.detailed_task_cache.contains_key(&task_id) {
+                            let client_clone = client_clone.clone();
+                            let app_clone = app.clone();
+                            tokio::spawn(async move {
+                                let client = client_clone.lock().await;
+                                if let Ok(detailed_task) = client.get_task_detailed(task_id as u64).await {
+                                    let mut app_guard = app_clone.lock().await;
+                                    app_guard.cache_detailed_task(detailed_task);
+                                }
+                            });
+                        }
+                    }
+                }
+                
+                if key_handled {
                     continue;
                 }
                 if key.code == KeyCode::Char('r') {

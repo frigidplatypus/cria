@@ -20,6 +20,7 @@ pub struct App {
     pub running: bool,
     pub tasks: Vec<Task>,
     pub all_tasks: Vec<Task>, // Store all tasks for local filtering
+    pub detailed_task_cache: HashMap<i64, Task>, // Cache for detailed task data with comments
     pub project_map: HashMap<i64, String>,
     pub project_colors: HashMap<i64, String>,
     pub label_map: HashMap<i64, String>,
@@ -163,6 +164,7 @@ impl App {
             running: true, 
             tasks: Vec::new(),
             all_tasks: Vec::new(),
+            detailed_task_cache: HashMap::new(),
             project_map: HashMap::new(),
             project_colors: HashMap::new(),
             label_map: HashMap::new(),
@@ -266,6 +268,14 @@ impl App {
     pub fn next_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = (self.selected_task_index + 1) % self.tasks.len(); } }
     pub fn previous_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = if self.selected_task_index == 0 { self.tasks.len() - 1 } else { self.selected_task_index - 1 }; } }
     pub fn get_selected_task(&self) -> Option<&Task> { self.tasks.get(self.selected_task_index) }
+
+    pub fn get_detailed_task(&self, task_id: i64) -> Option<&Task> {
+        self.detailed_task_cache.get(&task_id)
+    }
+
+    pub fn cache_detailed_task(&mut self, task: Task) {
+        self.detailed_task_cache.insert(task.id, task);
+    }
     pub fn toggle_info_pane(&mut self) { self.show_info_pane = !self.show_info_pane; }
     pub fn show_quick_add_modal(&mut self) { 
         self.close_all_modals();

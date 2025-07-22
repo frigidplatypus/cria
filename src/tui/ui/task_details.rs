@@ -11,7 +11,11 @@ use super::hex_to_color;
 
 pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
     let selected_task = app.get_selected_task();
-    let details = if let Some(task) = selected_task {
+    
+    let details = if let Some(basic_task) = selected_task {
+        // Check if we have detailed task data with comments
+        let task = app.get_detailed_task(basic_task.id).unwrap_or(basic_task);
+        
         let project_name = app.project_map.get(&(task.project_id as i64))
             .map(|s| s.as_str())
             .unwrap_or("Unknown");
@@ -348,6 +352,55 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
                     Span::raw(format!(" {} comment(s)", comments.len()))
                 ]));
                 details_lines.push(Line::from(""));
+
+                for (_i, comment) in comments.iter().enumerate() {
+                    // Author
+                    let author = if let Some(user) = &comment.author {
+                        if !user.username.is_empty() {
+                            if let Some(name) = &user.name {
+                                if !name.is_empty() {
+                                    format!("{} (@{})", name, user.username)
+                                } else {
+                                    format!("@{}", user.username)
+                                }
+                            } else {
+                                format!("@{}", user.username)
+                            }
+                        } else {
+                            "Unknown user".to_string()
+                        }
+                    } else {
+                        "Unknown user".to_string()
+                    };
+                    // Date
+                    let date_str = if let Some(created) = &comment.created {
+                        if !created.is_empty() {
+                            if let Ok(parsed_date) = chrono::DateTime::parse_from_rfc3339(created) {
+                                parsed_date.format("%Y-%m-%d %H:%M").to_string()
+                            } else {
+                                created.clone()
+                            }
+                        } else {
+                            "".to_string()
+                        }
+                    } else {
+                        "".to_string()
+                    };
+                    // Text
+                    let text = comment.comment.as_deref().unwrap_or("");
+
+                    details_lines.push(Line::from(vec![
+                        Span::raw("  ─ "),
+                        Span::styled(author.clone(), Style::default().fg(Color::Cyan)),
+                        Span::raw("  "),
+                        Span::styled(date_str.clone(), Style::default().fg(Color::DarkGray)),
+                    ]));
+                    details_lines.push(Line::from(vec![
+                        Span::raw("     "),
+                        Span::raw(text),
+                    ]));
+                    details_lines.push(Line::from(""));
+                }
             }
         }
 

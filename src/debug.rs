@@ -1,6 +1,23 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 
+pub fn clear_debug_log() {
+    // Only clear log if CRIA_DEBUG is set
+    if std::env::var("CRIA_DEBUG").is_err() {
+        return;
+    }
+    
+    // Truncate the log file to clear it
+    if let Ok(_) = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open("cria_debug.log")
+    {
+        // File has been cleared
+    }
+}
+
 pub fn debug_log(message: &str) {
     // Only log to file if CRIA_DEBUG is set
     if std::env::var("CRIA_DEBUG").is_err() {

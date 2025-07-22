@@ -9,12 +9,15 @@ mod config;
 mod first_run;
 mod ui_loop;
 
-use crate::debug::debug_log;
+use crate::debug::{debug_log, clear_debug_log};
 use crate::ui_loop::run_ui;
 
 fn main() {
     // Load environment variables
     dotenv::dotenv().ok();
+
+    // Clear debug log at startup
+    clear_debug_log();
 
     // Parse command-line arguments
     let matches = Command::new("cria")
