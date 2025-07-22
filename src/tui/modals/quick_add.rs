@@ -274,13 +274,34 @@ pub async fn handle_quick_add_modal(
                 debug_log(&format!("QUICK_ADD: Project override active: {:?}", app.active_project_override));
                 debug_log(&format!("QUICK_ADD: Current filter ID: {:?}", app.current_filter_id));
                 let api_client_guard = api_client.lock().await;
-                let default_project_id = if let Some(id) = app.project_map.iter().find_map(|(id, name)| {
+                let mut default_project_id: Option<u64> = None;
+                // Try to resolve project name to ID
+                match app.project_map.iter().find_map(|(id, name)| {
                     if name.trim().eq_ignore_ascii_case(&default_project_name) { Some(*id) } else { None }
                 }) {
-                    id as u64
-                } else {
-                    api_client_guard.find_or_get_project_id(&default_project_name).await.ok().flatten().unwrap_or(1) as u64
-                };
+                    Some(id) => {
+                        default_project_id = Some(id as u64);
+                        debug_log(&format!("QUICK_ADD: Resolved project '{}' to ID {} via project_map", default_project_name, id));
+                    },
+                    None => {
+                        debug_log(&format!("QUICK_ADD: Project '{}' not found in project_map, trying API lookup...", default_project_name));
+                        match api_client_guard.find_or_get_project_id(&default_project_name).await {
+                            Ok(Some(api_id)) => {
+                                default_project_id = Some(api_id as u64);
+                                debug_log(&format!("QUICK_ADD: Resolved project '{}' to ID {} via API", default_project_name, api_id));
+                            },
+                            Ok(None) => {
+                                debug_log(&format!("QUICK_ADD ERROR: Project '{}' not found via API, falling back to project ID 1", default_project_name));
+                                default_project_id = Some(1);
+                            },
+                            Err(e) => {
+                                debug_log(&format!("QUICK_ADD ERROR: Exception while looking up project '{}': {}. Falling back to project ID 1", default_project_name, e));
+                                default_project_id = Some(1);
+                            }
+                        }
+                    }
+                }
+                let default_project_id = default_project_id.unwrap_or(1);
                 debug_log(&format!("QUICK_ADD: Using default project ID: {} (name: '{}')", default_project_id, default_project_name));
                 debug_log("QUICK_ADD: Calling create_task_with_magic...");
                 match api_client_guard.create_task_with_magic(&input, default_project_id).await {
