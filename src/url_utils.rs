@@ -5,8 +5,8 @@ static URL_REGEX: OnceLock<Regex> = OnceLock::new();
 
 fn get_url_regex() -> &'static Regex {
     URL_REGEX.get_or_init(|| {
-        // Simple URL regex that matches http:// or https:// followed by non-whitespace
-        Regex::new(r"https?://\S+").expect("Invalid URL regex")
+        // Improved URL regex: matches http(s) URLs, stops at common trailing punctuation and brackets
+        Regex::new(r"https?://[^\s)>,;}]+").expect("Invalid URL regex")
     })
 }
 

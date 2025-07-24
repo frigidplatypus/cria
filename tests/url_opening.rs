@@ -276,10 +276,10 @@ fn test_url_modal_arrow_key_navigation() {
     let mut modal = UrlModal::new(urls);
     
     // Test arrow keys
-    modal.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    modal.handle_key('j');
     assert_eq!(modal.selected_index, 1);
-    
-    modal.handle_key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+
+    modal.handle_key('k');
     assert_eq!(modal.selected_index, 0);
 }
 
@@ -301,7 +301,7 @@ fn test_url_modal_get_selected_url() {
     // Test getting selected URL
     assert_eq!(modal.get_selected_url(), Some("https://example1.com"));
     
-    modal.handle_key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE));
+    modal.handle_key('j');
     assert_eq!(modal.get_selected_url(), Some("https://example2.com"));
 }
 

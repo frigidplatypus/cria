@@ -29,16 +29,25 @@ impl UrlModal {
     }
     
     pub fn handle_key(&mut self, key: char) -> UrlModalAction {
+        let len = self.urls.len();
         match key {
             'j' => {
-                if self.selected_index < self.urls.len().saturating_sub(1) {
+                if len == 0 {
+                    // nothing to do
+                } else if self.selected_index < len - 1 {
                     self.selected_index += 1;
+                } else {
+                    self.selected_index = 0;
                 }
                 UrlModalAction::None
             }
             'k' => {
-                if self.selected_index > 0 {
+                if len == 0 {
+                    // nothing to do
+                } else if self.selected_index > 0 {
                     self.selected_index -= 1;
+                } else {
+                    self.selected_index = len - 1;
                 }
                 UrlModalAction::None
             }
@@ -55,15 +64,30 @@ impl UrlModal {
     }
     
     pub fn handle_up(&mut self) {
-        if self.selected_index > 0 {
+        let len = self.urls.len();
+        if len == 0 {
+            // nothing to do
+        } else if self.selected_index > 0 {
             self.selected_index -= 1;
+        } else {
+            self.selected_index = len - 1;
         }
     }
-    
+
     pub fn handle_down(&mut self) {
-        if self.selected_index < self.urls.len().saturating_sub(1) {
+        let len = self.urls.len();
+        if len == 0 {
+            // nothing to do
+        } else if self.selected_index < len - 1 {
             self.selected_index += 1;
+        } else {
+            self.selected_index = 0;
         }
+    }
+
+    /// Returns the currently selected URL as Option<&str>
+    pub fn get_selected_url(&self) -> Option<&str> {
+        self.urls.get(self.selected_index).map(|ctx| ctx.url.as_str())
     }
 }
 

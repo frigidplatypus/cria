@@ -42,6 +42,8 @@ fn main() {
         )
         .get_matches();
 
+    // Clear debug log at startup
+    crate::debug::clear_debug_log();
     // Debug environment variables
     debug_log("Starting CRIA application");
     debug_log(&format!("Environment variables:"));

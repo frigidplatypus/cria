@@ -161,10 +161,6 @@ fn create_wrapped_cell_for_column<'a>(
     width: u16
 ) -> Cell<'a> {
     // Debug which column is being rendered
-    if matches!(column.column_type, TaskColumn::Priority) {
-        crate::debug::debug_log(&format!("PRIORITY COLUMN: Rendering priority column for task {} with priority {:?}", 
-            task.id, task.priority));
-    }
     
     let should_wrap = column.wrap_text.unwrap_or(false);
     
@@ -254,12 +250,9 @@ fn create_wrapped_cell_for_column<'a>(
             Cell::from(formatted).style(Style::default().fg(Color::Cyan))
         }
         TaskColumn::Priority => {
-            // Debug logging to see what's happening with priorities
-            crate::debug::debug_log(&format!("Task '{}' priority: {:?}", task.title, task.priority));
             
             match task.priority {
                 Some(p) if p >= 1 && p <= 5 => {
-                    crate::debug::debug_log(&format!("Priority {} is between 1-5, showing flag", p));
                     // Nerd Font flag icon:  (U+F024)
                     let flag_icon = "\u{f024} ";
                     let color = match p {
@@ -270,11 +263,9 @@ fn create_wrapped_cell_for_column<'a>(
                         1 => Color::Magenta,            // Lowest priority
                         _ => Color::White,              // Should never happen
                     };
-                    crate::debug::debug_log(&format!("Using flag_icon: '{}' with color: {:?}", flag_icon, color));
                     Cell::from(format!("{}{}", flag_icon, p)).style(Style::default().fg(color))
                 }
                 _ => {
-                    crate::debug::debug_log(&format!("Priority is None, 0, or invalid, showing dash"));
                     Cell::from("-")
                 }
             }
@@ -330,7 +321,7 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
     
     // Check if Priority column is enabled
     let has_priority_column = enabled_columns.iter().any(|c| matches!(c.column_type, TaskColumn::Priority));
-    crate::debug::debug_log(&format!("Priority column is enabled: {}", has_priority_column));
+    // ...existing code...
     
     // Calculate optimal column widths
     let available_width = area.width.saturating_sub(enabled_columns.len() as u16 + 1); // Account for borders
@@ -354,14 +345,7 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
     let selected = app.selected_task_index;
     
     // Debug task priorities
-    crate::debug::debug_log(&format!("Tasks with priorities:"));
-    for (_i, task) in app.tasks.iter().enumerate().take(5) {
-        crate::debug::debug_log(&format!("Task {}: '{}' - Priority: {:?}", 
-            task.id, task.title, task.priority));
-    }
-    if app.tasks.len() > 5 {
-        crate::debug::debug_log(&format!("... and {} more tasks", app.tasks.len() - 5));
-    }
+    // ...existing code...
 
     // Add a buffer at the bottom to always show the last N tasks when near the end
     let bottom_buffer = 3; // Number of tasks at the bottom to always keep visible
