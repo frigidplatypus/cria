@@ -2,7 +2,6 @@
 
 use cria::tui::app::state::App;
 use cria::vikunja::models::{Task, Comment, User};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Test that 'o' key press triggers URL detection when URLs are present
 #[test]

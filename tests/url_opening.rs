@@ -4,7 +4,6 @@ use cria::tui::app::state::App;
 use cria::tui::modals::url_modal::UrlModal;
 use cria::url_utils::{extract_urls, extract_urls_from_task, UrlWithContext};
 use cria::vikunja::models::{Task, Comment, User};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 #[test]
 fn test_extract_urls_basic() {
