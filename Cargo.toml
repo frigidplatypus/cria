@@ -46,3 +46,4 @@ term = "0.7"
 
 [dev-dependencies]
 proptest = "1.0"
+lazy_static = "1.4"

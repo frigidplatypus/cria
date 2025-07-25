@@ -352,6 +352,7 @@ dependencies = [
  "image",
  "infer",
  "itertools 0.12.1",
+ "lazy_static",
  "proptest",
  "ratatui",
  "regex",

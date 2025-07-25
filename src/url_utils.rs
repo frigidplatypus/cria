@@ -6,8 +6,9 @@ static URL_REGEX: OnceLock<Regex> = OnceLock::new();
 
 fn get_url_regex() -> &'static Regex {
     URL_REGEX.get_or_init(|| {
-        // Improved URL regex: matches http(s) URLs, stops at common trailing punctuation and brackets
-        Regex::new(r"https?://[^\s)>,;}]+").expect("Invalid URL regex")
+        // Improved URL regex: matches http(s) URLs, handles HTML and common punctuation
+        // Excludes quotes, brackets, HTML tags and common punctuation that shouldn't be in URLs
+        Regex::new(r#"https?://[^\s)>,;}\]"'<]+"#).expect("Invalid URL regex")
     })
 }
 
