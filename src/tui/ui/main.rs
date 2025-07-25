@@ -113,6 +113,10 @@ pub fn draw(f: &mut Frame, app: &App) {
         if let Some(ref modal) = app.file_picker_modal {
             modal.draw(f, f.size());
         }
+    } else if app.show_url_modal {
+        if let Some(ref modal) = app.url_modal {
+            crate::tui::modals::draw_url_modal(f, modal, f.size());
+        }
     }
 
 

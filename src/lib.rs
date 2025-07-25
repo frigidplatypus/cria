@@ -7,6 +7,7 @@ pub mod tui;
 pub mod debug;
 pub mod config;
 pub mod terminal_capabilities;
+pub mod url_utils;
 
 // Re-export commonly used items
 pub use vikunja_client::*;

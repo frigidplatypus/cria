@@ -20,6 +20,7 @@ pub struct App {
     pub running: bool,
     pub tasks: Vec<Task>,
     pub all_tasks: Vec<Task>, // Store all tasks for local filtering
+    pub detailed_task_cache: HashMap<i64, Task>, // Cache for detailed task data with comments
     pub project_map: HashMap<i64, String>,
     pub project_colors: HashMap<i64, String>,
     pub label_map: HashMap<i64, String>,
@@ -107,6 +108,11 @@ pub struct App {
     // File picker modal state
     pub show_file_picker_modal: bool,
     pub file_picker_modal: Option<crate::tui::modals::FilePickerModal>,
+    
+    // URL modal state
+    pub show_url_modal: bool,
+    pub url_modal: Option<crate::tui::modals::UrlModal>,
+    
     // Layout system
     pub current_layout_name: String,
     pub layout_notification: Option<String>,
@@ -163,6 +169,7 @@ impl App {
             running: true, 
             tasks: Vec::new(),
             all_tasks: Vec::new(),
+            detailed_task_cache: HashMap::new(),
             project_map: HashMap::new(),
             project_colors: HashMap::new(),
             label_map: HashMap::new(),
@@ -242,6 +249,8 @@ impl App {
             attachment_modal: None,
             show_file_picker_modal: false,
             file_picker_modal: None,
+            show_url_modal: false,
+            url_modal: None,
             current_layout_name,
             layout_notification: None,
             layout_notification_start: None,
@@ -266,6 +275,14 @@ impl App {
     pub fn next_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = (self.selected_task_index + 1) % self.tasks.len(); } }
     pub fn previous_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = if self.selected_task_index == 0 { self.tasks.len() - 1 } else { self.selected_task_index - 1 }; } }
     pub fn get_selected_task(&self) -> Option<&Task> { self.tasks.get(self.selected_task_index) }
+
+    pub fn get_detailed_task(&self, task_id: i64) -> Option<&Task> {
+        self.detailed_task_cache.get(&task_id)
+    }
+
+    pub fn cache_detailed_task(&mut self, task: Task) {
+        self.detailed_task_cache.insert(task.id, task);
+    }
     pub fn toggle_info_pane(&mut self) { self.show_info_pane = !self.show_info_pane; }
     pub fn show_quick_add_modal(&mut self) { 
         self.close_all_modals();
@@ -598,6 +615,20 @@ impl App {
         self.file_picker_modal = None;
     }
 
+    pub fn show_url_modal(&mut self, urls: Vec<crate::url_utils::UrlWithContext>) {
+        if urls.is_empty() {
+            return;
+        }
+        self.close_all_modals();
+        self.show_url_modal = true;
+        self.url_modal = Some(crate::tui::modals::UrlModal::new(urls));
+    }
+
+    pub fn hide_url_modal(&mut self) {
+        self.show_url_modal = false;
+        self.url_modal = None;
+    }
+
     pub fn show_advanced_help_modal(&mut self) {
         self.close_all_modals();
         self.show_advanced_help_modal = true;
@@ -650,6 +681,8 @@ impl App {
         self.show_filter_picker = false;
         self.show_confirmation_dialog = false;
         self.show_attachment_modal = false;
+        self.show_file_picker_modal = false;
+        self.show_url_modal = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
         // Reset modal state
@@ -661,6 +694,8 @@ impl App {
         self.form_edit_state = None;
         self.selected_quick_action_index = 0;
         self.attachment_modal = None;
+        self.file_picker_modal = None;
+        self.url_modal = None;
         // Relations modals - DISABLED: Incomplete feature
         // self.show_relations_modal = false;
         // self.show_add_relation_modal = false;

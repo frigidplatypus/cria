@@ -39,8 +39,8 @@ impl super::VikunjaClient {
     ) -> ReqwestResult<VikunjaTask> {
         debug_log(&format!("Parsing magic text: '{}'", magic_text));
         let parsed = self.parser.parse(magic_text);
-        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
-                 parsed.title, parsed.labels, parsed.project, parsed.priority));
+        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}", 
+                 parsed.title, parsed.labels, parsed.project));
         // Step 1: Determine project ID
         if let Some(project_name) = &parsed.project {
             debug_log(&format!("Magic syntax project: '{}'. Attempting lookup...", project_name));
@@ -185,7 +185,31 @@ impl super::VikunjaClient {
             .header("Authorization", format!("Bearer {}", self.auth_token))
             .send()
             .await?;
+            
         response.json().await
+    }
+
+    pub async fn get_task_detailed(&self, task_id: u64) -> Result<crate::vikunja::models::Task, reqwest::Error> {
+        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
+        let response = self.client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .send()
+            .await?;
+            
+        let mut task: crate::vikunja::models::Task = response.json().await?;
+        
+        // Now fetch comments separately and merge them into the task
+        match self.get_task_comments(task_id).await {
+            Ok(comments) => {
+                task.comments = Some(comments);
+            }
+            Err(_e) => {
+                // Keep comments as None if fetching fails
+            }
+        }
+        
+        Ok(task)
     }
 
     pub async fn update_task_with_magic(
@@ -195,8 +219,8 @@ impl super::VikunjaClient {
     ) -> ReqwestResult<VikunjaTask> {
         debug_log(&format!("Updating task {} with magic text: '{}'", task_id, magic_text));
         let parsed = self.parser.parse(magic_text);
-        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
-                 parsed.title, parsed.labels, parsed.project, parsed.priority));
+        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}", 
+                 parsed.title, parsed.labels, parsed.project));
         let current_task = self.get_task(task_id as u64).await?;
         debug_log(&format!("Retrieved current task: {:?}", current_task));
         let project_id = if let Some(project_name) = &parsed.project {
@@ -329,8 +353,8 @@ impl super::VikunjaClient {
         project_id: i64,
         is_favorite: bool,
     ) -> ReqwestResult<VikunjaTask> {
-        debug_log(&format!("Updating task {} with form data - title: '{}', priority: {:?}, project_id: {}, favorite: {}", 
-                 task_id, title, priority, project_id, is_favorite));
+        debug_log(&format!("Updating task {} with form data - title: '{}', project_id: {}, favorite: {}", 
+                 task_id, title, project_id, is_favorite));
 
         let task = VikunjaTask {
             id: Some(task_id as u64),
@@ -363,8 +387,8 @@ impl super::VikunjaClient {
         is_favorite: bool,
         comment: Option<&str>,
     ) -> Result<crate::vikunja::models::Task, Box<dyn Error>> {
-        debug_log(&format!("Updating task {} from form - title: '{}', priority: {:?}, project_id: {}, favorite: {}", 
-                 task_id, title, priority, project_id, is_favorite));
+        debug_log(&format!("Updating task {} from form - title: '{}', project_id: {}, favorite: {}", 
+                 task_id, title, project_id, is_favorite));
 
         // Parse dates
         let due_date_parsed = if let Some(date_str) = due_date {
@@ -568,22 +592,7 @@ impl super::VikunjaClient {
         // Fetch all tasks using comprehensive method
         debug_log("Starting comprehensive task fetch after task creation...");
         
-        // First, debug what the API endpoints are returning
-        let _ = self.debug_api_endpoints().await;
-        
         let tasks = self.get_all_tasks_comprehensive().await?;
-        
-        // Check for task 147 specifically
-        if let Some(task_147) = tasks.iter().find(|t| t.id == 147) {
-            debug_log(&format!("✓ Found task 147: '{}'", task_147.title));
-        } else {
-            debug_log("✗ Task 147 not found in fetched tasks");
-            // Show last few task IDs
-            let mut recent_ids: Vec<i64> = tasks.iter().map(|t| t.id).collect();
-            recent_ids.sort();
-            recent_ids.reverse();
-            debug_log(&format!("Most recent task IDs: {:?}", recent_ids.iter().take(10).collect::<Vec<_>>()));
-        }
         
         Ok((tasks, project_map, project_colors))
     }
@@ -782,178 +791,99 @@ impl super::VikunjaClient {
         Ok(all_tasks)
     }
 
-    pub async fn debug_api_endpoints(&self) -> Result<(), reqwest::Error> {
-        debug_log("=== API ENDPOINT DEBUGGING ===");
-        
-        // Test basic /api/v1/tasks/all
-        let url1 = format!("{}/api/v1/tasks/all", self.base_url);
-        debug_log(&format!("Testing: {}", url1));
-        match self.client.get(&url1).header("Authorization", format!("Bearer {}", self.auth_token)).send().await {
-            Ok(resp) => {
-                let headers = resp.headers().clone();
-                match resp.json::<Vec<crate::vikunja::models::Task>>().await {
-                    Ok(tasks) => {
-                        debug_log(&format!("✓ Basic /tasks/all returned {} tasks", tasks.len()));
-                        debug_log(&format!("  Headers: {:?}", headers.get("x-pagination-total-pages")));
-                        debug_log(&format!("  Pagination: total={:?}, current={:?}", 
-                                  headers.get("x-pagination-total"), headers.get("x-pagination-current-page")));
-                    }
-                    Err(e) => debug_log(&format!("✗ Basic /tasks/all JSON parse error: {}", e))
+    // Helper methods for form editing
+    pub async fn clear_task_labels(&self, task_id: u64) -> ReqwestResult<()> {
+        // Get current task to find existing labels
+        let task = self.get_task(task_id).await?;
+        if let Some(labels) = task.labels {
+            for label in labels {
+                if let Some(label_id) = label.id {
+                    let _ = self.remove_label_from_task(task_id, label_id).await;
                 }
             }
-            Err(e) => debug_log(&format!("✗ Basic /tasks/all request failed: {}", e))
         }
-        
-        // Test with proper per_page parameter and include nulls
-        let url2 = format!("{}/api/v1/tasks/all?per_page=1000&filter_include_nulls=true", self.base_url);
-        debug_log(&format!("Testing: {}", url2));
-        match self.client.get(&url2).header("Authorization", format!("Bearer {}", self.auth_token)).send().await {
-            Ok(resp) => {
-                let headers = resp.headers().clone();
-                match resp.json::<Vec<crate::vikunja::models::Task>>().await {
-                    Ok(tasks) => {
-                        debug_log(&format!("✓ With per_page=1000&filter_include_nulls=true returned {} tasks", tasks.len()));
-                        debug_log(&format!("  Pagination: total={:?}, current={:?}, total_pages={:?}", 
-                                  headers.get("x-pagination-total"), 
-                                  headers.get("x-pagination-current-page"),
-                                  headers.get("x-pagination-total-pages")));
-                        
-                        // Check if task 147 is in this result
-                        if tasks.iter().any(|t| t.id == 147) {
-                            debug_log("✓ Task 147 found in per_page=1000 result!");
-                        } else {
-                            debug_log("✗ Task 147 not found in per_page=1000 result");
-                        }
-                    }
-                    Err(e) => debug_log(&format!("✗ With per_page=1000 JSON parse error: {}", e))
+        Ok(())
+    }
+    
+    pub async fn clear_task_assignees(&self, task_id: u64) -> ReqwestResult<()> {
+        // Get current task to find existing assignees
+        let task = self.get_task(task_id).await?;
+        if let Some(assignees) = task.assignees {
+            for assignee in assignees {
+                if let Some(assignee_id) = assignee.id {
+                    let _ = self.remove_assignee_from_task(task_id, assignee_id).await;
                 }
             }
-            Err(e) => debug_log(&format!("✗ With per_page=1000 request failed: {}", e))
         }
-        
-        // Test pagination explicitly
-        let url3 = format!("{}/api/v1/tasks/all?page=1&per_page=100&filter_include_nulls=true", self.base_url);
-        debug_log(&format!("Testing: {}", url3));
-        match self.client.get(&url3).header("Authorization", format!("Bearer {}", self.auth_token)).send().await {
-            Ok(resp) => {
-                let headers = resp.headers().clone();
-                match resp.json::<Vec<crate::vikunja::models::Task>>().await {
-                    Ok(tasks) => {
-                        debug_log(&format!("✓ Paginated (page=1, per_page=100) returned {} tasks", tasks.len()));
-                        debug_log(&format!("  Pagination headers: {:?}", 
-                                  vec![("total", headers.get("x-pagination-total")),
-                                       ("current_page", headers.get("x-pagination-current-page")),
-                                       ("total_pages", headers.get("x-pagination-total-pages")),
-                                       ("per_page", headers.get("x-pagination-per-page"))]));
-                    }
-                    Err(e) => debug_log(&format!("✗ Paginated JSON parse error: {}", e))
-                }
-            }
-            Err(e) => debug_log(&format!("✗ Paginated request failed: {}", e))
-        }
-        
-        // Test direct task fetch for task 147
-        let url4 = format!("{}/api/v1/tasks/147", self.base_url);
-        debug_log(&format!("Testing direct fetch: {}", url4));
-        match self.client.get(&url4).header("Authorization", format!("Bearer {}", self.auth_token)).send().await {
-            Ok(resp) => {
-                let status = resp.status();
-                if status.is_success() {
-                    match resp.json::<crate::vikunja::models::Task>().await {
-                        Ok(task) => debug_log(&format!("✓ Direct fetch task 147: '{}' (project_id: {}, done: {})", 
-                                                      task.title, task.project_id, task.done)),
-                        Err(e) => debug_log(&format!("✗ Direct fetch task 147 JSON parse error: {}", e))
-                    }
-                } else {
-                    debug_log(&format!("✗ Direct fetch task 147 failed with status: {}", status));
-                }
-            }
-            Err(e) => debug_log(&format!("✗ Direct fetch task 147 request failed: {}", e))
-        }
-        
-        debug_log("=== END API DEBUGGING ===");
         Ok(())
     }
 
-    // Helper methods for form editing
-    pub async fn clear_task_labels(&self, task_id: u64) -> ReqwestResult<()> {
-            // Get current task to find existing labels
-            let task = self.get_task(task_id).await?;
-            if let Some(labels) = task.labels {
-                for label in labels {
-                    if let Some(label_id) = label.id {
-                        let _ = self.remove_label_from_task(task_id, label_id).await;
-                    }
-                }
-            }
-            Ok(())
-        }
+    pub async fn set_task_favorite(&self, task_id: u64, is_favorite: bool) -> ReqwestResult<()> {
+        // Update just the favorite status by making a task update with minimal data
+        let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
         
-        pub async fn clear_task_assignees(&self, task_id: u64) -> ReqwestResult<()> {
-            // Get current task to find existing assignees
-            let task = self.get_task(task_id).await?;
-            if let Some(assignees) = task.assignees {
-                for assignee in assignees {
-                    if let Some(assignee_id) = assignee.id {
-                        let _ = self.remove_assignee_from_task(task_id, assignee_id).await;
-                    }
+        // Create a minimal task update that only changes the favorite status
+        let task_update = serde_json::json!({
+            "is_favorite": is_favorite
+        });
+        
+        debug_log(&format!("Setting task {} favorite status to: {}", task_id, is_favorite));
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .json(&task_update)
+            .send()
+            .await;
+            
+        match response {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    debug_log(&format!("Successfully updated favorite status for task {}", task_id));
+                    Ok(())
+                } else {
+                    let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
+                    debug_log(&format!("API error updating favorite status ({}): {} characters", status, error_text.len()));
+                    // Create an error similar to how other methods do it
+                    let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
+                    Err(fake_response.unwrap_err())
                 }
             }
-            Ok(())
-        }
-
-        pub async fn set_task_favorite(&self, task_id: u64, is_favorite: bool) -> ReqwestResult<()> {
-            // Update just the favorite status by making a task update with minimal data
-            let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
-            
-            // Create a minimal task update that only changes the favorite status
-            let task_update = serde_json::json!({
-                "is_favorite": is_favorite
-            });
-            
-            debug_log(&format!("Setting task {} favorite status to: {}", task_id, is_favorite));
-            
-            let response = self.client
-                .post(&url)
-                .header("Authorization", format!("Bearer {}", self.auth_token))
-                .json(&task_update)
-                .send()
-                .await;
-                
-            match response {
-                Ok(resp) => {
-                    let status = resp.status();
-                    if status.is_success() {
-                        debug_log(&format!("Successfully updated favorite status for task {}", task_id));
-                        Ok(())
-                    } else {
-                        let error_text = resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
-                        debug_log(&format!("API error updating favorite status ({}): {} characters", status, error_text.len()));
-                        // Create an error similar to how other methods do it
-                        let fake_response = self.client.get("http://invalid-url-that-will-fail").send().await;
-                        Err(fake_response.unwrap_err())
-                    }
-                }
-                Err(e) => {
-                    debug_log(&format!("Request error updating favorite status: {}", e));
-                    Err(e)
-                }
+            Err(e) => {
+                debug_log(&format!("Request error updating favorite status: {}", e));
+                Err(e)
             }
-        }
-
-        pub async fn add_comment_to_task(&self, task_id: u64, comment: &str) -> ReqwestResult<()> {
-            let url = format!("{}/api/v1/tasks/{}/comments", self.base_url, task_id);
-            let comment_data = serde_json::json!({
-                "comment": comment
-            });
-            self.client
-                .put(&url)
-                .header("Authorization", format!("Bearer {}", self.auth_token))
-                .json(&comment_data)
-                .send()
-                .await?;
-            Ok(())
         }
     }
 
-    // ... Project, Filter, User impls remain in their files ...
+    pub async fn add_comment_to_task(&self, task_id: u64, comment: &str) -> ReqwestResult<()> {
+        let url = format!("{}/api/v1/tasks/{}/comments", self.base_url, task_id);
+        let comment_data = serde_json::json!({
+            "comment": comment
+        });
+        self.client
+            .put(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .json(&comment_data)
+            .send()
+                .await?;
+        Ok(())
+    }
+
+    pub async fn get_task_comments(&self, task_id: u64) -> Result<Vec<crate::vikunja::models::Comment>, reqwest::Error> {
+        crate::debug::debug_log(&format!("Fetching comments for task {}", task_id));
+        let url = format!("{}/api/v1/tasks/{}/comments", self.base_url, task_id);
+        let response = self.client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .send()
+            .await?;
+        
+        let comments: Vec<crate::vikunja::models::Comment> = response.json().await?;
+        crate::debug::debug_log(&format!("Fetched {} comments for task {}", comments.len(), task_id));
+        Ok(comments)
+    }
+}
+
+// ... Project, Filter, User impls remain in their files ...

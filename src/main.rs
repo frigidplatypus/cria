@@ -8,6 +8,7 @@ mod debug;
 mod config;
 mod first_run;
 mod ui_loop;
+mod url_utils;
 
 use crate::debug::debug_log;
 use crate::ui_loop::run_ui;
@@ -41,6 +42,8 @@ fn main() {
         )
         .get_matches();
 
+    // Clear debug log at startup
+    crate::debug::clear_debug_log();
     // Debug environment variables
     debug_log("Starting CRIA application");
     debug_log(&format!("Environment variables:"));
@@ -246,7 +249,9 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
     // Initialize terminal and enter raw mode is handled in ui_loop
 
     // Delegate UI loop to ui_loop module
+    debug_log("=== ABOUT TO CALL run_ui ===");
     run_ui(app.clone(), client_clone.clone()).await?;
+    debug_log("=== run_ui RETURNED ===");
 
     // Event loop delegated to ui_loop; inline loop removed
 

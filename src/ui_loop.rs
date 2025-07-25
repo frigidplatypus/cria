@@ -319,8 +319,69 @@ pub async fn run_ui(
                     continue;
                 }
                 
+                // Handle URL modal
+                if app_guard.show_url_modal {
+                    if let Some(ref mut modal) = app_guard.url_modal {
+                        let action = match key.code {
+                            crossterm::event::KeyCode::Char(c) => modal.handle_key(c),
+                            crossterm::event::KeyCode::Enter => modal.handle_enter(),
+                            crossterm::event::KeyCode::Up => {
+                                modal.handle_up();
+                                crate::tui::modals::UrlModalAction::None
+                            }
+                            crossterm::event::KeyCode::Down => {
+                                modal.handle_down();
+                                crate::tui::modals::UrlModalAction::None
+                            }
+                            crossterm::event::KeyCode::Esc => crate::tui::modals::UrlModalAction::Cancel,
+                            _ => crate::tui::modals::UrlModalAction::None,
+                        };
+                        
+                        match action {
+                            crate::tui::modals::UrlModalAction::OpenUrl(url) => {
+                                app_guard.hide_url_modal();
+                                // Open URL in background to avoid blocking UI
+                                let url_clone = url.clone();
+                                tokio::spawn(async move {
+                                    if let Err(e) = crate::url_utils::open_url(&url_clone) {
+                                        eprintln!("Failed to open URL {}: {}", url_clone, e);
+                                    }
+                                });
+                                app_guard.show_toast(format!("Opening: {}", url));
+                            }
+                            crate::tui::modals::UrlModalAction::Cancel => {
+                                app_guard.hide_url_modal();
+                            }
+                            crate::tui::modals::UrlModalAction::None => {}
+                        }
+                    }
+                    continue;
+                }
+                
                 // handle dispatch_key and refresh
-                if dispatch_key(&mut *app_guard, key) {
+                let key_handled = dispatch_key(&mut *app_guard, key);
+                
+                // After any navigation key, check if we need to fetch detailed task data
+                if key_handled && (key.code == KeyCode::Up || key.code == KeyCode::Down || 
+                                  key.code == KeyCode::Char('j') || key.code == KeyCode::Char('k') ||
+                                  key.code == KeyCode::Char('g') || key.code == KeyCode::Char('G')) {
+                    if let Some(task) = app_guard.get_selected_task() {
+                        let task_id = task.id;
+                        if !app_guard.detailed_task_cache.contains_key(&task_id) {
+                            let client_clone = client_clone.clone();
+                            let app_clone = app.clone();
+                            tokio::spawn(async move {
+                                let client = client_clone.lock().await;
+                                if let Ok(detailed_task) = client.get_task_detailed(task_id as u64).await {
+                                    let mut app_guard = app_clone.lock().await;
+                                    app_guard.cache_detailed_task(detailed_task);
+                                }
+                            });
+                        }
+                    }
+                }
+                
+                if key_handled {
                     continue;
                 }
                 if key.code == KeyCode::Char('r') {
@@ -428,6 +489,27 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         Char('.') => { app.show_advanced_features_modal(); true }
         Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
         Char('e') => { app.show_edit_modal(); true }
+        Char('o') => {
+            // Open URLs from the selected task
+            crate::debug::debug_log("User pressed 'o' - attempting to open URLs from selected task");
+            if let Some(basic_task) = app.get_selected_task() {
+                // Try to get the detailed task with comments first, fall back to basic task
+                let task_to_use = app.get_detailed_task(basic_task.id).unwrap_or(basic_task);
+                crate::debug::debug_log(&format!("Selected task: id={}, title={:?}, has_comments={}, using_detailed_cache={}", 
+                    task_to_use.id, task_to_use.title, task_to_use.comments.is_some(), 
+                    app.get_detailed_task(basic_task.id).is_some()));
+                let urls = crate::url_utils::extract_urls_from_task(task_to_use);
+                crate::debug::debug_log(&format!("extract_urls_from_task returned {} URLs", urls.len()));
+                if !urls.is_empty() {
+                    app.show_url_modal(urls);
+                } else {
+                    app.show_toast("No URLs found in this task".to_string());
+                }
+            } else {
+                crate::debug::debug_log("No task selected");
+            }
+            true
+        }
         Char('p') => { app.show_project_picker(); true }
         Char('f') => { app.show_filter_picker(); true }
         Char(' ') => { app.show_quick_actions_modal(); true }

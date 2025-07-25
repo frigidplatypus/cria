@@ -243,7 +243,7 @@ fn render_form_fields(f: &mut Frame, area: Rect, app: &App, form: &FormEditState
     };
     let comment_prefix = if form.field_index == 9 { "► " } else { "  " };
     let comment_text = if form.comment.is_empty() { 
-        "<enter comment to add>" 
+        "Type your comment, then press Enter to save" 
     } else { 
         &form.comment 
     };

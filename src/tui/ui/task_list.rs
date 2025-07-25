@@ -160,63 +160,45 @@ fn create_wrapped_cell_for_column<'a>(
     app: &'a App,
     width: u16
 ) -> Cell<'a> {
+    // Debug which column is being rendered
+    
     let should_wrap = column.wrap_text.unwrap_or(false);
     
     match &column.column_type {
         TaskColumn::Title => {
+            use ratatui::text::{Span, Line};
+            let mut spans = Vec::new();
             if task.done {
-                // For completed tasks, show checkmark, star if favorite, and relation indicators
-                let mut title_text = "✓ ".to_string();
-                if task.is_favorite {
-                    title_text.push_str("\u{f005} ");
-                }
-                
-                // Add relation indicators - DISABLED: Incomplete feature
-                // if let Some(indicator) = app.get_task_relation_indicator(task) {
-                //     title_text.push_str(&indicator);
-                //     title_text.push(' ');
-                // }
-                
-                title_text.push_str(&task.title);
-                
-                if should_wrap {
-                    let wrapped = wrap_text_for_cell(&title_text, width, true);
-                    Cell::from(wrapped).style(Style::default().add_modifier(Modifier::CROSSED_OUT).fg(Color::DarkGray))
-                } else {
-                    let truncated = if title_text.len() > width as usize {
-                        format!("{}…", &title_text[..width.saturating_sub(1) as usize])
-                    } else {
-                        title_text
+                spans.push(Span::raw("✓ "));
+            }
+            if task.is_favorite {
+                spans.push(Span::raw("\u{f005} "));
+            }
+            if let Some(p) = task.priority {
+                if p >= 1 && p <= 5 {
+                    let color = match p {
+                        5 => Color::Red,
+                        4 => Color::Rgb(255, 165, 0),
+                        3 => Color::Yellow,
+                        2 => Color::Blue,
+                        1 => Color::Magenta,
+                        _ => Color::White,
                     };
-                    Cell::from(truncated).style(Style::default().add_modifier(Modifier::CROSSED_OUT).fg(Color::DarkGray))
-                }
-            } else {
-                // For active tasks, show star if favorite and relation indicators
-                let mut title_text = String::new();
-                if task.is_favorite {
-                    title_text.push_str("\u{f005} ");
-                }
-                
-                // Add relation indicators - DISABLED: Incomplete feature
-                // if let Some(indicator) = app.get_task_relation_indicator(task) {
-                //     title_text.push_str(&indicator);
-                //     title_text.push(' ');
-                // }
-                
-                title_text.push_str(&task.title);
-                
-                if should_wrap {
-                    let wrapped = wrap_text_for_cell(&title_text, width, true);
-                    Cell::from(wrapped)
-                } else {
-                    let truncated = if title_text.len() > width as usize {
-                        format!("{}…", &title_text[..width.saturating_sub(1) as usize])
-                    } else {
-                        title_text
-                    };
-                    Cell::from(truncated)
+                    spans.push(Span::styled("\u{f024} ", Style::default().fg(color)));
                 }
             }
+            // Add relation indicators - DISABLED: Incomplete feature
+            // if let Some(indicator) = app.get_task_relation_indicator(task) {
+            //     spans.push(Span::raw(indicator));
+            //     spans.push(Span::raw(" "));
+            // }
+            spans.push(Span::raw(&task.title));
+            let line = Line::from(spans);
+            let mut cell = Cell::from(line);
+            if task.done {
+                cell = cell.style(Style::default().add_modifier(Modifier::CROSSED_OUT).fg(Color::DarkGray));
+            }
+            cell
         }
         TaskColumn::Project => {
             let project_name = app.project_map.get(&task.project_id)
@@ -268,19 +250,24 @@ fn create_wrapped_cell_for_column<'a>(
             Cell::from(formatted).style(Style::default().fg(Color::Cyan))
         }
         TaskColumn::Priority => {
+            
             match task.priority {
-                Some(p) if p > 0 => {
-                    let (flag_icon, color) = match p {
-                        5 => ("\u{f024} ", Color::Red),      // Flag icon for highest priority
-                        4 => ("\u{f024} ", Color::Rgb(255, 165, 0)), // Flag icon for high priority
-                        3 => ("\u{f024} ", Color::Yellow),   // Flag icon for medium priority
-                        2 => ("\u{f024} ", Color::Blue),     // Flag icon for low priority  
-                        1 => ("\u{f024} ", Color::Magenta),  // Flag icon for lowest priority
-                        _ => ("", Color::White),
+                Some(p) if p >= 1 && p <= 5 => {
+                    // Nerd Font flag icon:  (U+F024)
+                    let flag_icon = "\u{f024} ";
+                    let color = match p {
+                        5 => Color::Red,                // Highest priority
+                        4 => Color::Rgb(255, 165, 0),   // High priority
+                        3 => Color::Yellow,             // Medium priority
+                        2 => Color::Blue,               // Low priority
+                        1 => Color::Magenta,            // Lowest priority
+                        _ => Color::White,              // Should never happen
                     };
                     Cell::from(format!("{}{}", flag_icon, p)).style(Style::default().fg(color))
                 }
-                _ => Cell::from("-"),
+                _ => {
+                    Cell::from("-")
+                }
             }
         }
         TaskColumn::Status => {
@@ -327,7 +314,12 @@ fn create_wrapped_cell_for_column<'a>(
 
 pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
     let columns = app.get_current_layout_columns();
+    
     let enabled_columns: Vec<&TableColumn> = columns.iter().filter(|c| c.enabled).collect();
+    
+    // Check if Priority column is enabled
+    let has_priority_column = enabled_columns.iter().any(|c| matches!(c.column_type, TaskColumn::Priority));
+    // ...existing code...
     
     // Calculate optimal column widths
     let available_width = area.width.saturating_sub(enabled_columns.len() as u16 + 1); // Account for borders
@@ -349,6 +341,9 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
     let visible_rows = if total_height > 4 { total_height - 4 } else { 1 };
     let num_tasks = app.tasks.len();
     let selected = app.selected_task_index;
+    
+    // Debug task priorities
+    // ...existing code...
 
     // Add a buffer at the bottom to always show the last N tasks when near the end
     let bottom_buffer = 3; // Number of tasks at the bottom to always keep visible
