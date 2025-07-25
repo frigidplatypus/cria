@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::sync::OnceLock;
+use crate::debug::debug_log;
 
 static URL_REGEX: OnceLock<Regex> = OnceLock::new();
 
@@ -27,12 +28,16 @@ pub struct UrlWithContext {
 
 /// Extract URLs from task description and comments with context
 pub fn extract_urls_from_task(task: &crate::vikunja::models::Task) -> Vec<UrlWithContext> {
-    let mut urls = Vec::new();
+    use std::collections::HashMap;
+    let mut url_map: HashMap<String, UrlWithContext> = HashMap::new();
+    let mut total_found = 0;
     
     // Extract from task description
     if let Some(description) = &task.description {
-        for url in extract_urls(description) {
-            urls.push(UrlWithContext {
+        let description_urls = extract_urls(description);
+        total_found += description_urls.len();
+        for url in description_urls {
+            url_map.insert(url.clone(), UrlWithContext {
                 url,
                 source: "Description".to_string(),
             });
@@ -41,13 +46,23 @@ pub fn extract_urls_from_task(task: &crate::vikunja::models::Task) -> Vec<UrlWit
     
     // Extract from comments
     if let Some(comments) = &task.comments {
+        debug_log(&format!("Scanning {} comments for URLs", comments.len()));
         for comment in comments {
             let comment_text = comment.comment.as_deref().unwrap_or("");
-            for url in extract_urls(comment_text) {
+            let found_urls = extract_urls(comment_text);
+            if !found_urls.is_empty() {
                 let author = comment.author.as_ref()
                     .map(|a| a.username.as_str())
                     .unwrap_or("Unknown");
-                urls.push(UrlWithContext {
+                debug_log(&format!("Found {} URL(s) in comment by {}: {:?}", found_urls.len(), author, found_urls));
+            }
+            total_found += found_urls.len();
+            for url in found_urls {
+                let author = comment.author.as_ref()
+                    .map(|a| a.username.as_str())
+                    .unwrap_or("Unknown");
+                // Only add if not already present (prefer description over comments)
+                url_map.entry(url.clone()).or_insert(UrlWithContext {
                     url,
                     source: format!("Comment by {}", author),
                 });
@@ -55,7 +70,10 @@ pub fn extract_urls_from_task(task: &crate::vikunja::models::Task) -> Vec<UrlWit
         }
     }
     
-    urls
+    let unique_urls: Vec<UrlWithContext> = url_map.into_values().collect();
+    debug_log(&format!("URL deduplication: {} total found, {} unique URLs after deduplication", total_found, unique_urls.len()));
+    
+    unique_urls
 }
 
 /// Open a URL using the system's default browser

@@ -314,10 +314,8 @@ fn create_wrapped_cell_for_column<'a>(
 
 pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
     let columns = app.get_current_layout_columns();
-    crate::debug::debug_log(&format!("All columns: {:?}", columns.iter().map(|c| (&c.name, &c.column_type, c.enabled)).collect::<Vec<_>>()));
     
     let enabled_columns: Vec<&TableColumn> = columns.iter().filter(|c| c.enabled).collect();
-    crate::debug::debug_log(&format!("Enabled columns: {:?}", enabled_columns.iter().map(|c| (&c.name, &c.column_type)).collect::<Vec<_>>()));
     
     // Check if Priority column is enabled
     let has_priority_column = enabled_columns.iter().any(|c| matches!(c.column_type, TaskColumn::Priority));

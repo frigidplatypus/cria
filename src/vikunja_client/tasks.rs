@@ -39,8 +39,8 @@ impl super::VikunjaClient {
     ) -> ReqwestResult<VikunjaTask> {
         debug_log(&format!("Parsing magic text: '{}'", magic_text));
         let parsed = self.parser.parse(magic_text);
-        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
-                 parsed.title, parsed.labels, parsed.project, parsed.priority));
+        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}", 
+                 parsed.title, parsed.labels, parsed.project));
         // Step 1: Determine project ID
         if let Some(project_name) = &parsed.project {
             debug_log(&format!("Magic syntax project: '{}'. Attempting lookup...", project_name));
@@ -219,8 +219,8 @@ impl super::VikunjaClient {
     ) -> ReqwestResult<VikunjaTask> {
         debug_log(&format!("Updating task {} with magic text: '{}'", task_id, magic_text));
         let parsed = self.parser.parse(magic_text);
-        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}, priority: {:?}", 
-                 parsed.title, parsed.labels, parsed.project, parsed.priority));
+        debug_log(&format!("Parsed task - title: '{}', labels: {:?}, project: {:?}", 
+                 parsed.title, parsed.labels, parsed.project));
         let current_task = self.get_task(task_id as u64).await?;
         debug_log(&format!("Retrieved current task: {:?}", current_task));
         let project_id = if let Some(project_name) = &parsed.project {
@@ -353,8 +353,8 @@ impl super::VikunjaClient {
         project_id: i64,
         is_favorite: bool,
     ) -> ReqwestResult<VikunjaTask> {
-        debug_log(&format!("Updating task {} with form data - title: '{}', priority: {:?}, project_id: {}, favorite: {}", 
-                 task_id, title, priority, project_id, is_favorite));
+        debug_log(&format!("Updating task {} with form data - title: '{}', project_id: {}, favorite: {}", 
+                 task_id, title, project_id, is_favorite));
 
         let task = VikunjaTask {
             id: Some(task_id as u64),
@@ -387,8 +387,8 @@ impl super::VikunjaClient {
         is_favorite: bool,
         comment: Option<&str>,
     ) -> Result<crate::vikunja::models::Task, Box<dyn Error>> {
-        debug_log(&format!("Updating task {} from form - title: '{}', priority: {:?}, project_id: {}, favorite: {}", 
-                 task_id, title, priority, project_id, is_favorite));
+        debug_log(&format!("Updating task {} from form - title: '{}', project_id: {}, favorite: {}", 
+                 task_id, title, project_id, is_favorite));
 
         // Parse dates
         let due_date_parsed = if let Some(date_str) = due_date {
@@ -872,6 +872,7 @@ impl super::VikunjaClient {
     }
 
     pub async fn get_task_comments(&self, task_id: u64) -> Result<Vec<crate::vikunja::models::Comment>, reqwest::Error> {
+        crate::debug::debug_log(&format!("Fetching comments for task {}", task_id));
         let url = format!("{}/api/v1/tasks/{}/comments", self.base_url, task_id);
         let response = self.client
             .get(&url)
@@ -879,7 +880,9 @@ impl super::VikunjaClient {
             .send()
             .await?;
         
-        response.json().await
+        let comments: Vec<crate::vikunja::models::Comment> = response.json().await?;
+        crate::debug::debug_log(&format!("Fetched {} comments for task {}", comments.len(), task_id));
+        Ok(comments)
     }
 }
 

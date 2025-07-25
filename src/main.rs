@@ -249,7 +249,9 @@ async fn tokio_main(api_url: String, api_key: String, default_project: String, c
     // Initialize terminal and enter raw mode is handled in ui_loop
 
     // Delegate UI loop to ui_loop module
+    debug_log("=== ABOUT TO CALL run_ui ===");
     run_ui(app.clone(), client_clone.clone()).await?;
+    debug_log("=== run_ui RETURNED ===");
 
     // Event loop delegated to ui_loop; inline loop removed
 

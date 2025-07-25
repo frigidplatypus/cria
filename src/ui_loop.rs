@@ -491,13 +491,22 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         Char('e') => { app.show_edit_modal(); true }
         Char('o') => {
             // Open URLs from the selected task
-            if let Some(task) = app.get_selected_task() {
-                let urls = crate::url_utils::extract_urls_from_task(task);
+            crate::debug::debug_log("User pressed 'o' - attempting to open URLs from selected task");
+            if let Some(basic_task) = app.get_selected_task() {
+                // Try to get the detailed task with comments first, fall back to basic task
+                let task_to_use = app.get_detailed_task(basic_task.id).unwrap_or(basic_task);
+                crate::debug::debug_log(&format!("Selected task: id={}, title={:?}, has_comments={}, using_detailed_cache={}", 
+                    task_to_use.id, task_to_use.title, task_to_use.comments.is_some(), 
+                    app.get_detailed_task(basic_task.id).is_some()));
+                let urls = crate::url_utils::extract_urls_from_task(task_to_use);
+                crate::debug::debug_log(&format!("extract_urls_from_task returned {} URLs", urls.len()));
                 if !urls.is_empty() {
                     app.show_url_modal(urls);
                 } else {
                     app.show_toast("No URLs found in this task".to_string());
                 }
+            } else {
+                crate::debug::debug_log("No task selected");
             }
             true
         }
