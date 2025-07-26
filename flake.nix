@@ -22,7 +22,7 @@
       in {
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = crateName;
-          version = "1.0.1";
+          version = "1.1.0";
           src = ./.;
           cargoLock = {
             lockFile = ./Cargo.lock;
