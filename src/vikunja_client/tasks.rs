@@ -8,11 +8,13 @@ use std::error::Error;
 use chrono::{DateTime, Utc};
 use crate::debug::debug_log;
 use crate::vikunja_client::VikunjaUser;
+use serde_json;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VikunjaTask {
     pub id: Option<u64>,
     pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub done: Option<bool>,
     pub priority: Option<u8>,
@@ -297,6 +299,9 @@ impl super::VikunjaClient {
         let url = format!("{}/api/v1/tasks/{}", self.base_url, task_id);
         debug_log(&format!("Making POST request to: {}", url));
         debug_log(&format!("Task payload: {:?}", task));
+        // Log JSON payload for debugging
+        let json_str = serde_json::to_string(task).unwrap_or_default();
+        debug_log(&format!("update_task JSON payload: {}", json_str));
         let response = self.client
             .post(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
@@ -416,10 +421,16 @@ impl super::VikunjaClient {
         };
 
         // Create task object for update
+        // Prepare HTML description body
+        let description_html = if description.trim().is_empty() {
+            None
+        } else {
+            Some(format!("<p>{}</p>", description.trim()))
+        };
         let task = VikunjaTask {
             id: Some(task_id as u64),
             title: title.to_string(),
-            description: if description.trim().is_empty() { None } else { Some(description.to_string()) },
+            description: description_html,
             done: None, // Don't change done status in form edit
             priority: priority.map(|p| p as u8),
             due_date: due_date_parsed,
@@ -430,6 +441,11 @@ impl super::VikunjaClient {
             is_favorite: Some(is_favorite),
         };
 
+        // Log JSON payload for debugging description
+        match serde_json::to_string(&task) {
+            Ok(json) => debug_log(&format!("update_task_from_form JSON: {}", json)),
+            Err(e) => debug_log(&format!("Failed to serialize task JSON: {}", e)),
+        }
         // Update the basic task
         let _updated_task = self.update_task(&task).await?;
         
@@ -455,10 +471,6 @@ impl super::VikunjaClient {
             }
         }
 
-        // Handle favorite status
-        if let Err(e) = self.set_task_favorite(task_id as u64, is_favorite).await {
-            debug_log(&format!("Warning: Failed to set favorite status for task {}: {}", task_id, e));
-        }
 
         // Handle comment
         if let Some(comment_text) = comment {
@@ -470,11 +482,14 @@ impl super::VikunjaClient {
         }
 
         // Get the final updated task
-        self.get_task(task_id as u64).await
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
-            .and_then(|vikunja_task| {
-                Ok(crate::vikunja::models::Task::from_vikunja_task(vikunja_task))
-            })
+        match self.get_task(task_id as u64).await {
+            Ok(vikunja_task) => {
+                let model = crate::vikunja::models::Task::from_vikunja_task(vikunja_task);
+                debug_log(&format!("update_task_from_form returned task: {:?}", model));
+                Ok(model)
+            }
+            Err(e) => Err(Box::new(e) as Box<dyn Error>)
+        }
     }
     
     pub async fn ensure_label_exists(&self, label_name: &str) -> ReqwestResult<VikunjaLabel> {
@@ -867,7 +882,7 @@ impl super::VikunjaClient {
             .header("Authorization", format!("Bearer {}", self.auth_token))
             .json(&comment_data)
             .send()
-                .await?;
+            .await?;
         Ok(())
     }
 
@@ -886,4 +901,65 @@ impl super::VikunjaClient {
     }
 }
 
-// ... Project, Filter, User impls remain in their files ...
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    #[test]
+    fn test_omit_none_description() {
+        // When description is None, JSON should not include the field
+        let task = VikunjaTask {
+            id: Some(1),
+            title: "Test".to_string(),
+            description: None,
+            done: None,
+            priority: None,
+            due_date: None,
+            start_date: None,
+            project_id: 0,
+            labels: None,
+            assignees: None,
+            is_favorite: None,
+        };
+        let json = serde_json::to_value(&task).unwrap();
+        assert!(!json.as_object().unwrap().contains_key("description"));
+    }
+
+    #[test]
+    fn test_serialize_some_description() {
+        // When description is Some, JSON should include the field
+        let desc = "hello".to_string();
+        let task = VikunjaTask {
+            id: Some(2),
+            title: "DescTest".to_string(),
+            description: Some(desc.clone()),
+            done: None,
+            priority: None,
+            due_date: None,
+            start_date: None,
+            project_id: 0,
+            labels: None,
+            assignees: None,
+            is_favorite: None,
+        };
+        let json = serde_json::to_value(&task).unwrap();
+        let value = json.get("description").unwrap().as_str().unwrap();
+        assert_eq!(value, desc);
+    }
+
+    #[test]
+    fn test_description_html_wrapping_logic() {
+        // Replicate the HTML wrapping logic from update_task_from_form
+        fn wrap(desc: &str) -> Option<String> {
+            if desc.trim().is_empty() {
+                None
+            } else {
+                Some(format!("<p>{}</p>", desc.trim()))
+            }
+        }
+        assert_eq!(wrap(""), None);
+        assert_eq!(wrap("foo"), Some("<p>foo</p>".to_string()));
+        assert_eq!(wrap(" foo  "), Some("<p>foo</p>".to_string()));
+    }
+}
