@@ -275,10 +275,16 @@ async fn save_form_task(
         
         match result {
             Ok(task) => {
-                debug_log(&format!("SUCCESS: Task updated from form! ID: {:?}, Title: '{}'", task.id, task.title));
+                debug_log(&format!("SUCCESS: Task updated from form! ID: {:?}, Title: '{}' Description: {:?}", task.id, task.title, task.description));
                 
-                // Refresh tasks
-                let (tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
+                // Refresh tasks and inject updated task details
+                let (mut tasks, project_map, project_colors) = client_clone.lock().await.get_tasks_with_projects().await.unwrap_or_default();
+                for t in &mut tasks {
+                    if t.id == task.id {
+                        *t = task.clone();
+                        break;
+                    }
+                }
                 app.all_tasks = tasks;
                 app.project_map = project_map;
                 app.project_colors = project_colors;
