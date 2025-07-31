@@ -318,7 +318,7 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
     let enabled_columns: Vec<&TableColumn> = columns.iter().filter(|c| c.enabled).collect();
     
     // Check if Priority column is enabled
-    let has_priority_column = enabled_columns.iter().any(|c| matches!(c.column_type, TaskColumn::Priority));
+    let _has_priority_column = enabled_columns.iter().any(|c| matches!(c.column_type, TaskColumn::Priority));
     // ...existing code...
     
     // Calculate optimal column widths

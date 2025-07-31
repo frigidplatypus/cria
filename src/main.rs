@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_variables, unreachable_patterns, unused_assignments)]
 use clap::{Arg, Command};
 
 mod tui;

@@ -274,7 +274,7 @@ pub async fn handle_quick_add_modal(
                 debug_log(&format!("QUICK_ADD: Project override active: {:?}", app.active_project_override));
                 debug_log(&format!("QUICK_ADD: Current filter ID: {:?}", app.current_filter_id));
                 let api_client_guard = api_client.lock().await;
-                let mut default_project_id: Option<u64> = None;
+                let default_project_id: Option<u64>;
                 // Try to resolve project name to ID
                 match app.project_map.iter().find_map(|(id, name)| {
                     if name.trim().eq_ignore_ascii_case(&default_project_name) { Some(*id) } else { None }
