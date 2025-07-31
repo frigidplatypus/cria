@@ -387,10 +387,13 @@ pub fn draw_help_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::styled("r", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Refresh tasks/projects/filters")]),
         Line::from(vec![Span::styled("s", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Star/unstar task")]),
         Line::from(vec![Span::styled("i", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle info pane")]),
-        Line::from(vec![Span::styled("o", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Open URL(s) in selected task")]),
+        Line::from(vec![Span::styled("x", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle debug pane")]),
+        Line::from(vec![Span::styled("o", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Open URL(s) found in task description/comments")]),
         Line::from(vec![Span::styled("h / l", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Switch layouts backward/forward")]),
         Line::from(vec![Span::styled("H / L", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Cycle task filters (active/all/etc)")]),
         Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quick actions modal")]),
+        Line::from(vec![Span::styled("Ctrl+Z", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Undo last action")]),
+        Line::from(vec![Span::styled("Ctrl+Y", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Redo last undone action")]),
         Line::from(vec![Span::styled(".", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Advanced features mode")]),
         Line::from(vec![Span::styled(".?", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Advanced features help")]),
         Line::raw("")
@@ -446,7 +449,7 @@ pub fn draw_help_modal(f: &mut Frame, app: &App) {
 pub fn draw_advanced_help_modal(f: &mut Frame, _app: &App) {
     let area = f.size();
     let modal_width = (area.width as f32 * 0.7) as u16;
-    let modal_height = 20;
+    let modal_height = 25; // Increased from 20 to accommodate new content
     if check_viewport_size(area, 40, modal_height, " Advanced Features ", f) { return; }
     let x = (area.width.saturating_sub(modal_width)) / 2;
     let y = (area.height.saturating_sub(modal_height)) / 2;
@@ -459,7 +462,7 @@ pub fn draw_advanced_help_modal(f: &mut Frame, _app: &App) {
     let help_lines = vec![
         Line::from(vec![Span::styled("Press . then a key for advanced features:", Style::default().add_modifier(Modifier::BOLD))]),
         Line::raw(""),
-        Line::from(vec![Span::styled(".a", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Attachment management")]),
+        Line::from(vec![Span::styled(".a", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Attachment management (upload/view/download files)")]),
         Line::from(vec![Span::styled(".c", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Comments (coming soon)")]),
         Line::from(vec![Span::styled(".r", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Task relations (coming soon)")]),
         Line::from(vec![Span::styled(".h", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Task history (coming soon)")]),
@@ -467,7 +470,13 @@ pub fn draw_advanced_help_modal(f: &mut Frame, _app: &App) {
         Line::from(vec![Span::styled(".t", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Time tracking (coming soon)")]),
         Line::from(vec![Span::styled(".?", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Show this help")]),
         Line::raw(""),
-        Line::from(vec![Span::styled("Note:", Style::default().fg(Color::Yellow)), Span::raw(" These features are planned for future releases.")]),
+        Line::from(vec![Span::styled("URL Modal Navigation:", Style::default().add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::raw("When viewing URLs found in tasks (press 'o'):")]),
+        Line::from(vec![Span::styled("  ↑/k, ↓/j", Style::default().fg(Color::Yellow)), Span::raw(": Navigate URL list")]),
+        Line::from(vec![Span::styled("  Enter", Style::default().fg(Color::Green)), Span::raw(": Open selected URL in browser")]),
+        Line::from(vec![Span::styled("  Esc", Style::default().fg(Color::Red)), Span::raw(": Cancel and close modal")]),
+        Line::raw(""),
+        Line::from(vec![Span::styled("Note:", Style::default().fg(Color::Yellow)), Span::raw(" Attachment management is fully functional.")]),
         Line::raw(""),
         Line::from(vec![Span::styled("Press q or ESC to close", Style::default().fg(Color::Gray))]),
     ];
