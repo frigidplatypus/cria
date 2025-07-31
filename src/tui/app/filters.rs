@@ -70,6 +70,8 @@ impl App {
     #[allow(dead_code)]
     pub fn apply_filter_tasks(&mut self, tasks: Vec<crate::vikunja::models::Task>) {
         self.tasks = tasks;
+        // Apply hierarchical sorting to maintain parent-child relationships
+        self.apply_hierarchical_sort();
     }
     #[allow(dead_code)] // Future feature
     pub fn apply_filter(&mut self) {
@@ -93,6 +95,9 @@ impl App {
             crate::tui::app::task_filter::TaskFilter::All => true,
             crate::tui::app::task_filter::TaskFilter::CompletedOnly => task.done,
         }).cloned().collect();
+        
+        // Apply hierarchical sorting to maintain parent-child relationships
+        self.apply_hierarchical_sort();
         
         // Apply layout-specific sort if no manual sort is active
         if self.current_sort.is_none() {

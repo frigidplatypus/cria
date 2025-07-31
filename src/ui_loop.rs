@@ -110,6 +110,125 @@ pub async fn run_ui(
                         _ => {}
                     }
                     continue;
+                } else if app_guard.show_subtask_modal {
+                    // Handle subtask modal input
+                    match key.code {
+                        KeyCode::Esc => {
+                            app_guard.hide_subtask_modal();
+                        }
+                        KeyCode::Up => {
+                            app_guard.previous_subtask_task();
+                        }
+                        KeyCode::Down => {
+                            app_guard.next_subtask_task();
+                        }
+                        KeyCode::Enter => {
+                            if let Some(ref operation) = app_guard.subtask_operation {
+                                match operation {
+                                    crate::tui::app::state::SubtaskOperation::BulkMakeSubtasks => {
+                                        // Handle bulk operation
+                                        if !app_guard.selected_subtask_task_ids.is_empty() {
+                                            if let Some(selected_task) = app_guard.get_selected_task() {
+                                                let parent_task_id = selected_task.id;
+                                                let subtask_ids = app_guard.selected_subtask_task_ids.clone();
+                                                app_guard.hide_subtask_modal();
+                                                
+                                                // Handle bulk subtask creation async
+                                                let client = client_clone.lock().await;
+                                                let mut success_count = 0;
+                                                let mut error_count = 0;
+                                                
+                                                for subtask_id in subtask_ids {
+                                                    match client.create_task_relation(
+                                                        subtask_id as u64,
+                                                        parent_task_id as u64,
+                                                        crate::vikunja_client::relations::RelationKind::Subtask
+                                                    ).await {
+                                                        Ok(_) => {
+                                                            success_count += 1;
+                                                            app_guard.add_debug_message(format!("Task {} is now a subtask of {}", subtask_id, parent_task_id));
+                                                        }
+                                                        Err(e) => {
+                                                            error_count += 1;
+                                                            app_guard.add_debug_message(format!("Error creating subtask relation for task {}: {}", subtask_id, e));
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                if error_count == 0 {
+                                                    app_guard.show_toast(format!("Successfully created {} subtasks!", success_count));
+                                                } else {
+                                                    app_guard.show_toast(format!("Created {} subtasks, {} failed", success_count, error_count));
+                                                }
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        // Handle single selection operations
+                                        if let Some((target_task_id, _)) = app_guard.get_selected_subtask_task() {
+                                            if let Some(selected_task) = app_guard.get_selected_task() {
+                                                let current_task_id = selected_task.id;
+                                                let operation = app_guard.subtask_operation.clone();
+                                                app_guard.hide_subtask_modal();
+                                                
+                                                // Handle the subtask operation async
+                                                let client = client_clone.lock().await;
+                                                match operation {
+                                                    Some(crate::tui::app::state::SubtaskOperation::MakeSubtask) => {
+                                                        // Make current task a subtask of target task
+                                                        match client.create_task_relation(
+                                                            current_task_id as u64,
+                                                            target_task_id as u64,
+                                                            crate::vikunja_client::relations::RelationKind::Subtask
+                                                        ).await {
+                                                            Ok(_) => {
+                                                                app_guard.show_toast("Task made into subtask successfully!".to_string());
+                                                                app_guard.add_debug_message(format!("Task {} is now a subtask of {}", current_task_id, target_task_id));
+                                                            }
+                                                            Err(e) => {
+                                                                app_guard.show_toast(format!("Failed to create subtask relation: {}", e));
+                                                                app_guard.add_debug_message(format!("Error creating subtask relation: {}", e));
+                                                            }
+                                                        }
+                                                    }
+                                                    Some(crate::tui::app::state::SubtaskOperation::AddSubtask) => {
+                                                        // Make target task a subtask of current task
+                                                        match client.create_task_relation(
+                                                            target_task_id as u64,
+                                                            current_task_id as u64,
+                                                            crate::vikunja_client::relations::RelationKind::Subtask
+                                                        ).await {
+                                                            Ok(_) => {
+                                                                app_guard.show_toast("Subtask added successfully!".to_string());
+                                                                app_guard.add_debug_message(format!("Task {} is now a subtask of {}", target_task_id, current_task_id));
+                                                            }
+                                                            Err(e) => {
+                                                                app_guard.show_toast(format!("Failed to create subtask relation: {}", e));
+                                                                app_guard.add_debug_message(format!("Error creating subtask relation: {}", e));
+                                                            }
+                                                        }
+                                                    }
+                                                    _ => {}
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        KeyCode::Char(' ') => {
+                            // Toggle selection for bulk operations
+                            app_guard.toggle_subtask_task_selection();
+                        }
+                        KeyCode::Char(c) => {
+                            app_guard.add_char_to_subtask_input(c);
+                        }
+                        KeyCode::Backspace => {
+                            app_guard.delete_char_from_subtask_input();
+                        }
+                        _ => {}
+                    }
+                    continue;
                 }
 
                 // Handle Ctrl key combinations first
@@ -562,13 +681,35 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
             if app.show_advanced_features_modal {
                 // Direct activation of subtasks
                 app.hide_advanced_features_modal();
-                app.add_debug_message("Subtasks feature requested".to_string());
-                app.show_toast("Subtasks feature coming soon!".to_string());
+                // Show subtask menu instead of just a message
+                if app.get_selected_task().is_some() {
+                    app.show_subtask_modal(crate::tui::app::state::SubtaskOperation::AddSubtask);
+                } else {
+                    app.show_toast("Select a task first".to_string());
+                }
                 true
             } else {
                 /* async star toggle handled in event loop */ 
                 true 
             }
+        }
+        Char('S') => {
+            // Direct subtask management (make current task a subtask)
+            if app.get_selected_task().is_some() {
+                app.show_subtask_modal(crate::tui::app::state::SubtaskOperation::MakeSubtask);
+            } else {
+                app.show_toast("Select a task first".to_string());
+            }
+            true
+        }
+        Char('B') => {
+            // Bulk subtask management (make multiple tasks subtasks of current)
+            if app.get_selected_task().is_some() {
+                app.show_subtask_modal(crate::tui::app::state::SubtaskOperation::BulkMakeSubtasks);
+            } else {
+                app.show_toast("Select a parent task first".to_string());
+            }
+            true
         }
         Char('t') => { 
             if app.show_advanced_features_modal {
@@ -606,7 +747,11 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                     }
                     4 => { // Subtasks
                         app.hide_advanced_features_modal();
-                        app.add_debug_message("Subtasks feature requested".to_string());
+                        if app.get_selected_task().is_some() {
+                            app.show_subtask_modal(crate::tui::app::state::SubtaskOperation::AddSubtask);
+                        } else {
+                            app.show_toast("Select a task first".to_string());
+                        }
                     }
                     5 => { // Time Tracking
                         app.hide_advanced_features_modal();

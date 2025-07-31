@@ -7,7 +7,7 @@ use ratatui::widgets::{Paragraph, Block, Borders, Clear};
 
 use super::task_list::draw_tasks_table;
 use super::task_details::draw_task_details;
-use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dialog, draw_quick_actions_modal}; 
+use super::modals::{draw_quick_add_modal, draw_edit_modal, draw_confirmation_dialog, draw_quick_actions_modal, draw_subtask_picker_modal}; 
 // Relations modals - DISABLED: Incomplete feature
 // use super::modals::{draw_relations_modal, draw_add_relation_modal};
 use super::form_edit::draw_form_edit_modal;
@@ -105,6 +105,8 @@ pub fn draw(f: &mut Frame, app: &App) {
     //     }
     } else if app.show_quick_actions_modal {
         draw_quick_actions_modal(f, app);
+    } else if app.show_subtask_modal {
+        draw_subtask_picker_modal(f, app);
     } else if app.show_attachment_modal {
         if let Some(ref modal) = app.attachment_modal {
             modal.draw(f, f.size());
