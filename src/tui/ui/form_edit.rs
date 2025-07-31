@@ -262,6 +262,25 @@ fn render_form_fields(f: &mut Frame, area: Rect, app: &App, form: &FormEditState
         .style(Style::default().fg(Color::White));
     
     f.render_widget(paragraph, area);
+    // Position the terminal cursor at the current field's edit position
+    // Only for text/editable fields: title (0), description (1), due_date (2), start_date (3), priority (4), comment (9)
+    if (0..=4).contains(&form.field_index) || form.field_index == 9 {
+        // Determine label length for cursor offset
+        let label = match form.field_index {
+            0 => "Title: ",
+            1 => "Description: ",
+            2 => "Due Date: ",
+            3 => "Start Date: ",
+            4 => "Priority: ",
+            9 => "Add Comment: ",
+            _ => "",
+        };
+        let prefix_width = 2; // "► " or "  "
+        let offset = prefix_width + label.len();
+        let cursor_x = area.x + offset as u16 + form.cursor_position as u16;
+        let cursor_y = area.y + form.field_index as u16;
+        f.set_cursor(cursor_x, cursor_y);
+    }
 }
 
 fn render_help_section(f: &mut Frame, area: Rect, form: &FormEditState) {
