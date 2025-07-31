@@ -10,7 +10,6 @@ use crate::tui::app::task_filter::TaskFilter;
 use crate::tui::app::undoable_action::UndoableAction;
 use crate::tui::app::pending_action::PendingAction;
 use crate::tui::app::suggestion_mode::SuggestionMode;
-use crate::vikunja_client::relations::RelationKind;
 
 mod confirm_quit_ext;
 
@@ -18,7 +17,6 @@ mod confirm_quit_ext;
 pub enum SubtaskOperation {
     MakeSubtask, // Make selected task a subtask of another task
     AddSubtask,  // Add a new subtask to the selected task
-    BulkMakeSubtasks, // Make multiple tasks subtasks of the selected task
 }
 
 pub struct App {
@@ -111,6 +109,10 @@ pub struct App {
     pub filtered_subtask_tasks: Vec<(i64, String)>, // (task_id, title)
     pub selected_subtask_picker_index: usize,
     pub selected_subtask_task_ids: Vec<i64>, // For bulk operations
+    // Add subtask modal state
+    pub show_add_subtask_modal: bool,
+    pub add_subtask_input: String,
+    pub add_subtask_cursor_position: usize,
     // Quick action mode - direct key handling after Space
     pub quick_action_mode: bool,
     pub quick_action_mode_start: Option<DateTime<Local>>,
@@ -263,6 +265,10 @@ impl App {
             filtered_subtask_tasks: Vec::new(),
             selected_subtask_picker_index: 0,
             selected_subtask_task_ids: Vec::new(),
+            // Add subtask modal
+            show_add_subtask_modal: false,
+            add_subtask_input: String::new(),
+            add_subtask_cursor_position: 0,
             quick_action_mode: false,
             quick_action_mode_start: None,
             show_attachment_modal: false,
@@ -705,6 +711,7 @@ impl App {
         self.show_attachment_modal = false;
         self.show_file_picker_modal = false;
         self.show_url_modal = false;
+        self.show_add_subtask_modal = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
         // Reset modal state
@@ -718,6 +725,8 @@ impl App {
         self.attachment_modal = None;
         self.file_picker_modal = None;
         self.url_modal = None;
+        self.add_subtask_input.clear();
+        self.add_subtask_cursor_position = 0;
         // Relations modals - DISABLED: Incomplete feature
         // self.show_relations_modal = false;
         // self.show_add_relation_modal = false;
@@ -1133,6 +1142,48 @@ impl App {
         self.selected_subtask_task_ids.clear();
     }
 
+    // Add subtask modal methods
+    pub fn show_add_subtask_modal(&mut self) {
+        self.close_all_modals();
+        self.show_add_subtask_modal = true;
+        self.add_subtask_input.clear();
+        self.add_subtask_cursor_position = 0;
+    }
+
+    pub fn hide_add_subtask_modal(&mut self) {
+        self.show_add_subtask_modal = false;
+        self.add_subtask_input.clear();
+        self.add_subtask_cursor_position = 0;
+    }
+
+    pub fn add_char_to_add_subtask(&mut self, c: char) {
+        self.add_subtask_input.insert(self.add_subtask_cursor_position, c);
+        self.add_subtask_cursor_position += 1;
+    }
+
+    pub fn delete_char_from_add_subtask(&mut self) {
+        if self.add_subtask_cursor_position > 0 {
+            self.add_subtask_cursor_position -= 1;
+            self.add_subtask_input.remove(self.add_subtask_cursor_position);
+        }
+    }
+
+    pub fn move_add_subtask_cursor_left(&mut self) {
+        if self.add_subtask_cursor_position > 0 {
+            self.add_subtask_cursor_position -= 1;
+        }
+    }
+
+    pub fn move_add_subtask_cursor_right(&mut self) {
+        if self.add_subtask_cursor_position < self.add_subtask_input.len() {
+            self.add_subtask_cursor_position += 1;
+        }
+    }
+
+    pub fn get_add_subtask_input(&self) -> &str {
+        &self.add_subtask_input
+    }
+
     pub fn add_char_to_subtask_input(&mut self, c: char) {
         self.subtask_picker_input.push(c);
         self.update_filtered_subtask_tasks();
@@ -1224,7 +1275,15 @@ impl App {
         if let Some(ref related_tasks) = task.related_tasks {
             // Check if this task is a subtask of another
             if related_tasks.contains_key("subtask") && !related_tasks["subtask"].is_empty() {
-                return Some("  └─"); // Subtask indicator with indentation
+                // Check if any parent task is still active (not done)
+                let has_active_parent = related_tasks["subtask"]
+                    .iter()
+                    .any(|parent_task| !parent_task.done);
+                
+                if has_active_parent {
+                    return Some("  └─"); // Subtask indicator with indentation
+                }
+                // If all parent tasks are done, don't show subtask indicator
             }
             // Check if this task has subtasks
             if related_tasks.contains_key("parenttask") && !related_tasks["parenttask"].is_empty() {
@@ -1307,7 +1366,15 @@ impl App {
         if let Some(ref related_tasks) = task.related_tasks {
             // Check if this task is a subtask of another (has parenttask relations)
             if related_tasks.contains_key("parenttask") && !related_tasks["parenttask"].is_empty() {
-                return (1, "└─ "); // Level 1 indentation with subtask indicator
+                // Check if any parent task is still active (not done)
+                let has_active_parent = related_tasks["parenttask"]
+                    .iter()
+                    .any(|parent_task| !parent_task.done);
+                
+                if has_active_parent {
+                    return (1, "└─ "); // Level 1 indentation with subtask indicator
+                }
+                // If all parent tasks are done, don't show subtask indicator
             }
             // Check if this task has subtasks (has subtask relations)
             if related_tasks.contains_key("subtask") && !related_tasks["subtask"].is_empty() {

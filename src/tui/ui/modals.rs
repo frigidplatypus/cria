@@ -827,9 +827,6 @@ pub fn draw_subtask_picker_modal(f: &mut Frame, app: &App) {
         Some(crate::tui::app::state::SubtaskOperation::AddSubtask) => {
             ("Add Subtask", "Select a task to make a subtask of the current task:", false)
         }
-        Some(crate::tui::app::state::SubtaskOperation::BulkMakeSubtasks) => {
-            ("Bulk Make Subtasks", "Select tasks to make subtasks of the current task (Space to toggle):", true)
-        }
         None => ("Subtask Management", "", false),
     };
     
@@ -1138,3 +1135,88 @@ pub fn draw_add_relation_modal(f: &mut Frame, app: &App) {
     f.render_widget(help_paragraph, modal_chunks[2]);
 }
 */
+
+pub fn draw_add_subtask_modal(f: &mut Frame, app: &App) {
+    let area = f.size();
+    let modal_width = (area.width as f32 * 0.6) as u16;
+    let modal_height = 10;
+    if check_viewport_size(area, 40, modal_height, " Add Subtask ", f) { return; }
+    
+    let x = (area.width.saturating_sub(modal_width)) / 2;
+    let y = (area.height.saturating_sub(modal_height)) / 2;
+    let modal_area = Rect { x, y, width: modal_width, height: modal_height };
+    
+    // Clear the area behind the modal
+    f.render_widget(Clear, modal_area);
+    
+    // Layout: parent task info (2), input (3), help (rest)
+    let modal_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(2), // Parent task info
+            Constraint::Length(3), // Input field
+            Constraint::Min(3),    // Help text
+        ])
+        .split(modal_area);
+    
+    // Show parent task info
+    if let Some(parent_task) = app.get_selected_task() {
+        let parent_info = Line::from(vec![
+            Span::styled("Adding subtask to: ", Style::default().fg(Color::Gray)),
+            Span::styled(&parent_task.title, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+        ]);
+        
+        let parent_block = Block::default()
+            .borders(Borders::LEFT | Borders::RIGHT | Borders::TOP)
+            .style(Style::default().fg(Color::Cyan));
+        
+        let parent_paragraph = Paragraph::new(vec![parent_info])
+            .block(parent_block)
+            .alignment(Alignment::Center);
+        
+        f.render_widget(parent_paragraph, modal_chunks[0]);
+    }
+    
+    // Input field
+    let input_text = app.get_add_subtask_input();
+    let input_spans = vec![Span::raw(input_text)];
+    
+    let input_block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Subtask Title ")
+        .title_alignment(Alignment::Center)
+        .style(Style::default().fg(Color::Cyan));
+    
+    let input_paragraph = Paragraph::new(vec![Line::from(input_spans)])
+        .block(input_block)
+        .style(Style::default().fg(Color::Yellow));
+    
+    f.render_widget(input_paragraph, modal_chunks[1]);
+    
+    // Set cursor position
+    let cursor_x = modal_chunks[1].x + 1 + app.add_subtask_cursor_position as u16;
+    let cursor_y = modal_chunks[1].y + 1;
+    if cursor_x < modal_chunks[1].x + modal_chunks[1].width - 1 {
+        f.set_cursor(cursor_x, cursor_y);
+    }
+    
+    // Help text
+    let help_lines = vec![
+        Line::from(vec![
+            Span::styled("Enter", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw(" Create subtask • "),
+            Span::styled("Esc", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::raw(" Cancel")
+        ])
+    ];
+    
+    let help_block = Block::default()
+        .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM)
+        .style(Style::default().fg(Color::Cyan));
+    
+    let help_paragraph = Paragraph::new(help_lines)
+        .block(help_block)
+        .alignment(Alignment::Center);
+    
+    f.render_widget(help_paragraph, modal_chunks[2]);
+}
