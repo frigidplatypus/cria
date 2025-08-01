@@ -24,9 +24,8 @@ pub mod attachments;
 pub use attachments::*;
 
 // --- Relation-related types and functions ---
-// DISABLED: Incomplete feature
-// pub mod relations;
-// pub use relations::*;
+pub mod relations;
+// pub use relations::*;  // Unused import - relations are accessed via full path
 
 pub struct VikunjaClient {
     client: Client,

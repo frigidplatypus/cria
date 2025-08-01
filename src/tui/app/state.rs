@@ -10,10 +10,14 @@ use crate::tui::app::task_filter::TaskFilter;
 use crate::tui::app::undoable_action::UndoableAction;
 use crate::tui::app::pending_action::PendingAction;
 use crate::tui::app::suggestion_mode::SuggestionMode;
-// Relations - DISABLED: Incomplete feature
-// use crate::vikunja_client::relations::RelationKind;
 
 mod confirm_quit_ext;
+
+#[derive(Debug, Clone)]
+pub enum SubtaskOperation {
+    MakeSubtask, // Make selected task a subtask of another task
+    AddSubtask,  // Add a new subtask to the selected task
+}
 
 pub struct App {
     pub config: CriaConfig,
@@ -98,6 +102,17 @@ pub struct App {
     pub current_sort: Option<SortOrder>,
     pub show_quick_actions_modal: bool,
     pub selected_quick_action_index: usize,
+    // Subtask management
+    pub show_subtask_modal: bool,
+    pub subtask_operation: Option<SubtaskOperation>,
+    pub subtask_picker_input: String,
+    pub filtered_subtask_tasks: Vec<(i64, String)>, // (task_id, title)
+    pub selected_subtask_picker_index: usize,
+    pub selected_subtask_task_ids: Vec<i64>, // For bulk operations
+    // Add subtask modal state
+    pub show_add_subtask_modal: bool,
+    pub add_subtask_input: String,
+    pub add_subtask_cursor_position: usize,
     // Quick action mode - direct key handling after Space
     pub quick_action_mode: bool,
     pub quick_action_mode_start: Option<DateTime<Local>>,
@@ -243,6 +258,17 @@ impl App {
             current_sort: None,
             show_quick_actions_modal: false,
             selected_quick_action_index: 0,
+            // Subtask management
+            show_subtask_modal: false,
+            subtask_operation: None,
+            subtask_picker_input: String::new(),
+            filtered_subtask_tasks: Vec::new(),
+            selected_subtask_picker_index: 0,
+            selected_subtask_task_ids: Vec::new(),
+            // Add subtask modal
+            show_add_subtask_modal: false,
+            add_subtask_input: String::new(),
+            add_subtask_cursor_position: 0,
             quick_action_mode: false,
             quick_action_mode_start: None,
             show_attachment_modal: false,
@@ -519,6 +545,8 @@ impl App {
                     }
                 }
                 self.tasks = new_tasks;
+                // Apply hierarchical sorting for default order to maintain relationships
+                self.apply_hierarchical_sort();
             }
             SortOrder::TitleAZ => self.tasks.sort_by(|a, b| normalize_string(&a.title).cmp(&normalize_string(&b.title))),
             SortOrder::TitleZA => self.tasks.sort_by(|a, b| normalize_string(&b.title).cmp(&normalize_string(&a.title))),
@@ -683,6 +711,7 @@ impl App {
         self.show_attachment_modal = false;
         self.show_file_picker_modal = false;
         self.show_url_modal = false;
+        self.show_add_subtask_modal = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
         // Reset modal state
@@ -696,6 +725,8 @@ impl App {
         self.attachment_modal = None;
         self.file_picker_modal = None;
         self.url_modal = None;
+        self.add_subtask_input.clear();
+        self.add_subtask_cursor_position = 0;
         // Relations modals - DISABLED: Incomplete feature
         // self.show_relations_modal = false;
         // self.show_add_relation_modal = false;
@@ -1091,6 +1122,295 @@ impl App {
         self.filters = filters;
         self.filter_descriptions = descriptions;
         self.update_filtered_filters();
+    }
+
+    // Subtask management methods
+    pub fn show_subtask_modal(&mut self, operation: SubtaskOperation) {
+        self.show_subtask_modal = true;
+        self.subtask_operation = Some(operation);
+        self.subtask_picker_input.clear();
+        self.selected_subtask_picker_index = 0;
+        self.update_filtered_subtask_tasks();
+    }
+
+    pub fn hide_subtask_modal(&mut self) {
+        self.show_subtask_modal = false;
+        self.subtask_operation = None;
+        self.subtask_picker_input.clear();
+        self.filtered_subtask_tasks.clear();
+        self.selected_subtask_picker_index = 0;
+        self.selected_subtask_task_ids.clear();
+    }
+
+    // Add subtask modal methods
+    pub fn show_add_subtask_modal(&mut self) {
+        self.close_all_modals();
+        self.show_add_subtask_modal = true;
+        self.add_subtask_input.clear();
+        self.add_subtask_cursor_position = 0;
+    }
+
+    pub fn hide_add_subtask_modal(&mut self) {
+        self.show_add_subtask_modal = false;
+        self.add_subtask_input.clear();
+        self.add_subtask_cursor_position = 0;
+    }
+
+    pub fn add_char_to_add_subtask(&mut self, c: char) {
+        self.add_subtask_input.insert(self.add_subtask_cursor_position, c);
+        self.add_subtask_cursor_position += 1;
+    }
+
+    pub fn delete_char_from_add_subtask(&mut self) {
+        if self.add_subtask_cursor_position > 0 {
+            self.add_subtask_cursor_position -= 1;
+            self.add_subtask_input.remove(self.add_subtask_cursor_position);
+        }
+    }
+
+    pub fn move_add_subtask_cursor_left(&mut self) {
+        if self.add_subtask_cursor_position > 0 {
+            self.add_subtask_cursor_position -= 1;
+        }
+    }
+
+    pub fn move_add_subtask_cursor_right(&mut self) {
+        if self.add_subtask_cursor_position < self.add_subtask_input.len() {
+            self.add_subtask_cursor_position += 1;
+        }
+    }
+
+    pub fn get_add_subtask_input(&self) -> &str {
+        &self.add_subtask_input
+    }
+
+    pub fn add_char_to_subtask_input(&mut self, c: char) {
+        self.subtask_picker_input.push(c);
+        self.update_filtered_subtask_tasks();
+    }
+
+    pub fn delete_char_from_subtask_input(&mut self) {
+        self.subtask_picker_input.pop();
+        self.update_filtered_subtask_tasks();
+    }
+
+    pub fn next_subtask_task(&mut self) {
+        if !self.filtered_subtask_tasks.is_empty() && self.selected_subtask_picker_index < self.filtered_subtask_tasks.len() - 1 {
+            self.selected_subtask_picker_index += 1;
+        }
+    }
+
+    pub fn previous_subtask_task(&mut self) {
+        if self.selected_subtask_picker_index > 0 {
+            self.selected_subtask_picker_index -= 1;
+        }
+    }
+
+    fn update_filtered_subtask_tasks(&mut self) {
+        if self.subtask_picker_input.is_empty() {
+            // Show all tasks except the currently selected one
+            self.filtered_subtask_tasks = self.all_tasks
+                .iter()
+                .filter(|task| {
+                    if let Some(selected_task) = self.get_selected_task() {
+                        task.id != selected_task.id
+                    } else {
+                        true
+                    }
+                })
+                .map(|task| (task.id, task.title.clone()))
+                .collect();
+        } else {
+            let input_normalized = normalize_string(&self.subtask_picker_input);
+            let mut scored_tasks: Vec<_> = self.all_tasks
+                .iter()
+                .filter(|task| {
+                    if let Some(selected_task) = self.get_selected_task() {
+                        task.id != selected_task.id
+                    } else {
+                        true
+                    }
+                })
+                .filter_map(|task| {
+                    let title_normalized = normalize_string(&task.title);
+                    let score = fuzzy_match_score(&input_normalized, &title_normalized);
+                    if score > 0.0 {
+                        Some((task.id, task.title.clone(), score))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            
+            scored_tasks.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+            self.filtered_subtask_tasks = scored_tasks.into_iter().map(|(id, title, _)| (id, title)).collect();
+        }
+        
+        // Reset selection to first item
+        self.selected_subtask_picker_index = 0;
+    }
+
+    pub fn get_selected_subtask_task(&self) -> Option<(i64, String)> {
+        self.filtered_subtask_tasks.get(self.selected_subtask_picker_index).cloned()
+    }
+
+    /// Toggle selection of current subtask task (for bulk operations)
+    pub fn toggle_subtask_task_selection(&mut self) {
+        if let Some((task_id, _)) = self.get_selected_subtask_task() {
+            if self.selected_subtask_task_ids.contains(&task_id) {
+                self.selected_subtask_task_ids.retain(|&id| id != task_id);
+            } else {
+                self.selected_subtask_task_ids.push(task_id);
+            }
+        }
+    }
+
+    /// Check if a subtask task is selected for bulk operations
+    pub fn is_subtask_task_selected(&self, task_id: i64) -> bool {
+        self.selected_subtask_task_ids.contains(&task_id)
+    }
+
+    /// Get visual indicator for subtask relationships
+    pub fn get_task_relation_indicator(&self, task: &crate::vikunja::models::Task) -> Option<&'static str> {
+        if let Some(ref related_tasks) = task.related_tasks {
+            // Check if this task is a subtask of another
+            if related_tasks.contains_key("subtask") && !related_tasks["subtask"].is_empty() {
+                // Check if any parent task is still active (not done)
+                let has_active_parent = related_tasks["subtask"]
+                    .iter()
+                    .any(|parent_task| !parent_task.done);
+                
+                if has_active_parent {
+                    return Some("  └─"); // Subtask indicator with indentation
+                }
+                // If all parent tasks are done, don't show subtask indicator
+            }
+            // Check if this task has subtasks
+            if related_tasks.contains_key("parenttask") && !related_tasks["parenttask"].is_empty() {
+                return Some("├─"); // Parent task indicator
+            }
+        }
+        None
+    }
+
+    /// Apply hierarchical sorting to maintain parent-child relationships
+    pub fn apply_hierarchical_sort(&mut self) {
+        // First, identify all parent-child relationships
+        let mut parent_child_map: HashMap<i64, Vec<i64>> = HashMap::new();
+        let mut child_parent_map: HashMap<i64, i64> = HashMap::new();
+        
+        // Build the relationship maps
+        for task in &self.tasks {
+            if let Some(ref related_tasks) = task.related_tasks {
+                // If this task has subtasks (is a parent)
+                if let Some(subtasks) = related_tasks.get("subtask") {
+                    let subtask_ids: Vec<i64> = subtasks.iter().map(|t| t.id).collect();
+                    parent_child_map.insert(task.id, subtask_ids.clone());
+                    
+                    // Also populate the reverse mapping
+                    for subtask_id in subtask_ids {
+                        child_parent_map.insert(subtask_id, task.id);
+                    }
+                }
+            }
+        }
+        
+        // Create a new sorted list
+        let mut sorted_tasks = Vec::new();
+        let mut processed_tasks = std::collections::HashSet::new();
+        
+        // First pass: Add all parent tasks and their children in order
+        for task in &self.tasks {
+            // Skip if already processed
+            if processed_tasks.contains(&task.id) {
+                continue;
+            }
+            
+            // Check if this is a parent task (has subtasks)
+            if parent_child_map.contains_key(&task.id) {
+                // Add the parent task
+                sorted_tasks.push(task.clone());
+                processed_tasks.insert(task.id);
+                
+                // Add all its subtasks immediately after
+                if let Some(subtask_ids) = parent_child_map.get(&task.id) {
+                    for subtask_id in subtask_ids {
+                        if let Some(subtask) = self.tasks.iter().find(|t| t.id == *subtask_id) {
+                            sorted_tasks.push(subtask.clone());
+                            processed_tasks.insert(*subtask_id);
+                        }
+                    }
+                }
+            }
+            // Check if this is an orphaned subtask (parent not in current view)
+            else if child_parent_map.contains_key(&task.id) {
+                // Only add if parent is not in the current task list
+                let parent_id = child_parent_map[&task.id];
+                if !self.tasks.iter().any(|t| t.id == parent_id) {
+                    sorted_tasks.push(task.clone());
+                    processed_tasks.insert(task.id);
+                }
+            }
+            // This is a standalone task (neither parent nor child)
+            else {
+                sorted_tasks.push(task.clone());
+                processed_tasks.insert(task.id);
+            }
+        }
+        
+        self.tasks = sorted_tasks;
+    }
+
+    /// Get the hierarchical display info for a task (indentation level and prefix)
+    pub fn get_task_hierarchy_info(&self, task: &crate::vikunja::models::Task) -> (usize, &'static str) {
+        if let Some(ref related_tasks) = task.related_tasks {
+            // Check if this task is a subtask of another (has parenttask relations)
+            if related_tasks.contains_key("parenttask") && !related_tasks["parenttask"].is_empty() {
+                // Check if any parent task is still active (not done)
+                let has_active_parent = related_tasks["parenttask"]
+                    .iter()
+                    .any(|parent_task| !parent_task.done);
+                
+                if has_active_parent {
+                    return (1, "└─ "); // Level 1 indentation with subtask indicator
+                }
+                // If all parent tasks are done, don't show subtask indicator
+            }
+            // Check if this task has subtasks (has subtask relations)
+            if related_tasks.contains_key("subtask") && !related_tasks["subtask"].is_empty() {
+                return (0, ""); // No indentation, no prefix for parent tasks
+            }
+        }
+        (0, "") // No hierarchy indicator
+    }
+
+    /// Check if a task is a subtask of another task
+    pub fn is_subtask_of(&self, task: &crate::vikunja::models::Task, parent_id: i64) -> bool {
+        if let Some(ref related_tasks) = task.related_tasks {
+            if let Some(parent_tasks) = related_tasks.get("subtask") {
+                return parent_tasks.iter().any(|parent| parent.id == parent_id);
+            }
+        }
+        false
+    }
+
+    /// Get all subtasks of a given task
+    pub fn get_subtasks_of(&self, parent_id: i64) -> Vec<&crate::vikunja::models::Task> {
+        self.tasks.iter()
+            .filter(|task| self.is_subtask_of(task, parent_id))
+            .collect()
+    }
+
+    /// Get the parent task of a subtask (if any)
+    pub fn get_parent_of(&self, task: &crate::vikunja::models::Task) -> Option<&crate::vikunja::models::Task> {
+        if let Some(ref related_tasks) = task.related_tasks {
+            if let Some(parent_tasks) = related_tasks.get("subtask") {
+                if let Some(parent_task) = parent_tasks.first() {
+                    return self.tasks.iter().find(|t| t.id == parent_task.id);
+                }
+            }
+        }
+        None
     }
 
     // Relations methods - DISABLED: Incomplete feature

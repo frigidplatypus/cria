@@ -187,11 +187,19 @@ fn create_wrapped_cell_for_column<'a>(
                     spans.push(Span::styled("\u{f024} ", Style::default().fg(color)));
                 }
             }
-            // Add relation indicators - DISABLED: Incomplete feature
-            // if let Some(indicator) = app.get_task_relation_indicator(task) {
-            //     spans.push(Span::raw(indicator));
-            //     spans.push(Span::raw(" "));
-            // }
+            // Add hierarchy indicators with proper indentation
+            let (indent_level, hierarchy_prefix) = app.get_task_hierarchy_info(task);
+            
+            // Add indentation spaces
+            if indent_level > 0 {
+                spans.push(Span::raw(" ".repeat(indent_level))); // 1 space per level
+            }
+            
+            // Add hierarchy prefix if present
+            if !hierarchy_prefix.is_empty() {
+                spans.push(Span::styled(hierarchy_prefix, Style::default().fg(Color::Gray)));
+            }
+            
             spans.push(Span::raw(&task.title));
             let line = Line::from(spans);
             let mut cell = Cell::from(line);

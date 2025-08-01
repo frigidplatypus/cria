@@ -16,7 +16,7 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
         // Check if we have detailed task data with comments
         let task = app.get_detailed_task(basic_task.id).unwrap_or(basic_task);
         
-        let project_name = app.project_map.get(&(task.project_id as i64))
+        let _project_name = app.project_map.get(&(task.project_id as i64))
             .map(|s| s.as_str())
             .unwrap_or("Unknown");
         
@@ -39,12 +39,70 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
             }
         }
 
-        // Project
-        details_lines.push(Line::from(vec![
-            Span::styled("Project: ", Style::default().add_modifier(Modifier::BOLD)),
-            Span::raw(project_name)
-        ]));
-        details_lines.push(Line::from(""));
+                // Project
+        if task.project_id > 0 {
+            if let Some(project_name) = app.project_map.get(&task.project_id) {
+                let color = app.project_colors.get(&task.project_id)
+                    .map(|hex_str| hex_to_color(hex_str))
+                    .unwrap_or(Color::Blue);
+                
+                details_lines.push(Line::from(vec![
+                    Span::styled("Project: ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::styled(&**project_name, Style::default().fg(color))
+                ]));
+                details_lines.push(Line::from(""));
+            }
+        }
+
+        // Parent/Subtask relationships
+        if let Some(ref related_tasks) = task.related_tasks {
+            // Check if this task has a parent (is a subtask)
+            if let Some(parent_tasks) = related_tasks.get("parenttask") {
+                if !parent_tasks.is_empty() {
+                    let parent_task = &parent_tasks[0];
+                    details_lines.push(Line::from(vec![
+                        Span::styled("Parent Task: ", Style::default().add_modifier(Modifier::BOLD)),
+                        Span::styled("🔗", Style::default().fg(Color::Yellow)),
+                        Span::raw(format!(" {}", parent_task.title))
+                    ]));
+                    details_lines.push(Line::from(""));
+                }
+            }
+
+            // Check if this task has subtasks (is a parent)
+            if let Some(subtasks) = related_tasks.get("subtask") {
+                if !subtasks.is_empty() {
+                    details_lines.push(Line::from(vec![
+                        Span::styled("Subtasks: ", Style::default().add_modifier(Modifier::BOLD)),
+                        Span::styled("📋", Style::default().fg(Color::Green)),
+                        Span::raw(format!(" {} subtask(s)", subtasks.len()))
+                    ]));
+                    
+                    // Show up to 5 subtasks by name
+                    for (_i, subtask) in subtasks.iter().take(5).enumerate() {
+                        let status_icon = if subtask.done { "✓" } else { "○" };
+                        let status_color = if subtask.done { Color::Green } else { Color::Gray };
+                        
+                        details_lines.push(Line::from(vec![
+                            Span::raw("  • "),
+                            Span::styled(status_icon, Style::default().fg(status_color)),
+                            Span::raw(format!(" {}", subtask.title))
+                        ]));
+                    }
+                    
+                    // Show "and X more" if there are more than 5 subtasks
+                    if subtasks.len() > 5 {
+                        details_lines.push(Line::from(vec![
+                            Span::raw("  "),
+                            Span::styled(format!("... and {} more", subtasks.len() - 5), 
+                                Style::default().fg(Color::DarkGray))
+                        ]));
+                    }
+                    
+                    details_lines.push(Line::from(""));
+                }
+            }
+        }
 
         // Task color
         if let Some(hex_color) = &task.hex_color {
