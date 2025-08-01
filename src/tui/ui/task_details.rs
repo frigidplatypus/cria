@@ -16,7 +16,7 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
         // Check if we have detailed task data with comments
         let task = app.get_detailed_task(basic_task.id).unwrap_or(basic_task);
         
-        let project_name = app.project_map.get(&(task.project_id as i64))
+        let _project_name = app.project_map.get(&(task.project_id as i64))
             .map(|s| s.as_str())
             .unwrap_or("Unknown");
         

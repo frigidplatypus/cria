@@ -25,7 +25,7 @@ pub use attachments::*;
 
 // --- Relation-related types and functions ---
 pub mod relations;
-pub use relations::*;
+// pub use relations::*;  // Unused import - relations are accessed via full path
 
 pub struct VikunjaClient {
     client: Client,
