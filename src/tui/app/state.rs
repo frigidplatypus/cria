@@ -217,7 +217,7 @@ impl App {
             default_project_name,
             show_help_modal: false,
             show_advanced_help_modal: false,
-            show_advanced_features_modal: false,
+            show_advanced_features_modal: false, // advanced features modal hidden by default
             selected_advanced_feature_index: 0,
             show_sort_modal: false,
             sort_options: vec![
@@ -590,7 +590,10 @@ impl App {
 
     pub fn show_file_picker_modal(&mut self) {
         self.show_file_picker_modal = true;
-        self.file_picker_modal = Some(crate::tui::modals::FilePickerModal::new(None));
+        // Initialize and load entries immediately
+        let mut modal = crate::tui::modals::FilePickerModal::new(None);
+        modal.refresh_entries_sync();
+        self.file_picker_modal = Some(modal);
     }
 
     pub fn hide_file_picker_modal(&mut self) {

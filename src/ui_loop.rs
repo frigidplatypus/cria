@@ -432,11 +432,13 @@ pub async fn run_ui(
                             crate::tui::modals::FilePickerAction::Navigate(new_path) => {
                                 modal.current_path = new_path;
                                 modal.selected_index = 0;
-                                modal.entries.clear(); // Will be refreshed on next iteration
+                                modal.entries.clear(); // reload entries immediately
+                                modal.refresh_entries_sync();
                             }
                             crate::tui::modals::FilePickerAction::ToggleHidden => {
                                 modal.show_hidden = !modal.show_hidden;
-                                modal.entries.clear(); // Will be refreshed on next iteration
+                                modal.entries.clear(); // reload entries immediately
+                                modal.refresh_entries_sync();
                             }
                             crate::tui::modals::FilePickerAction::Cancel => {
                                 app_guard.hide_file_picker_modal();
