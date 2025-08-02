@@ -54,86 +54,63 @@ impl AttachmentClient {
         }
     }
 
-    /// Upload a file attachment to a task
+    /// Upload a file attachment to a task (see Vikunja API docs: https://try.vikunja.io/api/v1/docs#tag/task/paths/~1tasks~1%7Bid%7D~1attachments/put)
     pub async fn upload_attachment(&self, task_id: i64, file_path: &Path) -> Result<Attachment, Box<dyn std::error::Error + Send + Sync>> {
-        // Try different possible upload endpoints and methods
-        let attempts = vec![
-            ("PUT", format!("{}/api/v1/tasks/{}/attachments", self.base_url, task_id)),
-            ("POST", format!("{}/api/v1/tasks/{}/attachments", self.base_url, task_id)),
-            ("POST", format!("{}/api/v1/attachments", self.base_url)),
-        ];
-        
-        crate::debug::debug_log(&format!("Uploading file to task {}: {}", task_id, file_path.display()));
-        
-        // Read the file
+        // Vikunja API docs: PUT /api/v1/tasks/{task_id}/attachments
+        // Step 1: Construct the upload URL
+        let url = format!("{}/api/v1/tasks/{}/attachments", self.base_url, task_id);
+        crate::debug::debug_log(&format!("[upload_attachment] Step 1: URL = {}", url));
+
+        // Step 2: Read file from disk
+        crate::debug::debug_log(&format!("[upload_attachment] Step 2: Reading file {}", file_path.display()));
         let file_content = fs::read(file_path).await?;
         let file_name = file_path.file_name()
             .and_then(|n| n.to_str())
             .ok_or("Invalid file name")?;
+        // Step 3: Create multipart form (field 'file' with filename)
+        crate::debug::debug_log(&format!("[upload_attachment] Step 3: Building multipart form with filename {}", file_name));
+        let part = reqwest::multipart::Part::bytes(file_content.clone())
+            .file_name(file_name.to_string());
+        // Use 'files' as the form field per Vikunja docs
+        let form = reqwest::multipart::Form::new()
+            .part("files", part);
 
-        // Try each endpoint and method
-        for (method, url) in attempts {
-            crate::debug::debug_log(&format!("Trying {} {}: {}", method, url, file_name));
-            
-            // Create multipart form with file for this attempt
-            let form = reqwest::multipart::Form::new()
-                .part("file", reqwest::multipart::Part::bytes(file_content.clone())
-                    .file_name(file_name.to_string()));
-            
-            let response = if method == "PUT" {
-                self.client
-                    .put(&url)
-                    .bearer_auth(&self.auth_token)
-                    .multipart(form)
-                    .send()
-                    .await
-            } else {
-                self.client
-                    .post(&url)
-                    .bearer_auth(&self.auth_token)
-                    .multipart(form)
-                    .send()
-                    .await
+        // Step 4: Send PUT request with multipart form to upload attachment
+        crate::debug::debug_log(&format!("[upload_attachment] Step 4: Sending request"));
+        let response = self.client
+            .put(&url)
+            .bearer_auth(&self.auth_token)
+            .multipart(form)
+            .send()
+            .await?;
+
+        // Step 5: Parse response status and body
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        crate::debug::debug_log(&format!("[upload_attachment] Step 5: Response status {}", status));
+        crate::debug::debug_log(&format!("[upload_attachment] Step 5: Response body {}", text));
+
+        if status.is_success() {
+            // Attempt to parse attachments from response
+            let attachments: Vec<Attachment> = match serde_json::from_str::<Vec<Attachment>>(&text) {
+                Ok(arr) if !arr.is_empty() => {
+                    crate::debug::debug_log(&format!("Upload response parsed {} attachments", arr.len()));
+                    arr
+                }
+                _ => {
+                    // Response body not usable; fetch actual attachments list
+                    crate::debug::debug_log("Upload response empty or invalid, fetching attachments list");
+                    self.get_task_attachments(task_id).await?
+                }
             };
-
-            match response {
-                Ok(response) => {
-                    let status = response.status();
-                    crate::debug::debug_log(&format!("Response status: {} for {} {}", status, method, url));
-                    
-                    if status.is_success() {
-                        // First, let's see what the raw response looks like
-                        let response_text = response.text().await.unwrap_or_else(|_| "Failed to read response".to_string());
-                        crate::debug::debug_log(&format!("Raw API response: {}", response_text));
-                        
-                        // Try to parse as JSON
-                        match serde_json::from_str::<Attachment>(&response_text) {
-                            Ok(attachment) => {
-                                crate::debug::debug_log(&format!("Upload successful: attachment ID {}", attachment.id));
-                                return Ok(attachment);
-                            }
-                            Err(e) => {
-                                let error_msg = format!("Failed to parse attachment response: {}. Response: {}", e, response_text);
-                                crate::debug::debug_log(&error_msg);
-                                // Continue to next attempt
-                            }
-                        }
-                    } else {
-                        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                        let error_msg = format!("Upload failed with status {}: {}", status, error_text);
-                        crate::debug::debug_log(&error_msg);
-                        // Continue to next attempt
-                    }
-                }
-                Err(e) => {
-                    crate::debug::debug_log(&format!("Request failed for {} {}: {}", method, url, e));
-                    // Continue to next attempt
-                }
-            }
-        }
-        
-        // If we get here, all attempts failed
-        Err("All upload attempts failed".into())
+            // Return the most recent attachment
+            let attachment = attachments.into_iter().last()
+                .ok_or_else(|| format!("No attachments found after upload"))?;
+            crate::debug::debug_log(&format!("Upload successful: attachment ID {}", attachment.id));
+            return Ok(attachment);
+         } else {
+             Err(format!("Attachment upload failed ({}): {}", status, text).into())
+         }
     }
 
     /// Download an attachment to a local file
@@ -254,4 +231,4 @@ pub fn get_file_icon(filename: &str) -> &'static str {
     } else {
         "📎"
     }
-} 
+}
