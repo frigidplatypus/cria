@@ -116,20 +116,31 @@ impl AttachmentClient {
     /// Download an attachment to a local file
     pub async fn download_attachment(&self, attachment: &Attachment, download_path: &Path) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(file) = &attachment.file {
-            let url = format!("{}/api/v1/attachments/{}/download", self.base_url, file.id);
+            // Use endpoint: GET /api/v1/tasks/{task_id}/attachments/{attachment_id}?download
+            // Download using the attachment ID, not the file ID
+            let url = format!("{}/api/v1/tasks/{}/attachments/{}?download", self.base_url, attachment.task_id, attachment.id);
             
+            crate::debug::debug_log(&format!("[download_attachment] Sending GET request to {}", url));
             let response = self.client
                 .get(&url)
                 .bearer_auth(&self.auth_token)
                 .send()
                 .await?;
 
+            crate::debug::debug_log(&format!("[download_attachment] Received response with status {}", response.status()));
+
             if response.status().is_success() {
                 let bytes = response.bytes().await?;
+                crate::debug::debug_log(&format!("[download_attachment] Downloaded {} bytes", bytes.len()));
+                crate::debug::debug_log(&format!("[download_attachment] Writing to {:?}", download_path));
                 fs::write(download_path, bytes).await?;
+                crate::debug::debug_log("[download_attachment] File written successfully");
                 Ok(())
             } else {
-                Err(format!("Failed to download attachment: {}", response.status()).into())
+                let status = response.status();
+                let body = response.text().await.unwrap_or_else(|_| "<Failed to read body>".to_string());
+                crate::debug::debug_log(&format!("[download_attachment] Error status: {}, body: {}", status, body));
+                Err(format!("Failed to download attachment: {} - {}", status, body).into())
             }
         } else {
             Err("Attachment has no file data".into())
@@ -137,8 +148,9 @@ impl AttachmentClient {
     }
 
     /// Remove an attachment from a task
-    pub async fn remove_attachment(&self, attachment_id: i64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let url = format!("{}/api/v1/attachments/{}", self.base_url, attachment_id);
+    pub async fn remove_attachment(&self, task_id: i64, attachment_id: i64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // DELETE /api/v1/tasks/{task_id}/attachments/{attachment_id} per Vikunja API
+        let url = format!("{}/api/v1/tasks/{}/attachments/{}", self.base_url, task_id, attachment_id);
         
         let response = self.client
             .delete(&url)
@@ -154,8 +166,10 @@ impl AttachmentClient {
     }
 
     /// Get attachment metadata
-    pub async fn get_attachment(&self, attachment_id: i64) -> Result<Attachment, Box<dyn std::error::Error + Send + Sync>> {
-        let url = format!("{}/api/v1/attachments/{}", self.base_url, attachment_id);
+    /// Get attachment metadata for a task
+    pub async fn get_attachment(&self, task_id: i64, attachment_id: i64) -> Result<Attachment, Box<dyn std::error::Error + Send + Sync>> {
+        // GET /api/v1/tasks/{task_id}/attachments/{attachment_id}
+        let url = format!("{}/api/v1/tasks/{}/attachments/{}", self.base_url, task_id, attachment_id);
         
         let response = self.client
             .get(&url)

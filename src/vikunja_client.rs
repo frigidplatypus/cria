@@ -139,12 +139,14 @@ impl VikunjaClient {
         self.attachment_client.download_attachment(attachment, download_path).await
     }
 
-    pub async fn remove_attachment(&self, attachment_id: i64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.attachment_client.remove_attachment(attachment_id).await
+    /// Remove an attachment from a task
+    pub async fn remove_attachment(&self, task_id: i64, attachment_id: i64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.attachment_client.remove_attachment(task_id, attachment_id).await
     }
 
-    pub async fn get_attachment(&self, attachment_id: i64) -> Result<crate::vikunja::models::Attachment, Box<dyn std::error::Error + Send + Sync>> {
-        self.attachment_client.get_attachment(attachment_id).await
+    /// Get attachment metadata for a task
+    pub async fn get_attachment(&self, task_id: i64, attachment_id: i64) -> Result<crate::vikunja::models::Attachment, Box<dyn std::error::Error + Send + Sync>> {
+        self.attachment_client.get_attachment(task_id, attachment_id).await
     }
 }
 

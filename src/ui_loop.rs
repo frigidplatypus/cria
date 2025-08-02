@@ -95,9 +95,25 @@ pub async fn run_ui(
                                     }
                                     
                                     // Perform download
+                                    // Determine download directory (prefer 'Downloads' or 'downloads')
+                                    let download_dir = if std::path::Path::new("Downloads").exists() {
+                                        "Downloads"
+                                    } else if std::path::Path::new("downloads").exists() {
+                                        "downloads"
+                                    } else {
+                                        // Create default 'downloads' dir
+                                        let _ = tokio::fs::create_dir_all("downloads").await;
+                                        "downloads"
+                                    };
+                                    // Determine filename from attachment metadata
+                                    let file_name = attachment_clone.file
+                                        .as_ref()
+                                        .and_then(|f| f.name.clone())
+                                        .unwrap_or_else(|| format!("attachment-{}.bin", attachment_clone.id));
+                                    let out_path = std::path::Path::new(download_dir).join(&file_name);
                                     let download_result = {
                                         let client = client_clone.lock().await;
-                                        client.download_attachment(&attachment_clone, std::path::Path::new("downloads")).await
+                                        client.download_attachment(&attachment_clone, &out_path).await
                                     };
                                     
                                     // Update UI with result
@@ -121,6 +137,8 @@ pub async fn run_ui(
                             }
                             crate::tui::modals::AttachmentModalAction::Remove(attachment) => {
                                 // Handle remove asynchronously
+                                // Capture task_id for removal API call
+                                let task_id = modal.task_id;
                                 let attachment_clone = attachment.clone();
                                 let client_clone = client_clone.clone();
                                 let app_clone = app.clone();
@@ -137,7 +155,7 @@ pub async fn run_ui(
                                     // Perform remove
                                     let remove_result = {
                                         let client = client_clone.lock().await;
-                                        client.remove_attachment(attachment_clone.id).await
+                                        client.remove_attachment(task_id, attachment_clone.id).await
                                     };
                                     
                                     // Update UI with result
@@ -162,6 +180,8 @@ pub async fn run_ui(
                                                         let mut app_guard = app_clone.lock().await;
                                                         if let Some(ref mut modal) = app_guard.attachment_modal {
                                                             modal.viewer.attachments = attachments;
+                                                            // Ensure selected_index is within bounds
+                                                            modal.viewer.selected_index = modal.viewer.selected_index.min(modal.viewer.attachments.len().saturating_sub(1));
                                                         }
                                                     }
                                                 }
