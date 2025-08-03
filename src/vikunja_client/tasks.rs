@@ -954,6 +954,19 @@ impl super::VikunjaClient {
                 .await?;
             Ok(())
         }
+
+        pub async fn get_comments(&self, task_id: u64) -> ReqwestResult<Vec<crate::vikunja::models::Comment>> {
+            let url = format!("{}/api/v1/tasks/{}/comments", self.base_url, task_id);
+            
+            let response = self.client
+                .get(&url)
+                .header("Authorization", format!("Bearer {}", self.auth_token))
+                .send()
+                .await?;
+
+            let comments: Vec<crate::vikunja::models::Comment> = response.json().await?;
+            Ok(comments)
+        }
     }
 
     // ... Project, Filter, User impls remain in their files ...

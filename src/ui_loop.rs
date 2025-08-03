@@ -25,6 +25,42 @@ pub async fn run_ui(
     let event_handler = EventHandler::new(250);
 
     loop {
+        // Handle pending comment loading
+        {
+            let pending_task_id = {
+                let app_guard = app.lock().await;
+                app_guard.pending_comment_load
+            };
+            
+            if let Some(task_id) = pending_task_id {
+                let client_clone = client_clone.clone();
+                let app_clone = app.clone();
+                
+                // Clear the pending load immediately
+                {
+                    let mut app_guard = app.lock().await;
+                    app_guard.pending_comment_load = None;
+                }
+                
+                // Load comments asynchronously
+                tokio::spawn(async move {
+                    let client = client_clone.lock().await;
+                    match client.get_comments(task_id).await {
+                        Ok(comments) => {
+                            let mut app_guard = app_clone.lock().await;
+                            let comment_count = comments.len();
+                            app_guard.update_comments_in_modal(comments);
+                            app_guard.add_debug_message(format!("Loaded {} comments for task {}", comment_count, task_id));
+                        }
+                        Err(e) => {
+                            let mut app_guard = app_clone.lock().await;
+                            app_guard.add_debug_message(format!("Failed to load comments for task {}: {}", task_id, e));
+                        }
+                    }
+                });
+            }
+        }
+        
         {
             let app_guard = app.lock().await;
             terminal.draw(|f| draw(f, &app_guard))?;
@@ -200,6 +236,70 @@ pub async fn run_ui(
                                 app_guard.show_file_picker_modal();
                             }
                             crate::tui::modals::AttachmentModalAction::None => {}
+                        }
+                    }
+                    continue;
+                } else if app_guard.show_comments_modal {
+                    drop(app_guard);
+                    let mut app_guard = app.lock().await;
+                    if let Some(ref mut modal) = app_guard.comments_modal {
+                        let action = modal.handle_key(&key);
+                        match action {
+                            crate::tui::modals::CommentsModalAction::Close => {
+                                app_guard.hide_comments_modal();
+                            }
+                            crate::tui::modals::CommentsModalAction::Submit(comment_text) => {
+                                if !comment_text.trim().is_empty() {
+                                    let task_id = modal.task_id as u64;
+                                    let client_clone = client_clone.clone();
+                                    let app_clone = app.clone();
+                                    let comment_clone = comment_text.clone();
+                                    
+                                    // Clear the input immediately
+                                    modal.clear_input();
+                                    
+                                    // Submit comment asynchronously
+                                    tokio::spawn(async move {
+                                        let submit_result = {
+                                            let client = client_clone.lock().await;
+                                            client.add_comment_to_task(task_id, &comment_clone).await
+                                        };
+                                        
+                                        // Update UI based on result
+                                        let mut app_guard = app_clone.lock().await;
+                                        match submit_result {
+                                            Ok(_) => {
+                                                app_guard.add_debug_message("Comment added successfully".to_string());
+                                                app_guard.show_toast("Comment added!".to_string());
+                                                
+                                                // Refresh comments in modal
+                                                let client = client_clone.lock().await;
+                                                match client.get_comments(task_id).await {
+                                                    Ok(comments) => {
+                                                        app_guard.update_comments_in_modal(comments);
+                                                        app_guard.add_debug_message("Comments refreshed in modal".to_string());
+                                                    }
+                                                    Err(e) => {
+                                                        app_guard.add_debug_message(format!("Failed to refresh comments: {}", e));
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                app_guard.add_debug_message(format!("Failed to add comment: {}", e));
+                                                app_guard.show_toast("Failed to add comment".to_string());
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                            crate::tui::modals::CommentsModalAction::LoadAttachments(task_id) => {
+                                // Handle loading attachments for image preview
+                                app_guard.add_debug_message(format!("Loading attachments for task {}", task_id));
+                            }
+                            crate::tui::modals::CommentsModalAction::ToggleMode => {
+                                // Mode toggle is handled internally by the modal
+                            }
+                            crate::tui::modals::CommentsModalAction::None => {}
                         }
                     }
                     continue;
@@ -573,8 +673,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
             if app.show_advanced_features_modal {
                 // Direct activation of comments
                 app.hide_advanced_features_modal();
-                app.add_debug_message("Comments feature requested".to_string());
-                app.show_toast("Comments feature coming soon!".to_string());
+                app.show_comments_modal();
                 true
             } else {
                 false
@@ -639,7 +738,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                     }
                     1 => { // Comments
                         app.hide_advanced_features_modal();
-                        app.add_debug_message("Comments feature requested".to_string());
+                        app.show_comments_modal();
                     }
                     2 => { // Task Relations
                         app.hide_advanced_features_modal();

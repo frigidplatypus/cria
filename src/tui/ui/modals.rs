@@ -437,7 +437,7 @@ pub fn draw_advanced_help_modal(f: &mut Frame, _app: &App) {
         Line::from(vec![Span::styled("Press . then a key for advanced features:", Style::default().add_modifier(Modifier::BOLD))]),
         Line::raw(""),
         Line::from(vec![Span::styled(".a", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Attachment management")]),
-        Line::from(vec![Span::styled(".c", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Comments (coming soon)")]),
+        Line::from(vec![Span::styled(".c", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Comments")]),
         Line::from(vec![Span::styled(".r", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Task relations (coming soon)")]),
         Line::from(vec![Span::styled(".h", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Task history (coming soon)")]),
         Line::from(vec![Span::styled(".s", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Subtasks (coming soon)")]),
@@ -461,7 +461,7 @@ pub fn draw_advanced_features_modal(f: &mut Frame, app: &App) {
     // Define advanced features
     let advanced_features = vec![
         ("a", "Attachment Management", "View and manage task attachments", true),
-        ("c", "Comments", "View and add task comments", false),
+        ("c", "Comments", "View and add task comments", true),
         ("r", "Task Relations", "Manage task dependencies and links", false),
         ("h", "Task History", "View task modification history", false),
         ("s", "Subtasks", "Manage subtasks and task hierarchy", false),

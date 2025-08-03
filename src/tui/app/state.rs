@@ -104,6 +104,11 @@ pub struct App {
     pub show_attachment_modal: bool,
     pub attachment_modal: Option<crate::tui::modals::AttachmentModal>,
     
+    // Comments modal state
+    pub show_comments_modal: bool,
+    pub comments_modal: Option<crate::tui::modals::CommentsModal>,
+    pub pending_comment_load: Option<u64>,
+    
     // File picker modal state
     pub show_file_picker_modal: bool,
     pub file_picker_modal: Option<crate::tui::modals::FilePickerModal>,
@@ -240,6 +245,9 @@ impl App {
             quick_action_mode_start: None,
             show_attachment_modal: false,
             attachment_modal: None,
+            show_comments_modal: false,
+            comments_modal: None,
+            pending_comment_load: None,
             show_file_picker_modal: false,
             file_picker_modal: None,
             current_layout_name,
@@ -588,6 +596,62 @@ impl App {
         self.file_picker_modal = None;
     }
 
+    pub fn show_comments_modal(&mut self) {
+        if let Some(task) = self.get_selected_task() {
+            let task_id = task.id;
+            let task_title = task.title.clone();
+            let attachments = task.attachments.clone();
+            
+            self.add_debug_message(format!("Opening comments modal for task {} (ID: {})", 
+                task_title, task_id));
+            
+            self.close_all_modals();
+            self.show_comments_modal = true;
+            
+            // Initialize with empty comments - they will be loaded asynchronously
+            let mut comments_modal = crate::tui::modals::CommentsModal::new(Vec::new(), task_id);
+            
+            // Add attachments if available for image preview support
+            if let Some(attachments) = attachments {
+                comments_modal = comments_modal.with_attachments(attachments);
+            }
+            
+            self.comments_modal = Some(comments_modal);
+            
+            // Request to load comments asynchronously
+            self.load_comments_for_task(task_id as u64);
+        } else {
+            self.add_debug_message("No task selected for comments modal".to_string());
+        }
+    }
+
+    pub fn hide_comments_modal(&mut self) {
+        self.show_comments_modal = false;
+        self.comments_modal = None;
+        self.pending_comment_load = None;
+    }
+
+    fn load_comments_for_task(&mut self, task_id: u64) {
+        self.add_debug_message(format!("Request to load comments for task {}", task_id));
+        // Set a flag to indicate we need to load comments
+        // The actual loading will be handled in the UI loop
+        self.pending_comment_load = Some(task_id);
+    }
+
+    pub fn refresh_comments_for_task(&mut self, task_id: u64) {
+        self.add_debug_message(format!("Refreshing comments for task {}", task_id));
+        // This method will be called to refresh comments after submission
+        self.load_comments_for_task(task_id);
+    }
+
+    pub fn update_comments_in_modal(&mut self, comments: Vec<crate::vikunja::models::Comment>) {
+        if let Some(ref mut modal) = self.comments_modal {
+            let comment_count = comments.len();
+            modal.comments = comments;
+            self.add_debug_message(format!("Updated comments modal with {} comments", comment_count));
+        }
+    }
+
     pub fn show_file_picker_modal(&mut self) {
         self.show_file_picker_modal = true;
         // Initialize and load entries immediately
@@ -653,6 +717,8 @@ impl App {
         self.show_filter_picker = false;
         self.show_confirmation_dialog = false;
         self.show_attachment_modal = false;
+        self.show_comments_modal = false;
+        self.pending_comment_load = None;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
         // Reset modal state

@@ -109,6 +109,10 @@ pub fn draw(f: &mut Frame, app: &App) {
         if let Some(ref modal) = app.attachment_modal {
             modal.draw(f, f.size());
         }
+    } else if app.show_comments_modal {
+        if let Some(ref modal) = app.comments_modal {
+            modal.draw(f, f.size());
+        }
     } else if app.show_file_picker_modal {
         if let Some(ref modal) = app.file_picker_modal {
             modal.draw(f, f.size());
