@@ -37,7 +37,7 @@ impl super::VikunjaClient {
     pub async fn create_task_with_magic(
         &self,
         magic_text: &str,
-        default_project_id: u64,
+        default_project_id: i64,
     ) -> ReqwestResult<VikunjaTask> {
         debug_log(&format!("Parsing magic text: '{}'", magic_text));
         let parsed = self.parser.parse(magic_text);
@@ -58,16 +58,16 @@ impl super::VikunjaClient {
                 }
                 Ok(None) => {
                     debug_log(&format!("Project '{}' not found, using default: {}.", project_name, default_project_id));
-                    default_project_id.try_into().unwrap()
+                    default_project_id
                 }
                 Err(e) => {
                     debug_log(&format!("Error looking up project '{}': {}. Using default: {}.", project_name, e, default_project_id));
-                    default_project_id.try_into().unwrap()
+                    default_project_id
                 }
             }
         } else {
             debug_log(&format!("No project specified, using default: {}.", default_project_id));
-            default_project_id.try_into().unwrap()
+            default_project_id
         };
 
         debug_log(&format!("Final project_id to use: {}", project_id));
@@ -81,7 +81,7 @@ impl super::VikunjaClient {
             priority: parsed.priority,
             due_date: parsed.due_date,
             start_date: None,
-            project_id: project_id.try_into().unwrap(),
+            project_id: project_id as u64,
             labels: None,
             assignees: None,
             is_favorite: Some(false),
@@ -234,16 +234,16 @@ impl super::VikunjaClient {
                 }
                 Ok(None) => {
                     debug_log(&format!("Project '{}' not found, keeping current: {}", project_name, current_task.project_id));
-                    current_task.project_id.try_into().unwrap()
+                    current_task.project_id as i64
                 }
                 Err(e) => {
                     debug_log(&format!("Error looking up project: {}, keeping current: {}", e, current_task.project_id));
-                    current_task.project_id.try_into().unwrap()
+                    current_task.project_id as i64
                 }
             }
         } else {
             debug_log(&format!("No project specified, keeping current: {}", current_task.project_id));
-            current_task.project_id.try_into().unwrap()
+            current_task.project_id as i64
         };
         let updated_task = VikunjaTask {
             id: Some(task_id as u64),
@@ -253,7 +253,7 @@ impl super::VikunjaClient {
             priority: parsed.priority.or(current_task.priority),
             due_date: parsed.due_date.or(current_task.due_date),
             start_date: current_task.start_date,
-            project_id: project_id.try_into().unwrap(),
+            project_id: project_id as u64,
             labels: None,
             assignees: None,
             is_favorite: current_task.is_favorite,
