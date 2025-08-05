@@ -54,105 +54,100 @@ impl AttachmentClient {
         }
     }
 
-    /// Upload a file attachment to a task
-    pub async fn upload_attachment(&self, task_id: i64, file_path: &Path) -> Result<Attachment, Box<dyn std::error::Error + Send + Sync>> {
-        // Try different possible upload endpoints and methods
-        let attempts = vec![
-            ("PUT", format!("{}/api/v1/tasks/{}/attachments", self.base_url, task_id)),
-            ("POST", format!("{}/api/v1/tasks/{}/attachments", self.base_url, task_id)),
-            ("POST", format!("{}/api/v1/attachments", self.base_url)),
-        ];
-        
-        crate::debug::debug_log(&format!("Uploading file to task {}: {}", task_id, file_path.display()));
-        
-        // Read the file
+    /// Upload a file attachment to a task (see Vikunja API docs)
+    pub async fn upload_attachment(
+        &self,
+        task_id: i64,
+        file_path: &Path,
+    ) -> Result<Attachment, Box<dyn std::error::Error + Send + Sync>> {
+        // Step 1: Construct URL
+        let url = format!("{}/api/v1/tasks/{}/attachments", self.base_url, task_id);
+        crate::debug::debug_log(&format!("[upload_attachment] URL = {}", url));
+
+        // Step 2: Read file
+        crate::debug::debug_log(&format!("[upload_attachment] Reading file {}", file_path.display()));
         let file_content = fs::read(file_path).await?;
         let file_name = file_path.file_name()
             .and_then(|n| n.to_str())
             .ok_or("Invalid file name")?;
 
-        // Try each endpoint and method
-        for (method, url) in attempts {
-            crate::debug::debug_log(&format!("Trying {} {}: {}", method, url, file_name));
-            
-            // Create multipart form with file for this attempt
-            let form = reqwest::multipart::Form::new()
-                .part("file", reqwest::multipart::Part::bytes(file_content.clone())
-                    .file_name(file_name.to_string()));
-            
-            let response = if method == "PUT" {
-                self.client
-                    .put(&url)
-                    .bearer_auth(&self.auth_token)
-                    .multipart(form)
-                    .send()
-                    .await
-            } else {
-                self.client
-                    .post(&url)
-                    .bearer_auth(&self.auth_token)
-                    .multipart(form)
-                    .send()
-                    .await
-            };
+        // Step 3: Build multipart form
+        crate::debug::debug_log(&format!("[upload_attachment] Building multipart form"));
+        let part = reqwest::multipart::Part::bytes(file_content.clone())
+            .file_name(file_name.to_string());
+        let form = reqwest::multipart::Form::new().part("files", part);
 
-            match response {
-                Ok(response) => {
-                    let status = response.status();
-                    crate::debug::debug_log(&format!("Response status: {} for {} {}", status, method, url));
-                    
-                    if status.is_success() {
-                        // First, let's see what the raw response looks like
-                        let response_text = response.text().await.unwrap_or_else(|_| "Failed to read response".to_string());
-                        crate::debug::debug_log(&format!("Raw API response: {}", response_text));
-                        
-                        // Try to parse as JSON
-                        match serde_json::from_str::<Attachment>(&response_text) {
-                            Ok(attachment) => {
-                                crate::debug::debug_log(&format!("Upload successful: attachment ID {}", attachment.id));
-                                return Ok(attachment);
-                            }
-                            Err(e) => {
-                                let error_msg = format!("Failed to parse attachment response: {}. Response: {}", e, response_text);
-                                crate::debug::debug_log(&error_msg);
-                                // Continue to next attempt
-                            }
-                        }
-                    } else {
-                        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                        let error_msg = format!("Upload failed with status {}: {}", status, error_text);
-                        crate::debug::debug_log(&error_msg);
-                        // Continue to next attempt
-                    }
+        // Step 4: Send request
+        crate::debug::debug_log("[upload_attachment] Sending PUT request");
+        let response = self.client
+            .put(&url)
+            .bearer_auth(&self.auth_token)
+            .multipart(form)
+            .send()
+            .await?;
+
+        // Step 5: Handle response
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        crate::debug::debug_log(&format!("[upload_attachment] Status: {}, Body: {}", status, body));
+
+        if status.is_success() {
+            // Parse returned list or fetch fresh list
+            let attachments: Vec<Attachment> = match serde_json::from_str::<Vec<Attachment>>(&body) {
+                Ok(arr) if !arr.is_empty() => arr,
+                _ => {
+                    crate::debug::debug_log("[upload_attachment] Fetching attachments after upload");
+                    self.get_task_attachments(task_id).await?
                 }
-                Err(e) => {
-                    crate::debug::debug_log(&format!("Request failed for {} {}: {}", method, url, e));
-                    // Continue to next attempt
-                }
-            }
+            };
+            let attachment = attachments.into_iter()
+                .last()
+                .ok_or_else(|| "No attachments found after upload")?;
+            crate::debug::debug_log(&format!("[upload_attachment] Uploaded ID {}", attachment.id));
+            Ok(attachment)
+        } else {
+            Err(format!("Attachment upload failed ({}): {}", status, body).into())
         }
-        
-        // If we get here, all attempts failed
-        Err("All upload attempts failed".into())
     }
 
     /// Download an attachment to a local file
-    pub async fn download_attachment(&self, attachment: &Attachment, download_path: &Path) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        if let Some(file) = &attachment.file {
-            let url = format!("{}/api/v1/attachments/{}/download", self.base_url, file.id);
-            
+    pub async fn download_attachment(
+        &self,
+        attachment: &Attachment,
+        download_path: &Path,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if let Some(_) = &attachment.file {
+            let url = format!(
+                "{}/api/v1/tasks/{}/attachments/{}?download",
+                self.base_url, attachment.task_id, attachment.id
+            );
+            crate::debug::debug_log(&format!("[download_attachment] GET {}", url));
+
             let response = self.client
                 .get(&url)
                 .bearer_auth(&self.auth_token)
                 .send()
                 .await?;
 
+            crate::debug::debug_log(&format!("[download_attachment] Status {}", response.status()));
             if response.status().is_success() {
                 let bytes = response.bytes().await?;
+                crate::debug::debug_log(&format!(
+                    "[download_attachment] Writing {} bytes to {:?}",
+                    bytes.len(),
+                    download_path
+                ));
                 fs::write(download_path, bytes).await?;
+                crate::debug::debug_log("[download_attachment] File saved");
                 Ok(())
             } else {
-                Err(format!("Failed to download attachment: {}", response.status()).into())
+                let status = response.status();
+                let body = response.text().await.unwrap_or_default();
+                crate::debug::debug_log(&format!(
+                    "[download_attachment] Error {}: {}",
+                    status, body
+                ));
+                Err(format!("Failed to download attachment: {} - {}", status, body).into())
             }
         } else {
             Err("Attachment has no file data".into())
@@ -160,9 +155,15 @@ impl AttachmentClient {
     }
 
     /// Remove an attachment from a task
-    pub async fn remove_attachment(&self, attachment_id: i64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let url = format!("{}/api/v1/attachments/{}", self.base_url, attachment_id);
-        
+    pub async fn remove_attachment(
+        &self,
+        task_id: i64,
+        attachment_id: i64,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let url = format!(
+            "{}/api/v1/tasks/{}/attachments/{}",
+            self.base_url, task_id, attachment_id
+        );
         let response = self.client
             .delete(&url)
             .bearer_auth(&self.auth_token)
@@ -176,10 +177,16 @@ impl AttachmentClient {
         }
     }
 
-    /// Get attachment metadata
-    pub async fn get_attachment(&self, attachment_id: i64) -> Result<Attachment, Box<dyn std::error::Error + Send + Sync>> {
-        let url = format!("{}/api/v1/attachments/{}", self.base_url, attachment_id);
-        
+    /// Get attachment metadata for a task
+    pub async fn get_attachment(
+        &self,
+        task_id: i64,
+        attachment_id: i64,
+    ) -> Result<Attachment, Box<dyn std::error::Error + Send + Sync>> {
+        let url = format!(
+            "{}/api/v1/tasks/{}/attachments/{}",
+            self.base_url, task_id, attachment_id
+        );
         let response = self.client
             .get(&url)
             .bearer_auth(&self.auth_token)
@@ -187,8 +194,7 @@ impl AttachmentClient {
             .await?;
 
         if response.status().is_success() {
-            let attachment: Attachment = response.json().await?;
-            Ok(attachment)
+            Ok(response.json().await?)
         } else {
             Err(format!("Failed to get attachment: {}", response.status()).into())
         }
@@ -239,9 +245,6 @@ pub fn get_file_icon(filename: &str) -> &'static str {
         let ext_lower = ext.to_lowercase();
         match ext_lower.as_str() {
             "pdf" => "📄",
-            "doc" | "docx" => "📝",
-            "xls" | "xlsx" => "📊",
-            "ppt" | "pptx" => "📈",
             "txt" => "📄",
             "md" => "📝",
             "zip" | "rar" | "7z" | "tar" | "gz" => "📦",
@@ -254,4 +257,4 @@ pub fn get_file_icon(filename: &str) -> &'static str {
     } else {
         "📎"
     }
-} 
+}

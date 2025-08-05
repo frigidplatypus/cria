@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use chrono::{DateTime, Utc};
 use crate::debug::debug_log;
+
 use crate::vikunja_client::VikunjaUser;
 use serde_json;
 
@@ -202,7 +203,7 @@ impl super::VikunjaClient {
         let mut task: crate::vikunja::models::Task = response.json().await?;
         
         // Now fetch comments separately and merge them into the task
-        match self.get_task_comments(task_id).await {
+        match self.get_comments(task_id).await {
             Ok(comments) => {
                 task.comments = Some(comments);
             }
@@ -872,11 +873,10 @@ impl super::VikunjaClient {
         }
     }
 
+    // Add comment methods (from feature/advanced-modal)
     pub async fn add_comment_to_task(&self, task_id: u64, comment: &str) -> ReqwestResult<()> {
         let url = format!("{}/api/v1/tasks/{}/comments", self.base_url, task_id);
-        let comment_data = serde_json::json!({
-            "comment": comment
-        });
+        let comment_data = serde_json::json!({ "comment": comment });
         self.client
             .put(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
@@ -886,20 +886,17 @@ impl super::VikunjaClient {
         Ok(())
     }
 
-    pub async fn get_task_comments(&self, task_id: u64) -> Result<Vec<crate::vikunja::models::Comment>, reqwest::Error> {
-        crate::debug::debug_log(&format!("Fetching comments for task {}", task_id));
+    pub async fn get_comments(&self, task_id: u64) -> ReqwestResult<Vec<crate::vikunja::models::Comment>> {
         let url = format!("{}/api/v1/tasks/{}/comments", self.base_url, task_id);
         let response = self.client
             .get(&url)
             .header("Authorization", format!("Bearer {}", self.auth_token))
             .send()
             .await?;
-        
         let comments: Vec<crate::vikunja::models::Comment> = response.json().await?;
-        crate::debug::debug_log(&format!("Fetched {} comments for task {}", comments.len(), task_id));
         Ok(comments)
     }
-}
+} // end impl super::VikunjaClient
 
 #[cfg(test)]
 mod tests {

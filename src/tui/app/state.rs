@@ -127,6 +127,9 @@ pub struct App {
     // URL modal state
     pub show_url_modal: bool,
     pub url_modal: Option<crate::tui::modals::UrlModal>,
+    // Comments modal state
+    pub show_comments_modal: bool,
+    pub comments_modal: Option<crate::tui::modals::CommentsModal>,
     
     // Layout system
     pub current_layout_name: String,
@@ -277,6 +280,8 @@ impl App {
             file_picker_modal: None,
             show_url_modal: false,
             url_modal: None,
+            show_comments_modal: false,
+            comments_modal: None,
             current_layout_name,
             layout_notification: None,
             layout_notification_start: None,
@@ -634,8 +639,12 @@ impl App {
     }
 
     pub fn show_file_picker_modal(&mut self) {
+        self.close_all_modals();
         self.show_file_picker_modal = true;
-        self.file_picker_modal = Some(crate::tui::modals::FilePickerModal::new(None));
+        // Initialize and load directory entries synchronously for immediate display
+        let mut modal = crate::tui::modals::FilePickerModal::new(None);
+        modal.refresh_entries_sync();
+        self.file_picker_modal = Some(modal);
     }
 
     pub fn hide_file_picker_modal(&mut self) {
@@ -655,6 +664,23 @@ impl App {
     pub fn hide_url_modal(&mut self) {
         self.show_url_modal = false;
         self.url_modal = None;
+    }
+
+    pub fn show_comments_modal(&mut self) {
+        if let Some(task) = self.get_selected_task() {
+            let comments = task.comments.clone().unwrap_or_default();
+            let task_id = task.id;
+            self.close_all_modals();
+            self.show_comments_modal = true;
+            self.comments_modal = Some(
+                crate::tui::modals::CommentsModal::new(comments, task_id)
+            );
+        }
+    }
+
+    pub fn hide_comments_modal(&mut self) {
+        self.show_comments_modal = false;
+        self.comments_modal = None;
     }
 
     pub fn show_advanced_help_modal(&mut self) {
@@ -714,6 +740,9 @@ impl App {
         self.show_add_subtask_modal = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
+        // Comments modal state
+        self.show_comments_modal = false;
+        self.comments_modal = None;
         // Reset modal state
         self.quick_add_input.clear();
         self.quick_add_cursor_position = 0;
