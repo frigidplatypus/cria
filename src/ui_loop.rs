@@ -14,7 +14,6 @@ use crate::tui::modals::{handle_quick_add_modal, handle_edit_modal, handle_form_
 
 /// Run the main UI event loop
 pub async fn run_ui(
-                // (removed misplaced async star toggle from function signature)
     app: Arc<Mutex<App>>,
     client_clone: Arc<Mutex<VikunjaClient>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -25,6 +24,7 @@ pub async fn run_ui(
     let event_handler = EventHandler::new(250);
 
     loop {
+        
         {
             let app_guard = app.lock().await;
             terminal.draw(|f| draw(f, &app_guard))?;
@@ -67,6 +67,221 @@ pub async fn run_ui(
                     let mut app_guard = app.lock().await;
                     crate::tui::pickers::filter::handle_filter_picker(&mut *app_guard, &key, &client_clone).await;
                     continue;
+                } else if app_guard.show_attachment_modal {
+                    drop(app_guard);
+                    let mut app_guard = app.lock().await;
+                    if let Some(ref mut modal) = app_guard.attachment_modal {
+                        let action = modal.handle_key(match key.code {
+                            crossterm::event::KeyCode::Char(c) => c,
+                            _ => '\0',
+                        });
+                        match action {
+                            crate::tui::modals::AttachmentModalAction::Close => {
+                                app_guard.hide_attachment_modal();
+                            }
+                            crate::tui::modals::AttachmentModalAction::Download(attachment) => {
+                                // Handle download asynchronously
+                                let attachment_clone = attachment.clone();
+                                let client_clone = client_clone.clone();
+                                let app_clone = app.clone();
+                                tokio::spawn(async move {
+                                    // Set operation in progress
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                            modal.operation_in_progress = true;
+                                            modal.operation_message = "Downloading attachment...".to_string();
+                                        }
+                                    }
+                                    
+                                    // Perform download
+                                    // Determine download directory (prefer 'Downloads' or 'downloads')
+                                    let download_dir = if std::path::Path::new("Downloads").exists() {
+                                        "Downloads"
+                                    } else if std::path::Path::new("downloads").exists() {
+                                        "downloads"
+                                    } else {
+                                        // Create default 'downloads' dir
+                                        let _ = tokio::fs::create_dir_all("downloads").await;
+                                        "downloads"
+                                    };
+                                    // Determine filename from attachment metadata
+                                    let file_name = attachment_clone.file
+                                        .as_ref()
+                                        .and_then(|f| f.name.clone())
+                                        .unwrap_or_else(|| format!("attachment-{}.bin", attachment_clone.id));
+                                    let out_path = std::path::Path::new(download_dir).join(&file_name);
+                                    let download_result = {
+                                        let client = client_clone.lock().await;
+                                        client.download_attachment(&attachment_clone, &out_path).await
+                                    };
+                                    
+                                    // Update UI with result
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                            modal.operation_in_progress = false;
+                                            match download_result {
+                                                Ok(_) => {
+                                                    modal.operation_message = "Download completed successfully!".to_string();
+                                                    app_guard.show_toast("Attachment downloaded successfully!".to_string());
+                                                }
+                                                Err(e) => {
+                                                    modal.operation_message = format!("Download failed: {}", e);
+                                                    app_guard.show_toast(format!("Download failed: {}", e));
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            crate::tui::modals::AttachmentModalAction::Remove(attachment) => {
+                                // Handle remove asynchronously
+                                // Capture task_id for removal API call
+                                let task_id = modal.task_id;
+                                let attachment_clone = attachment.clone();
+                                let client_clone = client_clone.clone();
+                                let app_clone = app.clone();
+                                tokio::spawn(async move {
+                                    // Set operation in progress
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                            modal.operation_in_progress = true;
+                                            modal.operation_message = "Removing attachment...".to_string();
+                                        }
+                                    }
+                                    
+                                    // Perform remove
+                                    let remove_result = {
+                                        let client = client_clone.lock().await;
+                                        client.remove_attachment(task_id, attachment_clone.id).await
+                                    };
+                                    
+                                    // Update UI with result
+                                    {
+                                        let mut app_guard = app_clone.lock().await;
+                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                            modal.operation_in_progress = false;
+                                            match remove_result {
+                                                Ok(_) => {
+                                                    modal.operation_message = "Attachment removed successfully!".to_string();
+                                                    let task_id = modal.task_id;
+                                                    let _ = modal;
+                                                    app_guard.show_toast("Attachment removed successfully!".to_string());
+                                                    drop(app_guard);
+                                                    
+                                                    // Refresh attachments
+                                                    let refresh_result = {
+                                                        let client = client_clone.lock().await;
+                                                        client.get_task_attachments(task_id).await
+                                                    };
+                                                    if let Ok(attachments) = refresh_result {
+                                                        let mut app_guard = app_clone.lock().await;
+                                                        if let Some(ref mut modal) = app_guard.attachment_modal {
+                                                            modal.viewer.attachments = attachments;
+                                                            // Ensure selected_index is within bounds
+                                                            modal.viewer.selected_index = modal.viewer.selected_index.min(modal.viewer.attachments.len().saturating_sub(1));
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    modal.operation_message = format!("Remove failed: {}", e);
+                                                    app_guard.show_toast(format!("Remove failed: {}", e));
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            crate::tui::modals::AttachmentModalAction::Upload => {
+                                app_guard.add_debug_message("Upload attachment requested".to_string());
+                                app_guard.hide_attachment_modal();
+                                app_guard.show_file_picker_modal();
+                            }
+                            crate::tui::modals::AttachmentModalAction::None => {}
+                        }
+                    }
+                    continue;
+                } else if app_guard.show_comments_modal {
+                    drop(app_guard);
+                    let mut app_guard = app.lock().await;
+                    if let Some(ref mut modal) = app_guard.comments_modal {
+                        let action = modal.handle_key(&key);
+                        match action {
+                            crate::tui::modals::CommentsModalAction::Close => {
+                                app_guard.hide_comments_modal();
+                            }
+                            crate::tui::modals::CommentsModalAction::Submit(comment_text) => {
+                                if !comment_text.trim().is_empty() {
+                                    let task_id = modal.task_id as u64;
+                                    let client_clone = client_clone.clone();
+                                    let app_clone = app.clone();
+                                    let comment_clone = comment_text.clone();
+                                    
+                                    // Clear the input immediately
+                                    modal.clear_input();
+                                    
+                                    // Submit comment asynchronously
+                                    tokio::spawn(async move {
+                                        let submit_result = {
+                                            let client = client_clone.lock().await;
+                                            client.add_comment_to_task(task_id, &comment_clone).await
+                                        };
+                                        
+                                        // Update UI based on result
+                                        let mut app_guard = app_clone.lock().await;
+                                        match submit_result {
+                                            Ok(_) => {
+                                                app_guard.add_debug_message("Comment added successfully".to_string());
+                                                app_guard.show_toast("Comment added!".to_string());
+                                                
+                                                // Refresh comments in modal
+                                                let client = client_clone.lock().await;
+                                                match client.get_comments(task_id).await {
+                                                    Ok(comments_list) => {
+                                                        // Update modal comments directly
+                                                        if let Some(ref mut modal) = app_guard.comments_modal {
+                                                            modal.comments = comments_list.clone();
+                                                        }
+                                                        app_guard.add_debug_message("Comments refreshed in modal".to_string());
+                                                    }
+                                                    Err(e) => {
+                                                        app_guard.add_debug_message(format!("Failed to refresh comments: {}", e));
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                app_guard.add_debug_message(format!("Failed to add comment: {}", e));
+                                                app_guard.show_toast("Failed to add comment".to_string());
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                            crate::tui::modals::CommentsModalAction::LoadAttachments(task_id) => {
+                                // Handle loading attachments for image preview
+                                app_guard.add_debug_message(format!("Loading attachments for task {}", task_id));
+                            }
+                            crate::tui::modals::CommentsModalAction::ToggleMode => {
+                                // Mode toggle is handled internally by the modal
+                            }
+                            crate::tui::modals::CommentsModalAction::None => {}
+                        }
+                    }
+                    continue;
+                // Relations modals - DISABLED: Incomplete feature
+                // } else if app_guard.show_relations_modal {
+                //     if app_guard.show_add_relation_modal {
+                //         drop(app_guard);
+                //         let mut app_guard = app.lock().await;
+                //         crate::tui::modals::handle_add_relation_modal(&mut *app_guard, &key, &client_clone).await;
+                //     } else {
+                //         drop(app_guard);
+                //         let mut app_guard = app.lock().await;
+                //         crate::tui::modals::handle_relations_modal(&mut *app_guard, &key, &client_clone).await;
+                //     }
+                //     continue;
                 } else if app_guard.show_quick_actions_modal {
                     // Handle quick actions modal input
                     match key.code {
@@ -472,11 +687,13 @@ pub async fn run_ui(
                             crate::tui::modals::FilePickerAction::Navigate(new_path) => {
                                 modal.current_path = new_path;
                                 modal.selected_index = 0;
-                                modal.entries.clear(); // Will be refreshed on next iteration
+                                modal.entries.clear();                  // reload entries immediately
+                                modal.refresh_entries_sync();
                             }
                             crate::tui::modals::FilePickerAction::ToggleHidden => {
                                 modal.show_hidden = !modal.show_hidden;
-                                modal.entries.clear(); // Will be refreshed on next iteration
+                                modal.entries.clear();                  // reload entries immediately
+                                modal.refresh_entries_sync();
                             }
                             crate::tui::modals::FilePickerAction::Cancel => {
                                 app_guard.hide_file_picker_modal();
@@ -486,7 +703,7 @@ pub async fn run_ui(
                     }
                     continue;
                 }
-                
+
                 // Handle URL modal
                 if app_guard.show_url_modal {
                     if let Some(ref mut modal) = app_guard.url_modal {
@@ -585,6 +802,12 @@ pub async fn run_ui(
 /// Handle key events, return true if event was handled
 fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
     use KeyCode::*;
+    
+    // Reset consecutive 'q' counter for any key other than 'q'
+    if !matches!(key.code, KeyCode::Char('q')) {
+        app.reset_q_counter();
+    }
+    
     match key.code {
         KeyCode::Up => {
             if app.show_advanced_features_modal {
@@ -599,7 +822,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         }
         KeyCode::Down => {
             if app.show_advanced_features_modal {
-                let max_index = 5; // Number of advanced features - 1
+                let max_index = 2; // Number of advanced features - 1
                 if app.selected_advanced_feature_index < max_index {
                     app.selected_advanced_feature_index += 1;
                 }
@@ -617,17 +840,22 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                 app.hide_advanced_features_modal();
                 true
             } else {
-                // Prompt for quit confirmation
-                app.confirm_quit();
+                // Handle consecutive 'q' presses for double-q quit
+                app.handle_q_press();
                 true
             }
+        }
+        Char('Q') => {
+            // Capital Q quits immediately without confirmation
+            app.quit();
+            true
         }
         Char('i') => { app.toggle_info_pane(); true }
         Char('x') => { app.toggle_debug_pane(); true }
         // Navigation: move selection down/up
         Char('j') => { 
             if app.show_advanced_features_modal {
-                let max_index = 5; // Number of advanced features - 1
+                let max_index = 2; // Number of advanced features - 1
                 if app.selected_advanced_feature_index < max_index {
                     app.selected_advanced_feature_index += 1;
                 }
@@ -653,8 +881,16 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         // Cycle filters backward/forward
         Char('H') => { app.cycle_task_filter(); true }
         Char('L') => { app.cycle_task_filter(); true }
-        // Advanced features modal disabled - feature not ready
-        // Char('.') => { app.show_advanced_features_modal(); true }
+        Char('.') => { app.show_advanced_features_modal(); true }
+        Char('S') => {
+            // Create a new subtask under the current task
+            if app.get_selected_task().is_some() {
+                app.show_add_subtask_modal();
+            } else {
+                app.show_toast("Select a parent task first".to_string());
+            }
+            true
+        }
         Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
         Char('e') => { app.show_edit_modal(); true }
         Char('o') => {
@@ -692,12 +928,10 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                 true 
             }
         }
-        Char('c') => { 
+        Char('c') => {
             if app.show_advanced_features_modal {
-                // Direct activation of comments
                 app.hide_advanced_features_modal();
-                app.add_debug_message("Comments feature requested".to_string());
-                app.show_toast("Comments feature coming soon!".to_string());
+                app.show_comments_modal();
                 true
             } else {
                 false
@@ -716,10 +950,9 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         }
         Char('h') => { 
             if app.show_advanced_features_modal {
-                // Direct activation of task history
+                // 'h' is no longer used in advanced modal, fallback to layout switching
                 app.hide_advanced_features_modal();
-                app.add_debug_message("Task history feature requested".to_string());
-                app.show_toast("Task history feature coming soon!".to_string());
+                app.switch_to_previous_layout(); 
                 true
             } else {
                 app.switch_to_previous_layout(); 
@@ -727,50 +960,8 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
             }
         }
         Char('s') => { 
-            if app.show_advanced_features_modal {
-                // Direct activation of subtasks
-                app.hide_advanced_features_modal();
-                // Show subtask menu instead of just a message
-                if app.get_selected_task().is_some() {
-                    app.show_subtask_modal(crate::tui::app::state::SubtaskOperation::AddSubtask);
-                } else {
-                    app.show_toast("Select a task first".to_string());
-                }
-                true
-            } else {
-                /* async star toggle handled in event loop */ 
-                true 
-            }
-        }
-        Char('S') => {
-            // Create a new subtask under the current task
-            if app.get_selected_task().is_some() {
-                app.show_add_subtask_modal();
-            } else {
-                app.show_toast("Select a parent task first".to_string());
-            }
-            true
-        }
-        // Bulk subtask management disabled - feature not ready
-        // Char('B') => {
-        //     // Bulk subtask management (make multiple tasks subtasks of current)
-        //     if app.get_selected_task().is_some() {
-        //         app.show_subtask_modal(crate::tui::app::state::SubtaskOperation::BulkMakeSubtasks);
-        //     } else {
-        //         app.show_toast("Select a parent task first".to_string());
-        //     }
-        //     true
-        // }
-        Char('t') => { 
-            if app.show_advanced_features_modal {
-                // Direct activation of time tracking
-                app.hide_advanced_features_modal();
-                app.add_debug_message("Time tracking feature requested".to_string());
-                app.show_toast("Time tracking feature coming soon!".to_string());
-                true
-            } else {
-                false
-            }
+            /* async star toggle handled in event loop */ 
+            true 
         }
         Enter => {
             if app.show_confirmation_dialog {
@@ -785,27 +976,12 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                     }
                     1 => { // Comments
                         app.hide_advanced_features_modal();
-                        app.add_debug_message("Comments feature requested".to_string());
+                        app.show_comments_modal();
                     }
                     2 => { // Task Relations
                         app.hide_advanced_features_modal();
                         app.add_debug_message("Task relations feature requested".to_string());
-                    }
-                    3 => { // Task History
-                        app.hide_advanced_features_modal();
-                        app.add_debug_message("Task history feature requested".to_string());
-                    }
-                    4 => { // Subtasks
-                        app.hide_advanced_features_modal();
-                        if app.get_selected_task().is_some() {
-                            app.show_subtask_modal(crate::tui::app::state::SubtaskOperation::AddSubtask);
-                        } else {
-                            app.show_toast("Select a task first".to_string());
-                        }
-                    }
-                    5 => { // Time Tracking
-                        app.hide_advanced_features_modal();
-                        app.add_debug_message("Time tracking feature requested".to_string());
+                        app.show_toast("Task relations feature coming soon!".to_string());
                     }
                     _ => {
                         app.hide_advanced_features_modal();
@@ -835,7 +1011,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         }
         Down => {
             if app.show_advanced_features_modal {
-                let max_index = 5; // Number of advanced features - 1
+                let max_index = 2; // Number of advanced features - 1
                 if app.selected_advanced_feature_index < max_index {
                     app.selected_advanced_feature_index += 1;
                 }

@@ -110,6 +110,55 @@ impl FilePickerModal {
         
         Ok(())
     }
+    // --- End of async refresh_entries ---
+    
+    /// Synchronously load directory entries (for initial display)
+    pub fn refresh_entries_sync(&mut self) {
+        let mut entries = Vec::new();
+        // Parent directory
+        if let Some(parent) = self.current_path.parent() {
+            entries.push(FileEntry {
+                name: "..".to_string(),
+                path: parent.to_path_buf(),
+                is_dir: true,
+                is_file: false,
+                size: None,
+            });
+        }
+        // Read directory entries synchronously
+        if let Ok(read_dir) = std::fs::read_dir(&self.current_path) {
+            for entry in read_dir.flatten() {
+                let path = entry.path();
+                let name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("???")
+                    .to_string();
+                // Skip hidden unless enabled
+                if !self.show_hidden && name.starts_with('.') {
+                    continue;
+                }
+                if let Ok(metadata) = entry.metadata() {
+                    let is_dir = metadata.is_dir();
+                    let is_file = metadata.is_file();
+                    let size = if is_file { Some(metadata.len()) } else { None };
+                    entries.push(FileEntry { name, path, is_dir, is_file, size });
+                }
+            }
+        }
+        // Sort: dirs first, then files, alphabetically
+        entries.sort_by(|a, b| {
+            if a.is_dir != b.is_dir {
+                b.is_dir.cmp(&a.is_dir)
+            } else {
+                a.name.to_lowercase().cmp(&b.name.to_lowercase())
+            }
+        });
+        self.entries = entries;
+        // Adjust selected index
+        if !self.entries.is_empty() && self.selected_index >= self.entries.len() {
+            self.selected_index = self.entries.len() - 1;
+        }
+    }
 
     pub fn draw(&self, f: &mut Frame, area: Rect) {
         // Clear the entire screen first
@@ -292,4 +341,4 @@ impl FilePickerModal {
             format!("{} B", size as u64)
         }
     }
-} 
+}

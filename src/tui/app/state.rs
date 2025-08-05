@@ -127,6 +127,9 @@ pub struct App {
     // URL modal state
     pub show_url_modal: bool,
     pub url_modal: Option<crate::tui::modals::UrlModal>,
+    // Comments modal state
+    pub show_comments_modal: bool,
+    pub comments_modal: Option<crate::tui::modals::CommentsModal>,
     
     // Layout system
     pub current_layout_name: String,
@@ -136,6 +139,9 @@ pub struct App {
     pub toast_notification: Option<String>,
     pub toast_notification_start: Option<DateTime<Local>>,
     pub picker_context: PickerContext,
+    // Quit handling
+    pub last_key_time: Option<DateTime<Local>>,
+    pub consecutive_q_count: usize,
     // Relation modals - DISABLED: Incomplete feature
     // pub show_relations_modal: bool,
     // pub show_add_relation_modal: bool,
@@ -277,12 +283,16 @@ impl App {
             file_picker_modal: None,
             show_url_modal: false,
             url_modal: None,
+            show_comments_modal: false,
+            comments_modal: None,
             current_layout_name,
             layout_notification: None,
             layout_notification_start: None,
             toast_notification: None,
             toast_notification_start: None,
             picker_context: PickerContext::None,
+            last_key_time: None,
+            consecutive_q_count: 0,
             // Relation modals - DISABLED: Incomplete feature  
             // show_relations_modal: false,
             // show_add_relation_modal: false,
@@ -298,6 +308,35 @@ impl App {
 
     // --- BEGIN FULL MOVED METHODS ---
     pub fn quit(&mut self) { self.running = false; }
+
+    /// Handle consecutive 'q' presses for double-q quit
+    pub fn handle_q_press(&mut self) {
+        let now = chrono::Local::now();
+        
+        // If it's been more than 1 second since last 'q', reset the counter
+        if let Some(last_time) = self.last_key_time {
+            if now.signed_duration_since(last_time).num_seconds() > 1 {
+                self.consecutive_q_count = 0;
+            }
+        }
+        
+        self.consecutive_q_count += 1;
+        self.last_key_time = Some(now);
+        
+        if self.consecutive_q_count >= 2 {
+            // Double q pressed within 1 second - quit immediately
+            self.quit();
+        } else {
+            // First q - show confirmation dialog
+            self.confirm_quit();
+        }
+    }
+    
+    /// Reset the consecutive 'q' counter when other keys are pressed
+    pub fn reset_q_counter(&mut self) {
+        self.consecutive_q_count = 0;
+        self.last_key_time = None;
+    }
     pub fn next_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = (self.selected_task_index + 1) % self.tasks.len(); } }
     pub fn previous_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = if self.selected_task_index == 0 { self.tasks.len() - 1 } else { self.selected_task_index - 1 }; } }
     pub fn get_selected_task(&self) -> Option<&Task> { self.tasks.get(self.selected_task_index) }
@@ -634,8 +673,12 @@ impl App {
     }
 
     pub fn show_file_picker_modal(&mut self) {
+        self.close_all_modals();
         self.show_file_picker_modal = true;
-        self.file_picker_modal = Some(crate::tui::modals::FilePickerModal::new(None));
+        // Initialize and load directory entries synchronously for immediate display
+        let mut modal = crate::tui::modals::FilePickerModal::new(None);
+        modal.refresh_entries_sync();
+        self.file_picker_modal = Some(modal);
     }
 
     pub fn hide_file_picker_modal(&mut self) {
@@ -655,6 +698,23 @@ impl App {
     pub fn hide_url_modal(&mut self) {
         self.show_url_modal = false;
         self.url_modal = None;
+    }
+
+    pub fn show_comments_modal(&mut self) {
+        if let Some(task) = self.get_selected_task() {
+            let comments = task.comments.clone().unwrap_or_default();
+            let task_id = task.id;
+            self.close_all_modals();
+            self.show_comments_modal = true;
+            self.comments_modal = Some(
+                crate::tui::modals::CommentsModal::new(comments, task_id)
+            );
+        }
+    }
+
+    pub fn hide_comments_modal(&mut self) {
+        self.show_comments_modal = false;
+        self.comments_modal = None;
     }
 
     pub fn show_advanced_help_modal(&mut self) {
@@ -714,6 +774,9 @@ impl App {
         self.show_add_subtask_modal = false;
         self.quick_action_mode = false;
         self.quick_action_mode_start = None;
+        // Comments modal state
+        self.show_comments_modal = false;
+        self.comments_modal = None;
         // Reset modal state
         self.quick_add_input.clear();
         self.quick_add_cursor_position = 0;
