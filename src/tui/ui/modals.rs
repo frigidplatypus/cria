@@ -463,7 +463,6 @@ pub fn draw_advanced_features_modal(f: &mut Frame, app: &App) {
         ("a", "Attachment Management", "View and manage task attachments", true),
         ("c", "Comments", "View and add task comments", true),
         ("r", "Task Relations", "Manage task dependencies and links", false),
-        ("s", "Subtasks", "Manage subtasks and task hierarchy", true),
     ];
     
     // Calculate modal size

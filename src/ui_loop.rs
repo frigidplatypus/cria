@@ -816,7 +816,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         }
         KeyCode::Down => {
             if app.show_advanced_features_modal {
-                let max_index = 3; // Number of advanced features - 1
+                let max_index = 2; // Number of advanced features - 1
                 if app.selected_advanced_feature_index < max_index {
                     app.selected_advanced_feature_index += 1;
                 }
@@ -844,7 +844,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         // Navigation: move selection down/up
         Char('j') => { 
             if app.show_advanced_features_modal {
-                let max_index = 3; // Number of advanced features - 1
+                let max_index = 2; // Number of advanced features - 1
                 if app.selected_advanced_feature_index < max_index {
                     app.selected_advanced_feature_index += 1;
                 }
@@ -949,18 +949,8 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
             }
         }
         Char('s') => { 
-            if app.show_advanced_features_modal {
-                app.hide_advanced_features_modal();
-                if app.get_selected_task().is_some() {
-                    app.show_add_subtask_modal();
-                } else {
-                    app.show_toast("Select a parent task first".to_string());
-                }
-                true
-            } else {
-                /* async star toggle handled in event loop */ 
-                true 
-            }
+            /* async star toggle handled in event loop */ 
+            true 
         }
         Enter => {
             if app.show_confirmation_dialog {
@@ -981,14 +971,6 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                         app.hide_advanced_features_modal();
                         app.add_debug_message("Task relations feature requested".to_string());
                         app.show_toast("Task relations feature coming soon!".to_string());
-                    }
-                    3 => { // Subtasks
-                        app.hide_advanced_features_modal();
-                        if app.get_selected_task().is_some() {
-                            app.show_add_subtask_modal();
-                        } else {
-                            app.show_toast("Select a parent task first".to_string());
-                        }
                     }
                     _ => {
                         app.hide_advanced_features_modal();
@@ -1018,7 +1000,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         }
         Down => {
             if app.show_advanced_features_modal {
-                let max_index = 3; // Number of advanced features - 1
+                let max_index = 2; // Number of advanced features - 1
                 if app.selected_advanced_feature_index < max_index {
                     app.selected_advanced_feature_index += 1;
                 }
