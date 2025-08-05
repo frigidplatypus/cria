@@ -871,6 +871,15 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         Char('H') => { app.cycle_task_filter(); true }
         Char('L') => { app.cycle_task_filter(); true }
         Char('.') => { app.show_advanced_features_modal(); true }
+        Char('S') => {
+            // Create a new subtask under the current task
+            if app.get_selected_task().is_some() {
+                app.show_add_subtask_modal();
+            } else {
+                app.show_toast("Select a parent task first".to_string());
+            }
+            true
+        }
         Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
         Char('e') => { app.show_edit_modal(); true }
         Char('o') => {
