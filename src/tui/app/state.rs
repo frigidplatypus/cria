@@ -139,6 +139,9 @@ pub struct App {
     pub toast_notification: Option<String>,
     pub toast_notification_start: Option<DateTime<Local>>,
     pub picker_context: PickerContext,
+    // Quit handling
+    pub last_key_time: Option<DateTime<Local>>,
+    pub consecutive_q_count: usize,
     // Relation modals - DISABLED: Incomplete feature
     // pub show_relations_modal: bool,
     // pub show_add_relation_modal: bool,
@@ -288,6 +291,8 @@ impl App {
             toast_notification: None,
             toast_notification_start: None,
             picker_context: PickerContext::None,
+            last_key_time: None,
+            consecutive_q_count: 0,
             // Relation modals - DISABLED: Incomplete feature  
             // show_relations_modal: false,
             // show_add_relation_modal: false,
@@ -303,6 +308,35 @@ impl App {
 
     // --- BEGIN FULL MOVED METHODS ---
     pub fn quit(&mut self) { self.running = false; }
+
+    /// Handle consecutive 'q' presses for double-q quit
+    pub fn handle_q_press(&mut self) {
+        let now = chrono::Local::now();
+        
+        // If it's been more than 1 second since last 'q', reset the counter
+        if let Some(last_time) = self.last_key_time {
+            if now.signed_duration_since(last_time).num_seconds() > 1 {
+                self.consecutive_q_count = 0;
+            }
+        }
+        
+        self.consecutive_q_count += 1;
+        self.last_key_time = Some(now);
+        
+        if self.consecutive_q_count >= 2 {
+            // Double q pressed within 1 second - quit immediately
+            self.quit();
+        } else {
+            // First q - show confirmation dialog
+            self.confirm_quit();
+        }
+    }
+    
+    /// Reset the consecutive 'q' counter when other keys are pressed
+    pub fn reset_q_counter(&mut self) {
+        self.consecutive_q_count = 0;
+        self.last_key_time = None;
+    }
     pub fn next_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = (self.selected_task_index + 1) % self.tasks.len(); } }
     pub fn previous_task(&mut self) { if !self.tasks.is_empty() { self.selected_task_index = if self.selected_task_index == 0 { self.tasks.len() - 1 } else { self.selected_task_index - 1 }; } }
     pub fn get_selected_task(&self) -> Option<&Task> { self.tasks.get(self.selected_task_index) }

@@ -802,6 +802,12 @@ pub async fn run_ui(
 /// Handle key events, return true if event was handled
 fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
     use KeyCode::*;
+    
+    // Reset consecutive 'q' counter for any key other than 'q'
+    if !matches!(key.code, KeyCode::Char('q')) {
+        app.reset_q_counter();
+    }
+    
     match key.code {
         KeyCode::Up => {
             if app.show_advanced_features_modal {
@@ -834,10 +840,15 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                 app.hide_advanced_features_modal();
                 true
             } else {
-                // Prompt for quit confirmation
-                app.confirm_quit();
+                // Handle consecutive 'q' presses for double-q quit
+                app.handle_q_press();
                 true
             }
+        }
+        Char('Q') => {
+            // Capital Q quits immediately without confirmation
+            app.quit();
+            true
         }
         Char('i') => { app.toggle_info_pane(); true }
         Char('x') => { app.toggle_debug_pane(); true }

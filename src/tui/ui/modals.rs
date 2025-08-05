@@ -352,7 +352,9 @@ pub fn draw_help_modal(f: &mut Frame, app: &App) {
         .border_style(Style::default().fg(Color::Cyan));
     let mut help_lines = vec![
         Line::from(vec![Span::styled("?", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Show this help")]),
-        Line::from(vec![Span::styled("q", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quit (in main view) / Close modal (in modal)")]),
+        Line::from(vec![Span::styled("q", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quit (with confirmation) / Close modal")]),
+        Line::from(vec![Span::styled("qq", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quick quit (double q within 1 second)")]),
+        Line::from(vec![Span::styled("Q", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Immediate quit (no confirmation)")]),
         Line::from(vec![Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Close modal/help")]),
         Line::from(vec![Span::styled("j / k", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Move selection down/up")]),
         Line::from(vec![Span::styled("Up / Down", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Move selection up/down")]),
@@ -364,15 +366,16 @@ pub fn draw_help_modal(f: &mut Frame, app: &App) {
         Line::from(vec![Span::styled("E", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Edit task (form mode)")]),
         Line::from(vec![Span::styled("f", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Show filter picker")]),
         Line::from(vec![Span::styled("p", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Project picker")]),
-        Line::from(vec![Span::styled("R", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Task relations")]),
+        Line::from(vec![Span::styled("o", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Open URLs from selected task")]),
+        Line::from(vec![Span::styled("S", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Add subtask to selected task")]),
         Line::from(vec![Span::styled("r", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Refresh tasks/projects/filters")]),
         Line::from(vec![Span::styled("s", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Star/unstar task")]),
         Line::from(vec![Span::styled("i", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle info pane")]),
+        Line::from(vec![Span::styled("x", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Toggle debug pane")]),
         Line::from(vec![Span::styled("h / l", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Switch layouts backward/forward")]),
         Line::from(vec![Span::styled("H / L", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Cycle task filters (active/all/etc)")]),
         Line::from(vec![Span::styled("Space", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Quick actions modal")]),
-        Line::from(vec![Span::styled(".", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Advanced features mode")]),
-        Line::from(vec![Span::styled(".?", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Advanced features help")]),
+        Line::from(vec![Span::styled(".", Style::default().add_modifier(Modifier::BOLD)), Span::raw(": Advanced features modal")]),
         Line::raw("")
     ];
 
