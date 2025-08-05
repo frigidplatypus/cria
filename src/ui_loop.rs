@@ -870,8 +870,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         // Cycle filters backward/forward
         Char('H') => { app.cycle_task_filter(); true }
         Char('L') => { app.cycle_task_filter(); true }
-        // Advanced features modal disabled - feature not ready
-        // Char('.') => { app.show_advanced_features_modal(); true }
+        Char('.') => { app.show_advanced_features_modal(); true }
         Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
         Char('e') => { app.show_edit_modal(); true }
         Char('o') => {
