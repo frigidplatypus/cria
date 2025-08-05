@@ -461,11 +461,9 @@ pub fn draw_advanced_features_modal(f: &mut Frame, app: &App) {
     // Define advanced features
     let advanced_features = vec![
         ("a", "Attachment Management", "View and manage task attachments", true),
-        ("c", "Comments", "View and add task comments", false),
+        ("c", "Comments", "View and add task comments", true),
         ("r", "Task Relations", "Manage task dependencies and links", false),
-        ("h", "Task History", "View task modification history", false),
-        ("s", "Subtasks", "Manage subtasks and task hierarchy", false),
-        ("t", "Time Tracking", "Track time spent on tasks", false),
+        ("s", "Subtasks", "Manage subtasks and task hierarchy", true),
     ];
     
     // Calculate modal size

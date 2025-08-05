@@ -816,7 +816,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         }
         KeyCode::Down => {
             if app.show_advanced_features_modal {
-                let max_index = 5; // Number of advanced features - 1
+                let max_index = 3; // Number of advanced features - 1
                 if app.selected_advanced_feature_index < max_index {
                     app.selected_advanced_feature_index += 1;
                 }
@@ -844,7 +844,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         // Navigation: move selection down/up
         Char('j') => { 
             if app.show_advanced_features_modal {
-                let max_index = 5; // Number of advanced features - 1
+                let max_index = 3; // Number of advanced features - 1
                 if app.selected_advanced_feature_index < max_index {
                     app.selected_advanced_feature_index += 1;
                 }
@@ -939,10 +939,9 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         }
         Char('h') => { 
             if app.show_advanced_features_modal {
-                // Direct activation of task history
+                // 'h' is no longer used in advanced modal, fallback to layout switching
                 app.hide_advanced_features_modal();
-                app.add_debug_message("Task history feature requested".to_string());
-                app.show_toast("Task history feature coming soon!".to_string());
+                app.switch_to_previous_layout(); 
                 true
             } else {
                 app.switch_to_previous_layout(); 
@@ -952,23 +951,15 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         Char('s') => { 
             if app.show_advanced_features_modal {
                 app.hide_advanced_features_modal();
-                app.add_debug_message("Subtasks feature requested".to_string());
-                app.show_toast("Subtasks feature coming soon!".to_string());
+                if app.get_selected_task().is_some() {
+                    app.show_add_subtask_modal();
+                } else {
+                    app.show_toast("Select a parent task first".to_string());
+                }
                 true
             } else {
                 /* async star toggle handled in event loop */ 
                 true 
-            }
-        }
-        Char('t') => { 
-            if app.show_advanced_features_modal {
-                // Direct activation of time tracking
-                app.hide_advanced_features_modal();
-                app.add_debug_message("Time tracking feature requested".to_string());
-                app.show_toast("Time tracking feature coming soon!".to_string());
-                true
-            } else {
-                false
             }
         }
         Enter => {
@@ -989,22 +980,15 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                     2 => { // Task Relations
                         app.hide_advanced_features_modal();
                         app.add_debug_message("Task relations feature requested".to_string());
+                        app.show_toast("Task relations feature coming soon!".to_string());
                     }
-                    3 => { // Task History
-                        app.hide_advanced_features_modal();
-                        app.add_debug_message("Task history feature requested".to_string());
-                    }
-                    4 => { // Subtasks
+                    3 => { // Subtasks
                         app.hide_advanced_features_modal();
                         if app.get_selected_task().is_some() {
-                            app.show_subtask_modal(crate::tui::app::state::SubtaskOperation::AddSubtask);
+                            app.show_add_subtask_modal();
                         } else {
-                            app.show_toast("Select a task first".to_string());
+                            app.show_toast("Select a parent task first".to_string());
                         }
-                    }
-                    5 => { // Time Tracking
-                        app.hide_advanced_features_modal();
-                        app.add_debug_message("Time tracking feature requested".to_string());
                     }
                     _ => {
                         app.hide_advanced_features_modal();
@@ -1034,7 +1018,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         }
         Down => {
             if app.show_advanced_features_modal {
-                let max_index = 5; // Number of advanced features - 1
+                let max_index = 3; // Number of advanced features - 1
                 if app.selected_advanced_feature_index < max_index {
                     app.selected_advanced_feature_index += 1;
                 }
