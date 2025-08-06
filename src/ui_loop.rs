@@ -744,7 +744,7 @@ pub async fn run_ui(
                 }
                 
                 // handle dispatch_key and refresh
-                let key_handled = dispatch_key(&mut *app_guard, key);
+                let key_handled = dispatch_key(&mut *app_guard, key, &terminal);
                 
                 // After any navigation key, check if we need to fetch detailed task data
                 if key_handled && (key.code == KeyCode::Up || key.code == KeyCode::Down || 
@@ -800,7 +800,8 @@ pub async fn run_ui(
 }
 
 /// Handle key events, return true if event was handled
-fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
+fn dispatch_key(app: &mut App, key: KeyEvent, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> bool {
+    use crate::tui::modals::utils::try_show_modal;
     use KeyCode::*;
     
     // Reset consecutive 'q' counter for any key other than 'q'
@@ -834,7 +835,10 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
         }
         Char('g') => { app.jump_to_top(); true }
         Char('G') => { app.jump_to_bottom(); true }
-        Char('?') => { app.show_help_modal(); true }
+        Char('?') => {
+            try_show_modal(app, terminal, |app| app.show_help_modal());
+            true
+        }
         Char('q') => {
             if app.show_advanced_features_modal {
                 app.hide_advanced_features_modal();
@@ -891,13 +895,17 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
             }
             true
         }
-        Char('E') => { app.hide_help_modal(); app.show_form_edit_modal(); true }
-        Char('e') => { app.show_edit_modal(); true }
+        Char('E') => {
+            try_show_modal(app, terminal, |app| { app.hide_help_modal(); app.show_form_edit_modal(); });
+            true
+        }
+        Char('e') => {
+            try_show_modal(app, terminal, |app| app.show_edit_modal());
+            true
+        }
         Char('o') => {
-            // Open URLs from the selected task
             crate::debug::debug_log("User pressed 'o' - attempting to open URLs from selected task");
             if let Some(basic_task) = app.get_selected_task() {
-                // Try to get the detailed task with comments first, fall back to basic task
                 let task_to_use = app.get_detailed_task(basic_task.id).unwrap_or(basic_task);
                 crate::debug::debug_log(&format!("Selected task: id={}, title={:?}, has_comments={}, using_detailed_cache={}", 
                     task_to_use.id, task_to_use.title, task_to_use.comments.is_some(), 
@@ -905,7 +913,7 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
                 let urls = crate::url_utils::extract_urls_from_task(task_to_use);
                 crate::debug::debug_log(&format!("extract_urls_from_task returned {} URLs", urls.len()));
                 if !urls.is_empty() {
-                    app.show_url_modal(urls);
+                    try_show_modal(app, terminal, |app| app.show_url_modal(urls));
                 } else {
                     app.show_toast("No URLs found in this task".to_string());
                 }
@@ -914,24 +922,30 @@ fn dispatch_key(app: &mut App, key: KeyEvent) -> bool {
             }
             true
         }
-        Char('p') => { app.show_project_picker(); true }
-        Char('f') => { app.show_filter_picker(); true }
-        Char(' ') => { app.show_quick_actions_modal(); true }
+        Char('p') => {
+            try_show_modal(app, terminal, |app| app.show_project_picker());
+            true
+        }
+        Char('f') => {
+            try_show_modal(app, terminal, |app| app.show_filter_picker());
+            true
+        }
+        Char(' ') => {
+            try_show_modal(app, terminal, |app| app.show_quick_actions_modal());
+            true
+        }
         Char('a') => { 
             if app.show_advanced_features_modal {
-                // Direct activation of attachment management
-                app.hide_advanced_features_modal();
-                app.show_attachment_modal();
+                try_show_modal(app, terminal, |app| { app.hide_advanced_features_modal(); app.show_attachment_modal(); });
                 true
             } else {
-                app.show_quick_add_modal(); 
-                true 
+                try_show_modal(app, terminal, |app| app.show_quick_add_modal());
+                true
             }
         }
         Char('c') => {
             if app.show_advanced_features_modal {
-                app.hide_advanced_features_modal();
-                app.show_comments_modal();
+                try_show_modal(app, terminal, |app| { app.hide_advanced_features_modal(); app.show_comments_modal(); });
                 true
             } else {
                 false

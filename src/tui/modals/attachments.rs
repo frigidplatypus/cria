@@ -35,28 +35,26 @@ impl AttachmentModal {
     }
 
     pub fn draw(&self, f: &mut Frame, area: Rect) {
-        // Clear the entire screen first
+        // Safe area check
+        if area.width < 40 || area.height < 10 {
+            let msg = Paragraph::new("Viewport too small for attachments modal").style(Style::default().fg(Color::Red));
+            f.render_widget(msg, area);
+            return;
+        }
+        // ...existing code...
         let clear_area = Rect::new(0, 0, area.width, area.height);
         f.render_widget(ratatui::widgets::Clear, clear_area);
-        
-        // Create a centered modal area
         let modal_area = self.center_modal(area, 80, 80);
-        
-        // Draw the modal background
-        let background = Block::default()
-            .style(Style::default().bg(Color::Black));
+        let background = Block::default().style(Style::default().bg(Color::Black));
         f.render_widget(background, modal_area);
-
-        // Split modal into header, content, and footer
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Header
-                Constraint::Min(10),   // Content
-                Constraint::Length(3), // Footer
+                Constraint::Length(3),
+                Constraint::Min(10),
+                Constraint::Length(3),
             ])
             .split(modal_area);
-
         self.draw_header(f, chunks[0]);
         self.draw_content(f, chunks[1]);
         self.draw_footer(f, chunks[2]);

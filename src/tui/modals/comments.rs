@@ -63,16 +63,19 @@ impl CommentsModal {
     }
 
     pub fn draw(&self, f: &mut Frame, area: Rect) {
-        // Clear background
+        // Safe area check
+        if area.width < 40 || area.height < 10 {
+            let msg = Paragraph::new("Viewport too small for comments modal").style(Style::default().fg(Color::Red));
+            f.render_widget(msg, area);
+            return;
+        }
+        // ...existing code...
         f.render_widget(Clear, area);
-        
-        // Modal dimensions - larger for advanced view
         let width = (area.width * 85) / 100;
         let height = (area.height * 85) / 100;
         let x = (area.width - width) / 2 + area.x;
         let y = (area.height - height) / 2 + area.y;
         let modal_area = Rect::new(x, y, width, height);
-
         match self.view_mode {
             CommentViewMode::List => self.draw_list_view(f, modal_area),
             CommentViewMode::Detail => self.draw_detail_view(f, modal_area),

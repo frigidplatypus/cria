@@ -33,12 +33,11 @@ fn format_date_relative(date: &Option<DateTime<Utc>>) -> (String, Color) {
                 "Tomorrow".to_string()
             } else if diff == -1 {
                 "Yesterday".to_string()
-            } else if diff > 0 && diff <= 7 {
+            } else if diff > 1 {
                 format!("{}d", diff)
-            } else if diff < 0 && diff >= -7 {
-                format!("{}d ago", -diff)
             } else {
-                local.format("%m/%d/%y").to_string()
+                // For all other cases (past beyond yesterday), show days ago
+                format!("{}d ago", -diff)
             };
             
             let color = if diff < 0 {
@@ -386,7 +385,28 @@ pub fn draw_tasks_table(f: &mut Frame, app: &App, area: Rect) {
             // Create cells for each enabled column with proper width and wrapping
             let cells: Vec<Cell> = enabled_columns.iter()
                 .zip(column_widths.iter())
-                .map(|(col, &width)| create_wrapped_cell_for_column(task, col, app, width))
+            .map(|(col, &width)| {
+                    // Peek-on-hover for date columns: show relative when not selected, calendar when selected
+                    if matches!(col.column_type, TaskColumn::DueDate) {
+                        // DueDate column: relative by default, calendar on hover
+                        if i == app.selected_task_index {
+                            Cell::from(format_date(&task.due_date))
+                        } else {
+                            let (rel, color) = format_date_relative(&task.due_date);
+                            Cell::from(rel).style(Style::default().fg(color))
+                        }
+                    } else if matches!(col.column_type, TaskColumn::StartDate) {
+                        // StartDate column: relative by default, calendar on hover
+                        if i == app.selected_task_index {
+                            Cell::from(format_date(&task.start_date)).style(Style::default().fg(Color::Cyan))
+                        } else {
+                            let (rel, color) = format_date_relative(&task.start_date);
+                            Cell::from(rel).style(Style::default().fg(color))
+                        }
+                    } else {
+                        create_wrapped_cell_for_column(task, col, app, width)
+                    }
+                })
                 .collect();
             
             let mut row = Row::new(cells);
