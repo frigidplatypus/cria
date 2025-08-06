@@ -7,7 +7,7 @@ use tokio;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = Command::new("cria-quick")
         .about("Quick task creation for Vikunja using Quick Add Magic syntax")
-        .version("1.3.0")
+        .version(env!("CARGO_PKG_VERSION"))
         .arg(
             Arg::new("task")
                 .help("Task description with Quick Add Magic syntax")
