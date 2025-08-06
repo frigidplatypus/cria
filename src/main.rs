@@ -20,7 +20,7 @@ fn main() {
 
     // Parse command-line arguments
     let matches = Command::new("cria")
-        .about("CRIA - Terminal User Interface for Vikunja task management")
+        .about("CRIA - Terminal User Interface for Vikunja task management\n\nQuick add example:\n  cria --quick \"Buy milk *groceries +personal tomorrow !2\"\n")
         .version(env!("CARGO_PKG_VERSION"))
         .arg(
             Arg::new("config")
@@ -41,7 +41,71 @@ fn main() {
                 .help("Run the configuration wizard")
                 .action(clap::ArgAction::SetTrue)
         )
+        .arg(
+            Arg::new("quick")
+                .long("quick")
+                .help("Quick add a task: --quick \"new task *label +project due:tomorrow\"")
+                .value_name("TASK_STRING")
+                .num_args(1)
+        )
         .get_matches();
+
+    // Quick add mode: if --quick is present, run quick-add logic and exit
+    if let Some(quick_str) = matches.get_one::<String>("quick") {
+        let use_env = matches.get_flag("dev-env");
+        let config_path = matches.get_one::<String>("config");
+        let (api_url, api_key, default_project, config) = if use_env {
+            (
+                std::env::var("VIKUNJA_API_URL").unwrap_or_else(|_| "http://localhost:3456/api/v1".to_string()),
+                std::env::var("VIKUNJA_API_TOKEN").unwrap_or_else(|_| "demo-token".to_string()),
+                std::env::var("VIKUNJA_DEFAULT_PROJECT").unwrap_or_else(|_| "Inbox".to_string()),
+                None
+            )
+        } else {
+            match crate::config::CriaConfig::load_from_path(config_path.map(|s| s.as_str())) {
+                Some(cfg) => {
+                    if cfg.has_api_key_config() {
+                        match cfg.get_api_key() {
+                            Ok(api_key) => (cfg.api_url.clone(), api_key, cfg.default_project.clone().unwrap_or_else(|| "Inbox".to_string()), Some(cfg)),
+                            Err(e) => {
+                                eprintln!("Error loading API key: {}", e);
+                                std::process::exit(1);
+                            }
+                        }
+                    } else {
+                        eprintln!("Config exists but no API key configured");
+                        std::process::exit(1);
+                    }
+                },
+                None => {
+                    eprintln!("Config file not found");
+                    std::process::exit(1);
+                }
+            }
+        };
+
+        // Run async quick-add logic in a Tokio runtime
+        let result = tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let api_client = crate::vikunja_client::VikunjaClient::new(api_url.clone(), api_key.clone());
+            // Find default project ID (async, fallback to 1 if not found)
+            let default_project_id = match api_client.find_or_get_project_id(&default_project).await {
+                Ok(Some(id)) => id,
+                _ => 1,
+            };
+            // Actually create the task using the magic parser
+            match api_client.create_task_with_magic(quick_str, default_project_id).await {
+                Ok(task) => {
+                    println!("Task created: {} (ID: {:?})", task.title, task.id);
+                    Ok(())
+                },
+                Err(e) => {
+                    eprintln!("Failed to create task: {}", e);
+                    Err(())
+                }
+            }
+        });
+        std::process::exit(if result.is_ok() { 0 } else { 1 });
+    }
 
     // Clear debug log at startup
     crate::debug::clear_debug_log();

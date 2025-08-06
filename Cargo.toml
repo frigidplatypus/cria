@@ -11,9 +11,6 @@ path = "src/lib.rs"
 name = "cria"
 path = "src/main.rs"
 
-[[bin]]
-name = "cria-quick"
-path = "src/bin/quick.rs"
 
 [dependencies]
 ratatui = { version = "0.26.0", features = ["all-widgets"] }
