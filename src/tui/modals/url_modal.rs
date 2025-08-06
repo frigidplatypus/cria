@@ -92,45 +92,41 @@ impl UrlModal {
 }
 
 pub fn draw_url_modal(f: &mut Frame, modal: &UrlModal, area: Rect) {
-    // Calculate modal size - make it large enough to show URLs clearly
+    // Safe area check
+    if area.width < 40 || area.height < 10 {
+        let msg = Paragraph::new("Viewport too small for URL modal").style(Style::default().fg(Color::Red));
+        f.render_widget(msg, area);
+        return;
+    }
+    // ...existing code...
     let modal_width = std::cmp::min(80, area.width.saturating_sub(4));
     let modal_height = std::cmp::min(
-        modal.urls.len() as u16 + 6, // URLs + borders + title + instructions
+        modal.urls.len() as u16 + 6,
         area.height.saturating_sub(4)
     );
-    
     let modal_area = Rect {
         x: (area.width.saturating_sub(modal_width)) / 2,
         y: (area.height.saturating_sub(modal_height)) / 2,
         width: modal_width,
         height: modal_height,
     };
-    
-    // Clear the background
     f.render_widget(Clear, modal_area);
-    
-    // Create the main modal block
     let block = Block::default()
         .title("Open URL")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
-    
     f.render_widget(block, modal_area);
-    
-    // Inner area for content
     let inner_area = Rect {
         x: modal_area.x + 1,
         y: modal_area.y + 1,
         width: modal_area.width.saturating_sub(2),
         height: modal_area.height.saturating_sub(2),
     };
-    
-    // Split into instructions and list
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2), // Instructions
-            Constraint::Min(1),     // URL list
+            Constraint::Length(2),
+            Constraint::Min(1),
         ])
         .split(inner_area);
     
