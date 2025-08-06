@@ -14,7 +14,7 @@ pub use quick_add::handle_quick_add_modal;
 pub use edit::handle_edit_modal;
 pub use form_edit::handle_form_edit_modal;
 pub use attachments::{AttachmentModal, AttachmentModalAction};
-pub use file_picker::{FilePickerModal, FilePickerAction, FileEntry};
+pub use file_picker::{FilePickerModal, FilePickerAction};
 pub use comments::{CommentsModal, CommentsModalAction};
 pub use url_modal::{UrlModal, UrlModalAction};
 // Relations - DISABLED: Incomplete feature  

@@ -901,7 +901,7 @@ impl super::VikunjaClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
+    
 
     #[test]
     fn test_omit_none_description() {

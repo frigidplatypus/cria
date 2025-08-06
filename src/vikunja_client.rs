@@ -25,7 +25,6 @@ pub use attachments::*;
 
 // --- Relation-related types and functions ---
 pub mod relations;
-pub use relations::*;
 
 pub struct VikunjaClient {
     client: Client,
