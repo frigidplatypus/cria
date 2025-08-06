@@ -19,10 +19,14 @@
         pkgs = import nixpkgs { inherit system overlays; };
         rustToolchain = pkgs.rust-bin.stable.latest.default;
         crateName = "cria";
+
+        # Pull version from Cargo.toml
+        cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+        version = cargoToml.package.version;
       in {
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = crateName;
-          version = "1.3.0";
+          inherit version;
           src = ./.;
           cargoLock = {
             lockFile = ./Cargo.lock;
