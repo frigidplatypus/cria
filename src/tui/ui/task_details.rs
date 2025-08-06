@@ -5,7 +5,7 @@ use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Paragraph, Block, Borders, Wrap};
 use ratatui::text::{Line, Span};
-use chrono::Datelike;
+use chrono::{Datelike, Local, DateTime};
 use super::hex_to_color;
 
 
@@ -167,12 +167,25 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
             }
         }
 
-        // Due date
+        // Due date (relative + calendar)
         if let Some(due_date) = &task.due_date {
             if due_date.year() > 1900 {
+                // Convert to local time
+                let local_dt = due_date.with_timezone(&Local);
+                // Compute relative days
+                let now = Local::now();
+                let days = local_dt.date().signed_duration_since(now.date()).num_days();
+                let rel = if days == 0 {
+                    "Today".to_string()
+                } else if days > 0 {
+                    format!("in {}d", days)
+                } else {
+                    format!("{}d ago", -days)
+                };
+                let cal = local_dt.format("%Y-%m-%d %H:%M").to_string();
                 details_lines.push(Line::from(vec![
                     Span::styled("Due Date: ", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw(due_date.format("%Y-%m-%d %H:%M").to_string())
+                    Span::raw(format!("{} ({})", rel, cal)),
                 ]));
                 details_lines.push(Line::from(""));
             }
@@ -181,9 +194,20 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
         // Start date
         if let Some(start_date) = &task.start_date {
             if start_date.year() > 1900 {
+                // Start date (relative + calendar)
+                let local_dt = start_date.with_timezone(&Local);
+                let days = local_dt.date().signed_duration_since(Local::now().date()).num_days();
+                let rel = if days == 0 {
+                    "Today".to_string()
+                } else if days > 0 {
+                    format!("in {}d", days)
+                } else {
+                    format!("{}d ago", -days)
+                };
+                let cal = local_dt.format("%Y-%m-%d %H:%M").to_string();
                 details_lines.push(Line::from(vec![
                     Span::styled("Start Date: ", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw(start_date.format("%Y-%m-%d %H:%M").to_string())
+                    Span::raw(format!("{} ({})", rel, cal)),
                 ]));
                 details_lines.push(Line::from(""));
             }
@@ -566,9 +590,20 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
                 if !created.is_empty() {
                     // Try to parse and format the date nicely
                     if let Ok(parsed_date) = chrono::DateTime::parse_from_rfc3339(created) {
+                        // Created date (relative + calendar)
+                        let local_dt = parsed_date.with_timezone(&Local);
+                        let days = local_dt.date().signed_duration_since(Local::now().date()).num_days();
+                        let rel = if days == 0 {
+                            "Today".to_string()
+                        } else if days > 0 {
+                            format!("in {}d", days)
+                        } else {
+                            format!("{}d ago", -days)
+                        };
+                        let cal = local_dt.format("%Y-%m-%d %H:%M:%S").to_string();
                         details_lines.push(Line::from(vec![
                             Span::styled("Created: ", Style::default().add_modifier(Modifier::BOLD)),
-                            Span::raw(parsed_date.format("%Y-%m-%d %H:%M:%S").to_string())
+                            Span::raw(format!("{} ({})", rel, cal)),
                         ]));
                     } else {
                         details_lines.push(Line::from(vec![
@@ -582,9 +617,20 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
         } else if let Some(created) = &task.created {
             if !created.is_empty() {
                 if let Ok(parsed_date) = chrono::DateTime::parse_from_rfc3339(created) {
+                    // Created date (relative + calendar)
+                    let local_dt = parsed_date.with_timezone(&Local);
+                    let days = local_dt.date().signed_duration_since(Local::now().date()).num_days();
+                    let rel = if days == 0 {
+                        "Today".to_string()
+                    } else if days > 0 {
+                        format!("in {}d", days)
+                    } else {
+                        format!("{}d ago", -days)
+                    };
+                    let cal = local_dt.format("%Y-%m-%d %H:%M:%S").to_string();
                     details_lines.push(Line::from(vec![
                         Span::styled("Created: ", Style::default().add_modifier(Modifier::BOLD)),
-                        Span::raw(parsed_date.format("%Y-%m-%d %H:%M:%S").to_string())
+                        Span::raw(format!("{} ({})", rel, cal)),
                     ]));
                 } else {
                     details_lines.push(Line::from(vec![
@@ -596,12 +642,24 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
             }
         }
 
+        // Updated date
         if let Some(updated) = &task.updated {
             if !updated.is_empty() {
                 if let Ok(parsed_date) = chrono::DateTime::parse_from_rfc3339(updated) {
+                    // Updated date (relative + calendar)
+                    let local_dt = parsed_date.with_timezone(&Local);
+                    let days = local_dt.date().signed_duration_since(Local::now().date()).num_days();
+                    let rel = if days == 0 {
+                        "Today".to_string()
+                    } else if days > 0 {
+                        format!("in {}d", days)
+                    } else {
+                        format!("{}d ago", -days)
+                    };
+                    let cal = local_dt.format("%Y-%m-%d %H:%M:%S").to_string();
                     details_lines.push(Line::from(vec![
                         Span::styled("Updated: ", Style::default().add_modifier(Modifier::BOLD)),
-                        Span::raw(parsed_date.format("%Y-%m-%d %H:%M:%S").to_string())
+                        Span::raw(format!("{} ({})", rel, cal)),
                     ]));
                 } else {
                     details_lines.push(Line::from(vec![
