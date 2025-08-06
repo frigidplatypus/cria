@@ -5,7 +5,7 @@ use ratatui::prelude::*;
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Paragraph, Block, Borders, Wrap};
 use ratatui::text::{Line, Span};
-use chrono::{Datelike, Local, DateTime};
+use chrono::{Datelike, Local};
 use super::hex_to_color;
 
 
@@ -174,7 +174,7 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
                 let local_dt = due_date.with_timezone(&Local);
                 // Compute relative days
                 let now = Local::now();
-                let days = local_dt.date().signed_duration_since(now.date()).num_days();
+                let days = local_dt.date_naive().signed_duration_since(now.date_naive()).num_days();
                 let rel = if days == 0 {
                     "Today".to_string()
                 } else if days > 0 {
@@ -196,7 +196,7 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
             if start_date.year() > 1900 {
                 // Start date (relative + calendar)
                 let local_dt = start_date.with_timezone(&Local);
-                let days = local_dt.date().signed_duration_since(Local::now().date()).num_days();
+                let days = local_dt.date_naive().signed_duration_since(Local::now().date_naive()).num_days();
                 let rel = if days == 0 {
                     "Today".to_string()
                 } else if days > 0 {
@@ -592,7 +592,7 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
                     if let Ok(parsed_date) = chrono::DateTime::parse_from_rfc3339(created) {
                         // Created date (relative + calendar)
                         let local_dt = parsed_date.with_timezone(&Local);
-                        let days = local_dt.date().signed_duration_since(Local::now().date()).num_days();
+                        let days = local_dt.date_naive().signed_duration_since(Local::now().date_naive()).num_days();
                         let rel = if days == 0 {
                             "Today".to_string()
                         } else if days > 0 {
@@ -619,7 +619,7 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
                 if let Ok(parsed_date) = chrono::DateTime::parse_from_rfc3339(created) {
                     // Created date (relative + calendar)
                     let local_dt = parsed_date.with_timezone(&Local);
-                    let days = local_dt.date().signed_duration_since(Local::now().date()).num_days();
+                    let days = local_dt.date_naive().signed_duration_since(Local::now().date_naive()).num_days();
                     let rel = if days == 0 {
                         "Today".to_string()
                     } else if days > 0 {
@@ -648,7 +648,7 @@ pub fn draw_task_details(f: &mut Frame, app: &App, area: Rect) {
                 if let Ok(parsed_date) = chrono::DateTime::parse_from_rfc3339(updated) {
                     // Updated date (relative + calendar)
                     let local_dt = parsed_date.with_timezone(&Local);
-                    let days = local_dt.date().signed_duration_since(Local::now().date()).num_days();
+                    let days = local_dt.date_naive().signed_duration_since(Local::now().date_naive()).num_days();
                     let rel = if days == 0 {
                         "Today".to_string()
                     } else if days > 0 {

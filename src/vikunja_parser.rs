@@ -12,6 +12,7 @@ pub struct ParsedTask {
     pub project: Option<String>,
     pub priority: Option<u8>,
     pub due_date: Option<DateTime<Utc>>,
+    pub start_date: Option<DateTime<Utc>>,
     pub repeat_interval: Option<RepeatInterval>,
 }
 
@@ -30,6 +31,8 @@ pub struct QuickAddParser {
     assignee_regex: Regex,
     project_regex: Regex,
     repeat_regex: Regex,
+    due_regex: Regex,
+    start_regex: Regex,
     // Enhanced date parsing
     time_regex: Regex,
     date_keywords: AhoCorasick,
@@ -66,8 +69,10 @@ impl QuickAddParser {
             project_regex: Regex::new(r#"\+(?:"([^"]+)"|'([^']+)'|\[([^\]]+)\]|(\S+))"#).unwrap(),
             // Match repeating: every X days/weeks/months
             repeat_regex: Regex::new(r"every\s+(?:(\d+)\s+)?(\w+)").unwrap(),
-            // Match time: "at 17:00" or "at 5pm"
-            time_regex: Regex::new(r"(?i)\bat\s+(\d{1,2}):?(\d{2})?\s*(am|pm)?").unwrap(),
+            due_regex: Regex::new(r"(?i)\bdue\s+([^@+*!]+)").unwrap(),
+            start_regex: Regex::new(r"(?i)\bstart\s+([^@+*!]+)").unwrap(),
+            // Match time: "at 17:00" or "at 5pm" with capture groups for hour, minute, am/pm
+            time_regex: Regex::new(r"(?i)\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b").unwrap(),
             // Keyword matchers for faster date detection
             date_keywords: AhoCorasick::new(date_patterns).unwrap(),
             weekday_keywords: AhoCorasick::new(weekdays).unwrap(),
@@ -82,6 +87,7 @@ impl QuickAddParser {
             project: None,
             priority: None,
             due_date: None,
+            start_date: None,
             repeat_interval: None,
         };
 
@@ -114,8 +120,16 @@ impl QuickAddParser {
             task.repeat_interval = Some(RepeatInterval { amount, interval_type });
         }
 
-        // Parse dates (simplified - you'd want a more robust date parser)
-        task.due_date = self.parse_date(text);
+        // Parse explicit start and due dates
+        if let Some(cap) = self.start_regex.captures(text) {
+            task.start_date = self.parse_date(cap.get(1).unwrap().as_str());
+        }
+        if let Some(cap) = self.due_regex.captures(text) {
+            task.due_date = self.parse_date(cap.get(1).unwrap().as_str());
+        } else {
+            // fallback to any date mention
+            task.due_date = self.parse_date(text);
+        }
 
         // Clean the title by removing all magic syntax
         let cleaned_title = self.clean_title(text);
@@ -356,26 +370,27 @@ impl QuickAddParser {
     }
 
     fn clean_title(&self, text: &str) -> String {
+        // Remove all magic syntax tokens
         let mut cleaned = text.to_string();
-
-        // Remove all magic syntax
+        // Remove magic syntax tokens (labels, priority, assignees, project, repeat)
         cleaned = self.label_regex.replace_all(&cleaned, "").to_string();
         cleaned = self.priority_regex.replace_all(&cleaned, "").to_string();
         cleaned = self.assignee_regex.replace_all(&cleaned, "").to_string();
         cleaned = self.project_regex.replace_all(&cleaned, "").to_string();
         cleaned = self.repeat_regex.replace_all(&cleaned, "").to_string();
-        cleaned = self.time_regex.replace_all(&cleaned, "").to_string();
 
-        // Remove date-related text more intelligently
+        // Remove explicit due and start date fragments
+        cleaned = self.due_regex.replace_all(&cleaned, "").to_string();
+        cleaned = self.start_regex.replace_all(&cleaned, "").to_string();
+
+        // Strip general date expressions (relative dates, weekdays, month names, ordinals, etc.)
         cleaned = self.remove_date_text(&cleaned);
 
-        // Clean up extra whitespace and normalize
-        cleaned.split_whitespace()
-            .filter(|word| !word.is_empty())
-            .collect::<Vec<_>>()
-            .join(" ")
-            .trim()
-            .to_string()
+        // Remove explicit time mentions (e.g. 'at 5pm', 'at 10:30')
+        cleaned = self.time_regex.replace_all(&cleaned, "").to_string();
+
+        // Collapse and trim whitespace
+        cleaned.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 
     fn remove_date_text(&self, text: &str) -> String {

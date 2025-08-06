@@ -81,7 +81,7 @@ impl super::VikunjaClient {
             done: Some(false),
             priority: parsed.priority,
             due_date: parsed.due_date,
-            start_date: None,
+            start_date: parsed.start_date,
             project_id: project_id.try_into().unwrap(),
             labels: None,
             assignees: None,
