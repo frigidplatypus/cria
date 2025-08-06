@@ -5,7 +5,7 @@ mod form_edit;
 mod attachments;
 mod file_picker;
 mod comments;
-mod url_modal;
+pub mod url_modal;
 // Relations - DISABLED: Incomplete feature
 // mod relations;
 
