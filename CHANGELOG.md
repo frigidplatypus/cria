@@ -5,6 +5,15 @@ All notable changes to CRIA TUI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-07-31
+
+### 🔧 Technical Improvements
+- **Version Bump**: Updated version to 1.2.0 across all configuration files
+- **Code Quality**: Fixed compilation warnings for unused variables and imports
+- **Build System**: Updated Cargo.toml, flake.nix, and main.rs version references
+
+This minor release focuses on code quality improvements and ensures clean compilation without warnings.
+
 ## [0.8.2] - 2025-07-01
 
 ### 🐛 Bug Fixes

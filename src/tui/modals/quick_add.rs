@@ -304,7 +304,7 @@ pub async fn handle_quick_add_modal(
                 let default_project_id = default_project_id.unwrap_or(1);
                 debug_log(&format!("QUICK_ADD: Using default project ID: {} (name: '{}')", default_project_id, default_project_name));
                 debug_log("QUICK_ADD: Calling create_task_with_magic...");
-                match api_client_guard.create_task_with_magic(&input, default_project_id).await {
+                match api_client_guard.create_task_with_magic(&input, default_project_id as i64).await {
                     Ok(task) => {
                         debug_log(&format!("SUCCESS: Task created successfully! ID: {:?}, Title: '{}'", task.id, task.title));
                         app.flash_task_id = task.id.map(|id| id as i64);

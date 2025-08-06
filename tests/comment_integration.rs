@@ -1,5 +1,4 @@
 use cria::tui::app::state::App;
-use cria::vikunja::models::Task;
 use cria::url_utils::extract_urls_from_task;
 
 mod helpers;

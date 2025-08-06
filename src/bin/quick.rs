@@ -101,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Create task with magic syntax
-    match client.create_task_with_magic(task_text, default_project_id.max(0) as u64).await {
+    match client.create_task_with_magic(task_text, default_project_id.max(0)).await {
         Ok(task) => {
             println!("Task created successfully!");
             println!("  ID: {:?}", task.id);

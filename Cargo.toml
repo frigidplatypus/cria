@@ -15,10 +15,6 @@ path = "src/main.rs"
 name = "cria-quick"
 path = "src/bin/quick.rs"
 
-[[example]]
-name = "parser_demo"
-path = "examples/parser_demo.rs"
-
 [dependencies]
 ratatui = { version = "0.26.0", features = ["all-widgets"] }
 crossterm = "0.27.0"

@@ -1,5 +1,4 @@
-use cria::vikunja::models::{Task, Comment, User, Label};
-use chrono::{DateTime, Utc};
+use cria::vikunja::models::{Task, Comment, User};
 
 /// Builder pattern for creating test Task instances with various configurations
 pub struct TaskBuilder {
