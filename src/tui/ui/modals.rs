@@ -70,6 +70,11 @@ fn colorize_quickadd_input<'a>(input: &'a str, app: &'a App) -> Vec<ratatui::tex
 
 pub fn draw_quick_add_modal(f: &mut Frame, app: &App) {
     let area = f.size();
+    if area.width < 40 || area.height < 10 {
+        let msg = Paragraph::new("Viewport too small for Quick Add modal").style(Style::default().fg(Color::Red));
+        f.render_widget(msg, area);
+        return;
+    }
     let modal_width = (area.width as f32 * 0.8) as u16;
     let modal_height = 22; // Increased height for more space
     let x = (area.width.saturating_sub(modal_width)) / 2;

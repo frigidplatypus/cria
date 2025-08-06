@@ -1,4 +1,3 @@
-
 /// Modal utilities: centralized viewport guard and constants for modal maintainability.
 ///
 /// All modal openers must use `try_show_modal` to check viewport size before opening.
@@ -7,8 +6,10 @@
 /// Maintainability: Do not duplicate viewport checks in modal draw functions. All guards are centralized here.
 ///
 /// Usage:
-/// ```rust
-/// use crate::tui::modals::utils::try_show_modal;
+/// Example usage (project-specific types, not runnable as a doc test):
+/// ```ignore
+/// use cria::tui::modals::utils::try_show_modal;
+/// // ... setup your App and Terminal types ...
 /// if try_show_modal(app, terminal, |app| app.show_edit_modal()) {
 ///     // Modal opened
 /// }
