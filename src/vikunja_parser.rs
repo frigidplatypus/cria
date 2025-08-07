@@ -1,6 +1,6 @@
 use crate::debug::debug_log;
 use regex::Regex;
-use chrono::{DateTime, Utc, NaiveDate, Local, Duration, Datelike};
+use chrono::{DateTime, Utc, NaiveDate, Local, Duration, Datelike, TimeZone};
 use chrono_english::{parse_date_string, Dialect};
 use aho_corasick::AhoCorasick;
 
@@ -70,7 +70,7 @@ impl QuickAddParser {
             // Match repeating: every X days/weeks/months
             repeat_regex: Regex::new(r"every\s+(?:(\d+)\s+)?(\w+)").unwrap(),
             due_regex: Regex::new(r"(?i)\bdue\s+([^@+*!]+)").unwrap(),
-            start_regex: Regex::new(r"(?i)\bstart\s+([^@+*!]+)").unwrap(),
+            start_regex: Regex::new(r"(?i)\bstart[:\s]+([^@+*!\s]+)").unwrap(),
             // Match time: "at 17:00" or "at 5pm" with capture groups for hour, minute, am/pm
             time_regex: Regex::new(r"(?i)\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b").unwrap(),
             // Keyword matchers for faster date detection
@@ -121,8 +121,82 @@ impl QuickAddParser {
         }
 
         // Parse explicit start and due dates
-        if let Some(cap) = self.start_regex.captures(text) {
-            task.start_date = self.parse_date(cap.get(1).unwrap().as_str());
+        let mut last_start_cap = None;
+        let mut start_matches = vec![];
+        for cap in self.start_regex.captures_iter(text) {
+            if let Some(m) = cap.get(1) {
+                println!("[DEBUG] start_regex match: {:?}", m.as_str());
+                start_matches.push(m.as_str().to_string());
+            }
+            last_start_cap = Some(cap);
+        }
+        println!("[DEBUG] all start_regex matches: {:?}", start_matches);
+        if let Some(cap) = last_start_cap {
+            let start_text = cap.get(1).unwrap().as_str();
+            // Support start:eow, start:end of week, etc.
+            let start_text_lower = start_text.to_lowercase();
+            if start_text_lower == "eow" || start_text_lower == "end of week" {
+                // End of this week (Sunday)
+                let now = Local::now();
+                let current_weekday = now.weekday().num_days_from_sunday();
+                let days_until_sunday = if current_weekday == 0 { 0 } else { 7 - current_weekday };
+                let sunday = now + Duration::days(days_until_sunday as i64);
+                let naive = sunday.date_naive();
+                task.start_date = naive.and_hms_opt(23, 59, 59)
+                    .map(|dt| dt.and_utc())
+                    .or_else(|| naive.and_hms_opt(0, 0, 0).map(|dt| dt.and_utc()))
+                    .or_else(|| naive.and_hms_opt(12, 0, 0).map(|dt| dt.and_utc()));
+                if task.start_date.is_none() {
+                    println!("[DEBUG] now = {:?}", now);
+                    let current_weekday = now.weekday().num_days_from_sunday();
+                    println!("[DEBUG] current_weekday = {:?}", current_weekday);
+                    let days_until_sunday = if current_weekday == 0 { 0 } else { 7 - current_weekday };
+                    println!("[DEBUG] days_until_sunday = {:?}", days_until_sunday);
+                    let sunday = now + Duration::days(days_until_sunday as i64);
+                    println!("[DEBUG] sunday = {:?}", sunday);
+                    let naive = sunday.date_naive();
+                    println!("[DEBUG] sunday.date_naive() = {:?}", naive);
+                    let try_2359 = naive.and_hms_opt(23, 59, 59);
+                    println!("[DEBUG] naive.and_hms_opt(23,59,59) = {:?}", try_2359);
+                    let try_midnight = naive.and_hms_opt(0, 0, 0);
+                    println!("[DEBUG] naive.and_hms_opt(0,0,0) = {:?}", try_midnight);
+                    let try_noon = naive.and_hms_opt(12, 0, 0);
+                    println!("[DEBUG] naive.and_hms_opt(12,0,0) = {:?}", try_noon);
+                    let today = Local::now().date_naive();
+                    println!("[DEBUG] today = {:?}", today);
+                    let fallback = today.and_hms_opt(0, 0, 0).map(|dt| dt.and_utc());
+                    println!("[DEBUG] fallback = {:?}", fallback);
+                    task.start_date = fallback;
+                }
+            } else if start_text_lower == "eom" || start_text_lower == "end of month" {
+                let now = Local::now();
+                let mut last_day = now.date_naive();
+                last_day = last_day.with_day(1).unwrap();
+                last_day = last_day + Duration::days(32); // Move to next month
+                last_day = last_day.with_day(1).unwrap();
+                last_day = last_day - Duration::days(1); // Go back to last day of current month
+                task.start_date = last_day.and_hms_opt(23, 59, 59)
+                    .map(|dt| dt.and_utc())
+                    .or_else(|| last_day.and_hms_opt(0, 0, 0).map(|dt| dt.and_utc()))
+                    .or_else(|| last_day.and_hms_opt(12, 0, 0).map(|dt| dt.and_utc()));
+                if task.start_date.is_none() {
+                    // Debug output for start:eom fallback logic
+                    println!("[DEBUG] Failed to construct start:eom date for last_day {:?}", last_day);
+                    let try_2359 = last_day.and_hms_opt(23, 59, 59);
+                    println!("[DEBUG] try_2359 = {:?}", try_2359);
+                    let try_midnight = last_day.and_hms_opt(0, 0, 0);
+                    println!("[DEBUG] try_midnight = {:?}", try_midnight);
+                    let try_noon = last_day.and_hms_opt(12, 0, 0);
+                    println!("[DEBUG] try_noon = {:?}", try_noon);
+                    let today = Local::now().date_naive();
+                    println!("[DEBUG] today = {:?}", today);
+                    let fallback = today.and_hms_opt(0, 0, 0).map(|dt| dt.and_utc());
+                    println!("[DEBUG] fallback = {:?}", fallback);
+                    task.start_date = fallback;
+                }
+            } else {
+                task.start_date = self.parse_date(start_text);
+            }
         }
         if let Some(cap) = self.due_regex.captures(text) {
             task.due_date = self.parse_date(cap.get(1).unwrap().as_str());
@@ -422,6 +496,19 @@ impl QuickAddParser {
 }
 
 #[cfg(test)]
+    #[test]
+    fn test_start_eow_and_tomorrow() {
+        let parser = QuickAddParser::new();
+        let task_eow = parser.parse("Start project start:eow");
+        println!("[TEST DEBUG] task_eow = {:?}", task_eow);
+        assert!(task_eow.start_date.is_some());
+        let task_eom = parser.parse("Start project start:eom");
+        println!("[TEST DEBUG] task_eom = {:?}", task_eom);
+        assert!(task_eom.start_date.is_some());
+        let task_tomorrow = parser.parse("Start project start:tomorrow");
+        println!("[TEST DEBUG] task_tomorrow = {:?}", task_tomorrow);
+        assert!(task_tomorrow.start_date.is_some());
+    }
 mod tests {
     use super::*;
 
